@@ -1,9 +1,7 @@
 package com.example.expncetracker.exptkr.ui.dashboard
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -43,15 +41,15 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
     val currentFilter by viewModel.selectedFilter.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val isDarkTheme = MaterialTheme.isDark
-    
+
     // Gradient colors based on theme
     val gradientStart = if (isDarkTheme) CardGradientStartDark else CardGradientStartLight
     val gradientEnd = if (isDarkTheme) CardGradientEndDark else CardGradientEndLight
-    
+
     // Check permissions before attempting sync
-    LaunchedEffect(Unit) { 
+    LaunchedEffect(Unit) {
         android.util.Log.d("DashboardScreen", "Attempting to sync transactions")
-        viewModel.syncTransactions() 
+        viewModel.syncTransactions()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -124,7 +122,7 @@ fun DashboardContent(
         if (recent.isEmpty()) {
             item {
                 EmptyState(
-                    icon = Icons.Default.ReceiptLong,
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
                     title = "No transactions yet",
                     description = "Start by adding a transaction or load demo data"
                 )
@@ -134,7 +132,7 @@ fun DashboardContent(
                 TransactionItemImproved(transaction)
             }
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(100.dp))
         }
@@ -172,10 +170,10 @@ fun MainDashboardCard(
                 iconBackgroundColor = LightExpense
             )
         }
-        
+
         if (summary.categoryDistribution.isNotEmpty()) {
             Spacer(modifier = Modifier.height(20.dp))
-            Divider(color = Color.White.copy(alpha = 0.2f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(16.dp))
             DistributionSection(summary.categoryDistribution)
         }
@@ -191,7 +189,7 @@ fun DistributionSection(distribution: Map<Category, Double>) {
     } else {
         listOf(CategoryFood, CategoryCabs, CategoryBills, CategoryShopping, CategoryTravel)
     }
-    
+
     Column {
         Text(
             text = "Spending Distribution",
@@ -241,34 +239,53 @@ fun DistributionSection(distribution: Map<Category, Double>) {
 
 @Composable
 fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        DateFilter.values().forEach { filter ->
-            val isSelected = currentFilter == filter
-            FilterChip(
-                selected = isSelected,
-                onClick = { onFilterSelected(filter) },
-                label = {
-                    Text(
-                        text = filter.title,
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Column {
+        Text(
+            text = "Select Period",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            DateFilter.entries.forEach { filter ->
+                val isSelected = currentFilter == filter
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onFilterSelected(filter) },
+                    label = {
+                        Text(
+                            text = filter.title,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    border = if (!isSelected) {
+                        FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = false,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
+                            borderWidth = 1.dp,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary
+                        )
+                    } else null
                 )
-            )
+            }
         }
     }
 }

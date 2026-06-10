@@ -43,17 +43,24 @@ fun GradientCard(
     gradientEnd: Color = CardGradientEndLight,
     content: @Composable (() -> Unit)? = null
 ) {
+    val isDarkTheme = MaterialTheme.isDark
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(16.dp, RoundedCornerShape(24.dp), ambientColor = LightCardElevation.copy(alpha = 0.1f)),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = LightSurface)
+            .shadow(
+                elevation = 20.dp,
+                shape = RoundedCornerShape(28.dp),
+                ambientColor = gradientStart.copy(alpha = 0.15f),
+                spotColor = gradientStart.copy(alpha = 0.15f)
+            ),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Box(
             modifier = Modifier
                 .background(Brush.linearGradient(listOf(gradientStart, gradientEnd)))
-                .padding(24.dp)
+                .padding(28.dp)
         ) {
             Column {
                 Row(
@@ -63,31 +70,41 @@ fun GradientCard(
                 ) {
                     Text(
                         text = title,
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.5.sp
                     )
                     if (icon != null) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
                     text = value,
                     color = Color.White,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.5).sp
                 )
-                
+
                 if (subtitle != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = subtitle,
                         color = Color.White.copy(alpha = 0.75f),
@@ -95,9 +112,9 @@ fun GradientCard(
                         fontWeight = FontWeight.Normal
                     )
                 }
-                
+
                 if (content != null) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     content()
                 }
             }
@@ -117,38 +134,39 @@ fun StatItem(
     iconTint: Color = Color.White,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(iconBackgroundColor.copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
+    Column(modifier = modifier) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column {
-            Text(
-                text = label,
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = amount,
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconBackgroundColor.copy(alpha = 0.25f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = label,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = amount,
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -174,7 +192,7 @@ fun TransactionCard(
     } else {
         LightCardElevation
     }
-    
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -267,7 +285,7 @@ fun FilterChipWithIcon(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
-    
+
     Surface(
         modifier = modifier
             .height(40.dp)
@@ -313,7 +331,7 @@ fun SkeletonCard(
         Color.LightGray.copy(alpha = 0.5f),
         Color.LightGray.copy(alpha = 0.3f)
     )
-    
+
     val transition = rememberInfiniteTransition(label = "skeleton")
     val alpha by transition.animateFloat(
         initialValue = 0.3f,
@@ -323,7 +341,7 @@ fun SkeletonCard(
             repeatMode = RepeatMode.Reverse
         ), label = "skeletonAlpha"
     )
-    
+
     Card(
         modifier = modifier
             .fillMaxWidth()

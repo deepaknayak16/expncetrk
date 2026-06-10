@@ -1,20 +1,33 @@
 package com.example.expncetracker.exptkr.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -26,11 +39,7 @@ import com.example.expncetracker.exptkr.ui.settings.SettingsViewModel
 import com.example.expncetracker.exptkr.ui.transactions.TransactionScreen
 import com.example.expncetracker.exptkr.ui.transactions.TransactionViewModel
 import com.example.expncetracker.exptkr.ui.addtransaction.AddTransactionScreen
-import com.example.expncetracker.exptkr.ui.theme.LightBackground
-import com.example.expncetracker.exptkr.ui.theme.LightPrimary
-import com.example.expncetracker.exptkr.ui.theme.LightSurface
-import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
-import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
+import com.example.expncetracker.exptkr.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,98 +47,64 @@ fun AppNavGraph() {
     val navController = rememberNavController()
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry.value?.destination?.route
+    val isDarkTheme = MaterialTheme.isDark
+
+    // Hide bottom bar on add transaction screen
+    val showBottomBar = currentRoute != "add_transaction"
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Money",
-                            color = LightTextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                        Text(
-                            text = "Wise",
-                            color = LightPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { 
+            AnimatedVisibility(
+                visible = currentRoute != "add_transaction",
+                enter = slideInVertically(initialOffsetY = { -it }),
+                exit = slideOutVertically(targetOffsetY = { -it })
+            ) {
+                ModernTopAppBar(
+                    title = "MoneyWise",
+                    showSearch = currentRoute == "transactions",
+                    onSearchClick = {
                         if (currentRoute != "transactions") {
                             navController.navigate("transactions")
                         }
-                    }) {
-                        Icon(Icons.Outlined.Search, contentDescription = "Search", tint = LightTextPrimary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = LightSurface,
-                    titleContentColor = LightTextPrimary,
-                    actionIconContentColor = LightTextPrimary
+                    },
+                    isDarkTheme = isDarkTheme
                 )
-            )
+            }
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = LightSurface,
-                tonalElevation = 8.dp
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = slideInVertically(initialOffsetY = { it }),
+                exit = slideOutVertically(targetOffsetY = { it })
             ) {
-                val items = listOf(
-                    Triple("dashboard", "Home", Icons.Default.Dashboard),
-                    Triple("transactions", "Ledger", Icons.AutoMirrored.Filled.ListAlt),
-                    Triple("settings", "Settings", Icons.Default.Settings)
+                ModernNavigationBar(
+                    navController = navController,
+                    currentRoute = currentRoute,
+                    isDarkTheme = isDarkTheme
                 )
-                
-                items.forEach { (route, label, icon) ->
-                    val isSelected = currentRoute == route
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = { 
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.startDestinationId)
-                                launchSingleTop = true
-                            }
-                        },
-                        icon = { 
-                            Icon(
-                                imageVector = icon, 
-                                contentDescription = label,
-                                modifier = Modifier.size(24.dp)
-                            ) 
-                        },
-                        label = { Text(label, fontSize = 11.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = LightPrimary,
-                            unselectedIconColor = LightTextSecondary,
-                            selectedTextColor = LightPrimary,
-                            unselectedTextColor = LightTextSecondary,
-                            indicatorColor = LightPrimary.copy(alpha = 0.1f)
-                        )
-                    )
-                }
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { 
-                    navController.navigate("add_transaction")
-                },
-                containerColor = LightPrimary,
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.size(56.dp)
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = slideInVertically(initialOffsetY = { it }),
+                exit = slideOutVertically(targetOffsetY = { it })
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
+                ModernFab(
+                    onClick = { navController.navigate("add_transaction") },
+                    isDarkTheme = isDarkTheme
+                )
             }
         }
     ) { innerPadding ->
-        NavHost(navController, startDestination = "dashboard", Modifier.padding(innerPadding)) {
+        NavHost(
+            navController = navController,
+            startDestination = "dashboard",
+            modifier = Modifier.padding(innerPadding)
+        ) {
             composable("dashboard") {
                 val vm: DashboardViewModel = hiltViewModel()
                 DashboardScreen(vm)
@@ -145,6 +120,249 @@ fun AppNavGraph() {
             composable("add_transaction") {
                 AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModernTopAppBar(
+    title: String,
+    showSearch: Boolean = false,
+    onSearchClick: () -> Unit = {},
+    isDarkTheme: Boolean
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 0.dp,
+        tonalElevation = 2.dp
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Logo/Title with gradient
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                    )
+                )
+
+                if (showSearch) {
+                    IconButton(
+                        onClick = onSearchClick,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                } else {
+                    // Notification bell or profile icon
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable { },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        // Notification dot
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.error)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernNavigationBar(
+    navController: androidx.navigation.NavHostController,
+    currentRoute: String?,
+    isDarkTheme: Boolean
+) {
+    val items = listOf(
+        NavigationItem("dashboard", "Home", Icons.Default.Home, Icons.Outlined.Home),
+        NavigationItem("transactions", "Ledger", Icons.AutoMirrored.Filled.ListAlt, Icons.AutoMirrored.Outlined.List),
+        NavigationItem("settings", "Settings", Icons.Default.Settings, Icons.Outlined.Settings)
+    )
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 0.dp,
+        tonalElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp)
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { item ->
+                val isSelected = currentRoute == item.route
+                ModernNavigationBarItem(
+                    item = item,
+                    isSelected = isSelected,
+                    onClick = {
+                        navController.navigate(item.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    isDarkTheme = isDarkTheme
+                )
+            }
+        }
+    }
+}
+
+data class NavigationItem(
+    val route: String,
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+)
+
+@Composable
+private fun ModernNavigationBarItem(
+    item: NavigationItem,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    isDarkTheme: Boolean
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(
+        modifier = Modifier
+            .width(80.dp)
+            .height(56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .then(
+                if (isSelected) {
+                    Modifier.background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            )
+                        )
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            Icon(
+                imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                contentDescription = item.label,
+                tint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(24.dp)
+            )
+            AnimatedVisibility(visible = isSelected) {
+                Text(
+                    text = item.label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernFab(
+    onClick: () -> Unit,
+    isDarkTheme: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .size(64.dp)
+            .shadow(
+                elevation = 16.dp,
+                shape = CircleShape,
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            ),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primary
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Transaction",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }

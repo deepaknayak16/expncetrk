@@ -62,4 +62,55 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+# Compiled and build artifacts
+
+*.dex
+*.aar
+*.apk
+*.jar
+
+# Dependencies
+.externalNativeBuild/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Android Studio captures folder
+captures/
+
+# IntelliJ IDEA artifacts
+*.iml
+*.iws
+
+# Gradle cache
+
+# Log Files
+
+# Built application files
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+
+
+# Native Libraries
+**/*.so
+
+# Mac / Linux system files
+
+
+# Environment variables
+# Coverage reports
+coverage/
+*.gcov
+*.lcov
+*.profdata
+
+# Temporary files
+*.temp
+*~
+
 ```

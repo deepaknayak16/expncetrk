@@ -11,53 +11,116 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.expncetracker.exptkr.ui.theme.LightBackground
-import com.example.expncetracker.exptkr.ui.theme.LightSurface
-import com.example.expncetracker.exptkr.ui.theme.LightPrimary
-import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
-import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
-import com.example.expncetracker.exptkr.ui.theme.LightBorder
+import com.example.expncetracker.exptkr.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionScreen(viewModel: TransactionViewModel) {
     val list by viewModel.transactions.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val isDarkTheme = MaterialTheme.isDark
 
-    Column(modifier = Modifier.fillMaxSize().background(LightBackground).padding(16.dp)) {
-        Text("Statement Ledger", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = LightTextPrimary)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 20.dp, vertical = 24.dp)
+    ) {
+        // Header Section
+        Text(
+            text = "Statement Ledger",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "${list.size} transactions",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 20.dp)
+        )
 
+        // Search Bar
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { viewModel.onSearchQueryChange(it) },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search transactions...", color = LightTextSecondary) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = LightTextSecondary) },
-            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            placeholder = {
+                Text(
+                    "Search by merchant, category...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = LightPrimary,
-                unfocusedBorderColor = LightBorder,
-                focusedContainerColor = LightSurface,
-                unfocusedContainerColor = LightSurface,
-                focusedTextColor = LightTextPrimary,
-                unfocusedTextColor = LightTextPrimary
-            )
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            ),
+            singleLine = true
         )
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Transaction List
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+            contentPadding = PaddingValues(bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(list, key = { it.id }) { tx ->
-                TransactionItemImproved(transaction = tx)
+            if (list.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 60.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No transactions found",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Start by adding a new transaction",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(list, key = { it.id }) { tx ->
+                    TransactionItemImproved(transaction = tx)
+                }
             }
         }
     }
