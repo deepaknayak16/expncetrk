@@ -8,6 +8,10 @@ build/
 *.apk
 *.aab
 
+# Keystore files
+*.jks
+*.keystore
+
 # Android Studio and IntelliJ IDEA
 .idea/
 *.iml
