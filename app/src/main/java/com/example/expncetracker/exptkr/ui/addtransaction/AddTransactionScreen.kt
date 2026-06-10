@@ -1,5 +1,6 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +39,7 @@ fun AddTransactionScreen(
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
     var selectedCategory by remember { mutableStateOf<CategoryData>(CategoryData.Shopping) }
-    val isDarkTheme = MaterialTheme.colorScheme.isDark()
+    val isDarkTheme = MaterialTheme.isDark
     
     val categories = listOf(
         CategoryData.Shopping,
@@ -234,11 +235,7 @@ fun AddTransactionScreen(
                         selectedLabelColor = Color.White,
                         labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
-                    shape = RoundedCornerShape(20.dp),
-                    border = if (!isSelected) FilterChipDefaults.filterChipBorder(
-                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                        borderWidth = 1.dp
-                    ) else null
+                    shape = RoundedCornerShape(20.dp)
                 )
             }
         }

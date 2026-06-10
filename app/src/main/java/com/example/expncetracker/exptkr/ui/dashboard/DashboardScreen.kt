@@ -42,7 +42,7 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val currentFilter by viewModel.selectedFilter.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
-    val isDarkTheme = MaterialTheme.colorScheme.isDark()
+    val isDarkTheme = MaterialTheme.isDark
     
     // Gradient colors based on theme
     val gradientStart = if (isDarkTheme) CardGradientStartDark else CardGradientStartLight
@@ -184,7 +184,7 @@ fun MainDashboardCard(
 
 @Composable
 fun DistributionSection(distribution: Map<Category, Double>) {
-    val isDarkTheme = MaterialTheme.colorScheme.isDark()
+    val isDarkTheme = MaterialTheme.isDark
     val total = distribution.values.sum()
     val colors = if (isDarkTheme) {
         listOf(CategoryFoodDark, CategoryCabsDark, CategoryBillsDark, CategoryShoppingDark, CategoryTravelDark)

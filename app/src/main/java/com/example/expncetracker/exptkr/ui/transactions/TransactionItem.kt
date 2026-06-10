@@ -28,7 +28,7 @@ import com.example.expncetracker.exptkr.ui.theme.*
 
 @Composable
 fun TransactionItemImproved(transaction: Transaction) {
-    val isDarkTheme = MaterialTheme.colorScheme.isDark()
+    val isDarkTheme = MaterialTheme.isDark
     val (icon, color) = getTransactionStyle(transaction.category, isDarkTheme)
     
     Surface(

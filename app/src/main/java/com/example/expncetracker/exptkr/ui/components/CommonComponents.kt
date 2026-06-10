@@ -1,23 +1,21 @@
 package com.example.expncetracker.exptkr.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.InfiniteTransition
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberInfiniteTransition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -171,7 +169,7 @@ fun TransactionCard(
     onClick: (() -> Unit)? = null
 ) {
     val backgroundColor = MaterialTheme.colorScheme.surface
-    val elevationColor = if (MaterialTheme.colorScheme.isDark()) {
+    val elevationColor = if (MaterialTheme.isDark) {
         DarkCardElevation
     } else {
         LightCardElevation
@@ -386,7 +384,7 @@ fun EmptyState(
             text = description,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
-            textAlign = androidx.compose.ui.text.TextAlign.Center
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -449,7 +447,7 @@ fun SettingsPreferenceItem(
                 trailingContent()
             } else {
                 Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.ChevronRight,
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
