@@ -1,37 +1,88 @@
 package com.example.expncetracker.exptkr.ui.theme
 
+import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryGreen,
-    secondary = SecondaryBlue,
+    primary = DarkPrimary,
+    secondary = DarkSecondary,
+    tertiary = DarkTertiary,
     background = DarkBackground,
-    surface = SurfaceColor,
-    onPrimary = TextPrimary,
-    onSecondary = TextPrimary,
-    onBackground = TextPrimary,
-    onSurface = TextPrimary,
+    surface = DarkSurface,
+    onPrimary = DarkOnPrimary,
+    onSecondary = DarkOnSecondary,
+    onTertiary = DarkOnTertiary,
+    onBackground = DarkOnSurface,
+    onSurface = DarkOnSurface,
+    error = DarkError,
+    onError = DarkOnError,
+    primaryContainer = DarkPrimaryContainer,
+    onPrimaryContainer = DarkOnPrimaryContainer,
+    secondaryContainer = DarkSecondaryContainer,
+    onSecondaryContainer = DarkOnSecondaryContainer,
+    tertiaryContainer = DarkTertiaryContainer,
+    onTertiaryContainer = DarkOnTertiaryContainer,
+    errorContainer = DarkErrorContainer,
+    onErrorContainer = DarkOnErrorContainer,
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant,
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = LightPrimary,
     secondary = LightSecondary,
+    tertiary = LightTertiary,
     background = LightBackground,
     surface = LightSurface,
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onBackground = LightTextPrimary,
-    onSurface = LightTextPrimary,
+    onPrimary = LightOnPrimary,
+    onSecondary = LightOnSecondary,
+    onTertiary = LightOnTertiary,
+    onBackground = LightOnSurface,
+    onSurface = LightOnSurface,
+    error = LightError,
+    onError = LightOnError,
+    primaryContainer = LightPrimaryContainer,
+    onPrimaryContainer = LightOnPrimaryContainer,
+    secondaryContainer = LightSecondaryContainer,
+    onSecondaryContainer = LightOnSecondaryContainer,
+    tertiaryContainer = LightTertiaryContainer,
+    onTertiaryContainer = LightOnTertiaryContainer,
+    errorContainer = LightErrorContainer,
+    onErrorContainer = LightOnErrorContainer,
+    outline = LightOutline,
+    outlineVariant = LightOutlineVariant,
 )
 
 @Composable
-fun ExpncetrackerTheme(content: @Composable () -> Unit) {
+fun ExpncetrackerTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        }
+    }
+
     MaterialTheme(
-        colorScheme = LightColorScheme,
+        colorScheme = colorScheme,
         content = content
     )
 }
