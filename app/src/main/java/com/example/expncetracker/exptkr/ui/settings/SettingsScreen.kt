@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -30,7 +31,7 @@ import com.example.expncetracker.exptkr.ui.theme.*
 fun SettingsScreen(viewModel: SettingsViewModel) {
     val ctx = LocalContext.current
     val uiState = viewModel.uiState.collectAsState().value
-    val isDarkTheme = MaterialTheme.colorScheme.isDark
+    val isDarkTheme = MaterialTheme.colorScheme.isDark()
 
     // Google account picker launcher
     val accountPickerLauncher = rememberLauncherForActivityResult(
