@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -37,7 +38,7 @@ fun AddTransactionScreen(
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
     var selectedCategory by remember { mutableStateOf<CategoryData>(CategoryData.Shopping) }
-    val isDarkTheme = MaterialTheme.colorScheme.isDark
+    val isDarkTheme = MaterialTheme.colorScheme.isDark()
     
     val categories = listOf(
         CategoryData.Shopping,

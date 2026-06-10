@@ -1,17 +1,23 @@
 package com.example.expncetracker.exptkr.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.InfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberInfiniteTransition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.ui.theme.*
@@ -164,10 +171,10 @@ fun TransactionCard(
     onClick: (() -> Unit)? = null
 ) {
     val backgroundColor = MaterialTheme.colorScheme.surface
-    val elevationColor = if (MaterialTheme.colorScheme.isLight) {
-        LightCardElevation
-    } else {
+    val elevationColor = if (MaterialTheme.colorScheme.isDark()) {
         DarkCardElevation
+    } else {
+        LightCardElevation
     }
     
     Surface(
@@ -309,15 +316,14 @@ fun SkeletonCard(
         Color.LightGray.copy(alpha = 0.3f)
     )
     
-    val transition = androidx.compose.animation.core.InfiniteTransition(targetValue = 0f)
+    val transition = rememberInfiniteTransition(label = "skeleton")
     val alpha by transition.animateFloat(
         initialValue = 0.3f,
         targetValue = 0.9f,
-        animationSpec = androidx.compose.animation.core.tween(
-            durationMillis = 1000,
-            repeatCount = androidx.compose.animation.core.InfiniteRepeatCountSpec.Infinite,
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-        )
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000),
+            repeatMode = RepeatMode.Reverse
+        ), label = "skeletonAlpha"
     )
     
     Card(

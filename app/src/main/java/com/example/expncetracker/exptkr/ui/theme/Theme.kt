@@ -6,10 +6,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+
+// Extension property to check if current theme is dark
+val MaterialTheme.isDark: Boolean
+    @Composable
+    @ReadOnlyComposable
+    get() = isSystemInDarkTheme()
 
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
