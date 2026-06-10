@@ -1,0 +1,54 @@
+package com.example.expncetracker.exptkr.ui.dashboard
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.expncetracker.exptkr.domain.model.FinancialSummary
+import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
+import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
+import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val getSummaryUseCase: GetSummaryUseCase,
+    private val getRecentTransactionsUseCase: GetRecentTransactionsUseCase,
+    private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase
+) : ViewModel() {
+
+    private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
+    val selectedFilter: StateFlow<DateFilter> = _selectedFilter.asStateFlow()
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing = _isSyncing.asStateFlow()
+
+    val uiState: StateFlow<DashboardUiState> = combine(
+        _selectedFilter.flatMapLatest { getSummaryUseCase(it) },
+        getRecentTransactionsUseCase(10)
+    ) { summary, recent ->
+        DashboardUiState.Success(summary, recent)
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
+
+    fun syncTransactions() {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            try {
+                android.util.Log.d("DashboardViewModel", "Starting SMS import...")
+                importSmsTransactionsUseCase.execute()
+                android.util.Log.d("DashboardViewModel", "SMS import completed")
+            } catch (e: Exception) {
+                android.util.Log.e("DashboardViewModel", "Error during SMS import: ${e.message}", e)
+                e.printStackTrace()
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+
+    fun setFilter(filter: DateFilter) {
+        _selectedFilter.value = filter
+    }
+}

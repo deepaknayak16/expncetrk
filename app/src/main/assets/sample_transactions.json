@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "exportDate": "2026-06-10T02:14:23Z",
+  "totalTransactions": 5000,
+  "transactions": [
+    {
+      "id": 1,
+      "amount": 879.86,
+      "type": "EXPENSE",
+      "category": "CAR_RENTAL_FUEL",
+      "description": "Fuel purchase",
+      "bankName": "ICICI",
+      "date": 1735662426000
+    }
+  ]
+}
