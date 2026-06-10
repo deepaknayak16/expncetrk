@@ -31,6 +31,14 @@ import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.transactions.TransactionItemImproved
+import com.example.expncetracker.exptkr.ui.theme.LightSurface
+import com.example.expncetracker.exptkr.ui.theme.LightBackground
+import com.example.expncetracker.exptkr.ui.theme.LightBorder
+import com.example.expncetracker.exptkr.ui.theme.LightCardBackground
+import com.example.expncetracker.exptkr.ui.theme.LightPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightSecondary
+import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel) {
@@ -44,16 +52,16 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
         viewModel.syncTransactions() 
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A))) {
+    Box(modifier = Modifier.fillMaxSize().background(LightBackground)) {
         when (val state = uiState) {
-            is DashboardUiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color(0xFF3B82F6))
+            is DashboardUiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = LightPrimary)
             is DashboardUiState.Error -> Text("Error: ${state.message}", color = Color.Red, modifier = Modifier.align(Alignment.Center))
             is DashboardUiState.Success -> {
                 Column {
                     if (isSyncing) {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth().height(2.dp),
-                            color = Color(0xFF3B82F6),
+                            color = LightPrimary,
                             trackColor = Color.Transparent
                         )
                     }
@@ -107,21 +115,21 @@ fun DashboardContent(
 @Composable
 fun MainDashboardCard(summary: FinancialSummary) {
     Card(
-        modifier = Modifier.fillMaxWidth().shadow(20.dp, RoundedCornerShape(24.dp), ambientColor = Color.Black),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        modifier = Modifier.fillMaxWidth().shadow(20.dp, RoundedCornerShape(24.dp), ambientColor = LightBorder),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = LightSurface)
     ) {
         Box(
             modifier = Modifier
-                .background(Brush.verticalGradient(listOf(Color(0xFF1E40AF), Color(0xFF1E3A8A))))
+                .background(Brush.verticalGradient(listOf(LightPrimary, LightSecondary)))
                 .padding(24.dp)
         ) {
             Column {
-                Text("Total Balance", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text("Total Balance", color = Color.White.copy(alpha = 0.85f), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(summary.balance.formatAsCurrency(), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
                 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     SummaryItem(label = "Income", amount = summary.totalIncome, icon = Icons.Default.ArrowDownward, color = Color(0xFF10B981))
@@ -130,7 +138,7 @@ fun MainDashboardCard(summary: FinancialSummary) {
 
                 if (summary.categoryDistribution.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(24.dp))
-                    Divider(color = Color.White.copy(alpha = 0.1f))
+                    Divider(color = Color.White.copy(alpha = 0.2f))
                     Spacer(modifier = Modifier.height(16.dp))
                     DistributionSection(summary.categoryDistribution)
                 }
@@ -143,15 +151,15 @@ fun MainDashboardCard(summary: FinancialSummary) {
 fun SummaryItem(label: String, amount: Double, icon: ImageVector, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            modifier = Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)),
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text(label, color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
-            Text(amount.formatAsCurrency(), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text(amount.formatAsCurrency(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -182,7 +190,7 @@ fun DistributionSection(distribution: Map<Category, Double>) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(colors[idx % colors.size]))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(entry.key.displayName, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                    Text(entry.key.displayName, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -192,7 +200,7 @@ fun DistributionSection(distribution: Map<Category, Double>) {
 @Composable
 fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF1E293B)).padding(4.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(LightCardBackground).padding(4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         DateFilter.values().forEach { filter ->
@@ -201,14 +209,14 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isSelected) Color(0xFF3B82F6) else Color.Transparent)
+                    .background(if (isSelected) LightPrimary else Color.Transparent)
                     .clickable { onFilterSelected(filter) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = filter.title,
-                    color = if (isSelected) Color.White else Color.Gray,
+                    color = if (isSelected) Color.White else LightTextSecondary,
                     fontSize = 13.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
@@ -220,8 +228,8 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
 @Composable
 fun RecentTransactionsHeader() {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("Recent Activity", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Text("See All", color = Color(0xFF3B82F6), fontSize = 14.sp, modifier = Modifier.clickable { })
+        Text("Recent Activity", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = LightTextPrimary)
+        Text("See All", color = LightPrimary, fontSize = 14.sp, modifier = Modifier.clickable { })
     }
 }
 
@@ -231,9 +239,9 @@ fun EmptyState() {
         modifier = Modifier.fillMaxWidth().padding(40.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Color.DarkGray, modifier = Modifier.size(64.dp))
+        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = LightTextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(64.dp))
         Spacer(modifier = Modifier.height(16.dp))
-        Text("No transactions yet", color = Color.Gray, fontSize = 16.sp)
-        Text("Try loading sample data or syncing SMS", color = Color.DarkGray, fontSize = 14.sp)
+        Text("No transactions yet", color = LightTextSecondary, fontSize = 16.sp)
+        Text("Try loading sample data or syncing SMS", color = LightTextSecondary.copy(alpha = 0.7f), fontSize = 14.sp)
     }
 }

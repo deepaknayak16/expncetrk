@@ -23,13 +23,19 @@ import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.ui.theme.LightSurface
+import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
+import com.example.expncetracker.exptkr.ui.theme.LightBorder
 
 @Composable
 fun TransactionItemImproved(transaction: Transaction) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFF1E293B),
-        shape = RoundedCornerShape(16.dp)
+        color = LightSurface,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 4.dp,
+        tonalElevation = 2.dp
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -42,24 +48,24 @@ fun TransactionItemImproved(transaction: Transaction) {
             ) {
                 Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column(Modifier.weight(1f)) {
-                Text(transaction.merchant, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
-                Text(transaction.category.displayName, color = Color.Gray, fontSize = 12.sp)
+                Text(transaction.merchant, color = LightTextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                Text(transaction.category.displayName, color = LightTextSecondary, fontSize = 12.sp)
             }
-            
+
             Column(horizontalAlignment = Alignment.End) {
                 val prefix = if (transaction.type == TransactionType.CREDIT) "+" else "-"
-                val amountColor = if (transaction.type == TransactionType.CREDIT) Color(0xFF10B981) else Color.White
+                val amountColor = if (transaction.type == TransactionType.CREDIT) Color(0xFF10B981) else LightTextPrimary
                 Text(
                     text = "$prefix ${transaction.amount.formatAsCurrency()}",
                     color = amountColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-                Text(transaction.bankName, color = Color.DarkGray, fontSize = 11.sp)
+                Text(transaction.bankName, color = LightTextSecondary.copy(alpha = 0.7f), fontSize = 11.sp)
             }
         }
     }

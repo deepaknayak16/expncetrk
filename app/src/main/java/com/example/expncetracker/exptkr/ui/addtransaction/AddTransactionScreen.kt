@@ -25,6 +25,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.ui.theme.LightBackground
+import com.example.expncetracker.exptkr.ui.theme.LightSurface
+import com.example.expncetracker.exptkr.ui.theme.LightPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
+import com.example.expncetracker.exptkr.ui.theme.LightBorder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +48,7 @@ fun AddTransactionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(LightBackground)
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -52,11 +58,11 @@ fun AddTransactionScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onNavigateBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = LightTextPrimary)
             }
             Text(
                 text = "Add Transaction",
-                color = Color.White,
+                color = LightTextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 8.dp)
@@ -66,7 +72,7 @@ fun AddTransactionScreen(
         Spacer(modifier = Modifier.height(32.dp))
         
         // Amount Input
-        Text("Amount", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text("Amount", color = LightTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = amount,
@@ -74,16 +80,16 @@ fun AddTransactionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp),
-            placeholder = { Text("₹0.00", color = Color.Gray) },
+            placeholder = { Text("₹0.00", color = LightTextSecondary.copy(alpha = 0.5f)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color.Gray,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedBorderColor = LightPrimary,
+                unfocusedBorderColor = LightBorder,
+                focusedTextColor = LightTextPrimary,
+                unfocusedTextColor = LightTextPrimary
             ),
             leadingIcon = {
-                Icon(Icons.Default.AttachMoney, contentDescription = null, tint = Color(0xFF3B82F6))
+                Icon(Icons.Default.AttachMoney, contentDescription = null, tint = LightPrimary)
             },
             shape = RoundedCornerShape(12.dp)
         )
@@ -91,7 +97,7 @@ fun AddTransactionScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         // Type Selection
-        Text("Type", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text("Type", color = LightTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -103,14 +109,14 @@ fun AddTransactionScreen(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isSelected) if (type == TransactionType.CREDIT) Color(0xFF10B981) else Color(0xFFEF4444) else Color(0xFF1E293B))
+                        .background(if (isSelected) if (type == TransactionType.CREDIT) Color(0xFF10B981) else Color(0xFFEF4444) else LightSurface)
                         .clickable { selectedType = type }
                         .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (type == TransactionType.DEBIT) "Expense" else "Income",
-                        color = if (isSelected) Color.White else Color.Gray,
+                        color = if (isSelected) Color.White else LightTextSecondary,
                         fontSize = 16.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
@@ -121,7 +127,7 @@ fun AddTransactionScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         // Category Selection
-        Text("Category", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text("Category", color = LightTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
@@ -133,10 +139,10 @@ fun AddTransactionScreen(
                 FilterChip(
                     selected = isSelected,
                     onClick = { selectedCategory = category },
-                    label = { Text(category, color = if (isSelected) Color.White else Color.Gray) },
+                    label = { Text(category, color = if (isSelected) Color.White else LightTextSecondary) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF3B82F6),
-                        containerColor = Color(0xFF1E293B)
+                        selectedContainerColor = LightPrimary,
+                        containerColor = LightSurface,
                     ),
                     shape = RoundedCornerShape(20.dp)
                 )
@@ -146,7 +152,7 @@ fun AddTransactionScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         // Description Input
-        Text("Description (Optional)", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+        Text("Description (Optional)", color = LightTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = description,
@@ -154,15 +160,15 @@ fun AddTransactionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp),
-            placeholder = { Text("Enter details...", color = Color.Gray) },
+            placeholder = { Text("Enter details...", color = LightTextSecondary.copy(alpha = 0.5f)) },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color.Gray,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedBorderColor = LightPrimary,
+                unfocusedBorderColor = LightBorder,
+                focusedTextColor = LightTextPrimary,
+                unfocusedTextColor = LightTextPrimary
             ),
             leadingIcon = {
-                Icon(Icons.Default.Description, contentDescription = null, tint = Color(0xFF3B82F6))
+                Icon(Icons.Default.Description, contentDescription = null, tint = LightPrimary)
             },
             shape = RoundedCornerShape(12.dp),
             maxLines = 3
@@ -187,7 +193,7 @@ fun AddTransactionScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF3B82F6)
+                containerColor = LightPrimary,
             ),
             shape = RoundedCornerShape(12.dp),
             enabled = amount.isNotBlank()

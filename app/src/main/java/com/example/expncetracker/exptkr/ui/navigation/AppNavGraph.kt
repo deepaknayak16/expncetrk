@@ -26,6 +26,11 @@ import com.example.expncetracker.exptkr.ui.settings.SettingsViewModel
 import com.example.expncetracker.exptkr.ui.transactions.TransactionScreen
 import com.example.expncetracker.exptkr.ui.transactions.TransactionViewModel
 import com.example.expncetracker.exptkr.ui.addtransaction.AddTransactionScreen
+import com.example.expncetracker.exptkr.ui.theme.LightBackground
+import com.example.expncetracker.exptkr.ui.theme.LightPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightSurface
+import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,13 +47,13 @@ fun AppNavGraph() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "Money",
-                            color = Color.White,
+                            color = LightTextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp
                         )
                         Text(
                             text = "Wise",
-                            color = Color(0xFF3B82F6),
+                            color = LightPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp
                         )
@@ -60,20 +65,20 @@ fun AppNavGraph() {
                             navController.navigate("transactions")
                         }
                     }) {
-                        Icon(Icons.Outlined.Search, contentDescription = "Search", tint = Color.White)
+                        Icon(Icons.Outlined.Search, contentDescription = "Search", tint = LightTextPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A),
-                    titleContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    containerColor = LightSurface,
+                    titleContentColor = LightTextPrimary,
+                    actionIconContentColor = LightTextPrimary
                 )
             )
         },
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF1E293B),
-                tonalElevation = 0.dp
+                containerColor = LightSurface,
+                tonalElevation = 8.dp
             ) {
                 val items = listOf(
                     Triple("dashboard", "Home", Icons.Default.Dashboard),
@@ -100,11 +105,11 @@ fun AppNavGraph() {
                         },
                         label = { Text(label, fontSize = 11.sp) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFF3B82F6),
-                            unselectedIconColor = Color.Gray,
-                            selectedTextColor = Color(0xFF3B82F6),
-                            unselectedTextColor = Color.Gray,
-                            indicatorColor = Color(0xFF3B82F6).copy(alpha = 0.1f)
+                            selectedIconColor = LightPrimary,
+                            unselectedIconColor = LightTextSecondary,
+                            selectedTextColor = LightPrimary,
+                            unselectedTextColor = LightTextSecondary,
+                            indicatorColor = LightPrimary.copy(alpha = 0.1f)
                         )
                     )
                 }
@@ -115,7 +120,7 @@ fun AppNavGraph() {
                 onClick = { 
                     navController.navigate("add_transaction")
                 },
-                containerColor = Color(0xFF3B82F6),
+                containerColor = LightPrimary,
                 contentColor = Color.White,
                 shape = CircleShape,
                 modifier = Modifier.size(56.dp)

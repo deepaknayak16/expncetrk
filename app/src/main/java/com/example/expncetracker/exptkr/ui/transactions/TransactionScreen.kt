@@ -16,6 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.expncetracker.exptkr.ui.theme.LightBackground
+import com.example.expncetracker.exptkr.ui.theme.LightSurface
+import com.example.expncetracker.exptkr.ui.theme.LightPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextPrimary
+import com.example.expncetracker.exptkr.ui.theme.LightTextSecondary
+import com.example.expncetracker.exptkr.ui.theme.LightBorder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,25 +29,25 @@ fun TransactionScreen(viewModel: TransactionViewModel) {
     val list by viewModel.transactions.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A)).padding(16.dp)) {
-        Text("Statement Ledger", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        
+    Column(modifier = Modifier.fillMaxSize().background(LightBackground).padding(16.dp)) {
+        Text("Statement Ledger", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = LightTextPrimary)
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { viewModel.onSearchQueryChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search transactions...", color = Color.Gray) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+            placeholder = { Text("Search transactions...", color = LightTextSecondary) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = LightTextSecondary) },
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF3B82F6),
-                unfocusedBorderColor = Color(0xFF1E293B),
-                focusedContainerColor = Color(0xFF1E293B),
-                unfocusedContainerColor = Color(0xFF1E293B),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedBorderColor = LightPrimary,
+                unfocusedBorderColor = LightBorder,
+                focusedContainerColor = LightSurface,
+                unfocusedContainerColor = LightSurface,
+                focusedTextColor = LightTextPrimary,
+                unfocusedTextColor = LightTextPrimary
             )
         )
 
@@ -50,8 +56,8 @@ fun TransactionScreen(viewModel: TransactionViewModel) {
             contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(list, key = { it.id }) { tx -> 
-                TransactionItemImproved(transaction = tx) 
+            items(list, key = { it.id }) { tx ->
+                TransactionItemImproved(transaction = tx)
             }
         }
     }
