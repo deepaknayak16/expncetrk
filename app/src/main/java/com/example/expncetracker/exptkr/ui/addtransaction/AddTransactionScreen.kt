@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
 
@@ -40,6 +41,10 @@ fun AddTransactionScreen(
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
     var selectedCategory by remember { mutableStateOf<CategoryData>(CategoryData.Shopping) }
     val isDarkTheme = MaterialTheme.isDark
+    
+    val isAmountValid = remember(amount) {
+        amount.isBlank() || amount.toDoubleOrNull() != null
+    }
     
     val categories = listOf(
         CategoryData.Shopping,
@@ -106,13 +111,23 @@ fun AddTransactionScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = amount,
-                    onValueChange = { amount = it.filter { char -> char.isDigit() || char == '.' } },
+                    onValueChange = { input ->
+                        if (input.isEmpty() || input.matches(Regex("""^\d*\.?\d{0,2}$"""))) {
+                            amount = input
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
+                    isError = !isAmountValid,
                     placeholder = { 
                         Text(
                             "₹0.00",
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
+                    },
+                    supportingText = {
+                        if (!isAmountValid) {
+                            Text("Please enter a valid amount")
+                        }
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -299,11 +314,12 @@ fun AddTransactionScreen(
         // Save Button
         Button(
             onClick = {
-                if (amount.isNotBlank()) {
+                val parsedAmount = amount.toDoubleOrNull()
+                if (parsedAmount != null && parsedAmount > 0) {
                     viewModel.addTransaction(
-                        amount = amount.toDoubleOrNull() ?: 0.0,
+                        amount = parsedAmount,
                         type = selectedType,
-                        category = selectedCategory.name,
+                        category = selectedCategory.category.name,
                         description = description.ifBlank { null }
                     )
                     onNavigateBack()
@@ -317,7 +333,7 @@ fun AddTransactionScreen(
                 disabledContainerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
             ),
             shape = RoundedCornerShape(16.dp),
-            enabled = amount.isNotBlank()
+            enabled = amount.isNotBlank() && isAmountValid && (amount.toDoubleOrNull() ?: 0.0) > 0
         ) {
             Icon(
                 Icons.Default.Check,
@@ -338,28 +354,20 @@ fun AddTransactionScreen(
 }
 
 // Category data class with icons
-sealed class CategoryData(val name: String, val icon: ImageVector) {
-    object Shopping : CategoryData("Shopping", Icons.Default.ShoppingCart)
-    object Food : CategoryData("Food", Icons.Default.Restaurant)
-    object Transport : CategoryData("Transport", Icons.Default.DirectionsCar)
-    object Entertainment : CategoryData("Entertainment", Icons.Default.LiveTv)
-    object Bills : CategoryData("Bills", Icons.Default.Receipt)
-    object Salary : CategoryData("Salary", Icons.Default.Payments)
-    object Investment : CategoryData("Investment", Icons.Default.TrendingUp)
-    object Travel : CategoryData("Travel", Icons.Default.Flight)
-    object Others : CategoryData("Others", Icons.Default.MoreHoriz)
+sealed class CategoryData(val category: Category, val icon: ImageVector) {
+    val name: String get() = category.displayName
+
+    object Shopping : CategoryData(Category.SHOPPING, Icons.Default.ShoppingCart)
+    object Food : CategoryData(Category.FOOD, Icons.Default.Restaurant)
+    object Transport : CategoryData(Category.CABS, Icons.Default.DirectionsCar)
+    object Entertainment : CategoryData(Category.ENTERTAINMENT, Icons.Default.LiveTv)
+    object Bills : CategoryData(Category.BILLS, Icons.Default.Receipt)
+    object Salary : CategoryData(Category.SALARY, Icons.Default.Payments)
+    object Investment : CategoryData(Category.INVESTMENTS, Icons.Default.TrendingUp)
+    object Travel : CategoryData(Category.TRAVEL, Icons.Default.Flight)
+    object Others : CategoryData(Category.OTHERS, Icons.Default.MoreHoriz)
 }
 
 fun getCategoryColor(category: CategoryData, isDarkTheme: Boolean): Color {
-    return when (category) {
-        is CategoryData.Shopping -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        is CategoryData.Food -> if (isDarkTheme) CategoryFoodDark else CategoryFood
-        is CategoryData.Transport -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
-        is CategoryData.Entertainment -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        is CategoryData.Bills -> if (isDarkTheme) CategoryBillsDark else CategoryBills
-        is CategoryData.Salary -> if (isDarkTheme) CategorySalaryDark else CategorySalary
-        is CategoryData.Investment -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
-        is CategoryData.Travel -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
-        is CategoryData.Others -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
-    }
+    return com.example.expncetracker.exptkr.ui.dashboard.getCategoryColor(category.category, isDarkTheme)
 }

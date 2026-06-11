@@ -1,5 +1,7 @@
 package com.example.expncetracker.exptkr.ui.dashboard
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -36,7 +38,10 @@ import com.example.expncetracker.exptkr.ui.components.EmptyState
 import com.example.expncetracker.exptkr.ui.theme.*
 
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel) {
+fun DashboardScreen(
+    viewModel: DashboardViewModel,
+    onNavigateToAddTransaction: () -> Unit = {}
+) {
     val uiState by viewModel.uiState.collectAsState()
     val currentFilter by viewModel.selectedFilter.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
@@ -77,11 +82,12 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                         )
                     }
                     DashboardContent(
-                        state.summary,
-                        state.recentTransactions,
-                        currentFilter,
-                        gradientStart,
-                        gradientEnd
+                        summary = state.summary,
+                        recent = state.recentTransactions,
+                        currentFilter = currentFilter,
+                        gradientStart = gradientStart,
+                        gradientEnd = gradientEnd,
+                        onNavigateToAddTransaction = onNavigateToAddTransaction
                     ) { viewModel.setFilter(it) }
                 }
             }
@@ -96,6 +102,7 @@ fun DashboardContent(
     currentFilter: DateFilter,
     gradientStart: Color,
     gradientEnd: Color,
+    onNavigateToAddTransaction: () -> Unit,
     onFilterChange: (DateFilter) -> Unit
 ) {
     LazyColumn(
@@ -124,7 +131,17 @@ fun DashboardContent(
                 EmptyState(
                     icon = Icons.AutoMirrored.Filled.ReceiptLong,
                     title = "No transactions yet",
-                    description = "Start by adding a transaction or load demo data"
+                    description = "Start by adding a transaction manually or syncing your SMS",
+                    action = {
+                        Button(
+                            onClick = onNavigateToAddTransaction,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add First Transaction")
+                        }
+                    }
                 )
             }
         } else {
@@ -145,9 +162,15 @@ fun MainDashboardCard(
     gradientStart: Color,
     gradientEnd: Color
 ) {
+    val animatedBalance by animateFloatAsState(
+        targetValue = summary.balance.toFloat(),
+        animationSpec = tween(durationMillis = 1000),
+        label = "balanceAnimation"
+    )
+
     GradientCard(
         title = "Total Balance",
-        value = summary.balance.formatAsCurrency(),
+        value = animatedBalance.toDouble().formatAsCurrency(),
         subtitle = "Updated just now",
         icon = Icons.Default.AccountBalanceWallet,
         gradientStart = gradientStart,
@@ -157,15 +180,26 @@ fun MainDashboardCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            val animatedIncome by animateFloatAsState(
+                targetValue = summary.totalIncome.toFloat(),
+                animationSpec = tween(durationMillis = 1000),
+                label = "incomeAnimation"
+            )
+            val animatedExpense by animateFloatAsState(
+                targetValue = summary.totalExpense.toFloat(),
+                animationSpec = tween(durationMillis = 1000),
+                label = "expenseAnimation"
+            )
+
             StatItem(
                 label = "Income",
-                amount = summary.totalIncome.formatAsCurrency(),
+                amount = animatedIncome.toDouble().formatAsCurrency(),
                 icon = Icons.Default.ArrowDownward,
                 iconBackgroundColor = LightIncome
             )
             StatItem(
                 label = "Expenses",
-                amount = summary.totalExpense.formatAsCurrency(),
+                amount = animatedExpense.toDouble().formatAsCurrency(),
                 icon = Icons.Default.ArrowUpward,
                 iconBackgroundColor = LightExpense
             )
@@ -183,12 +217,11 @@ fun MainDashboardCard(
 @Composable
 fun DistributionSection(distribution: Map<Category, Double>) {
     val isDarkTheme = MaterialTheme.isDark
+    val sortedDistribution = distribution.entries
+        .sortedByDescending { it.value }
+        .take(5)
+    
     val total = distribution.values.sum()
-    val colors = if (isDarkTheme) {
-        listOf(CategoryFoodDark, CategoryCabsDark, CategoryBillsDark, CategoryShoppingDark, CategoryTravelDark)
-    } else {
-        listOf(CategoryFood, CategoryCabs, CategoryBills, CategoryShopping, CategoryTravel)
-    }
 
     Column {
         Text(
@@ -201,10 +234,10 @@ fun DistributionSection(distribution: Map<Category, Double>) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Canvas(modifier = Modifier.size(64.dp)) {
                 var startAngle = -90f
-                distribution.values.take(5).forEachIndexed { idx, value ->
-                    val sweepAngle = (value / total * 360f).toFloat()
+                sortedDistribution.forEach { entry ->
+                    val sweepAngle = ((entry.value / total) * 360f).toFloat()
                     drawArc(
-                        color = colors[idx % colors.size],
+                        color = getCategoryColor(entry.key, isDarkTheme),
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = true,
@@ -212,16 +245,29 @@ fun DistributionSection(distribution: Map<Category, Double>) {
                     )
                     startAngle += sweepAngle
                 }
+                
+                // If there are more categories, draw the "Others" slice
+                val shownTotal = sortedDistribution.sumOf { it.value }
+                if (shownTotal < total) {
+                    val sweepAngle = ((total - shownTotal) / total * 360f).toFloat()
+                    drawArc(
+                        color = if (isDarkTheme) CategoryOthersDark else CategoryOthers,
+                        startAngle = startAngle,
+                        sweepAngle = sweepAngle,
+                        useCenter = true,
+                        size = Size(size.width, size.height)
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(20.dp))
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                distribution.entries.take(3).forEachIndexed { idx, entry ->
+                sortedDistribution.forEach { entry ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             Modifier
                                 .size(10.dp)
                                 .clip(CircleShape)
-                                .background(colors[idx % colors.size])
+                                .background(getCategoryColor(entry.key, isDarkTheme))
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -232,8 +278,42 @@ fun DistributionSection(distribution: Map<Category, Double>) {
                         )
                     }
                 }
+                
+                val shownTotal = sortedDistribution.sumOf { it.value }
+                if (shownTotal < total) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isDarkTheme) CategoryOthersDark else CategoryOthers)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Others",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
+    return when (category) {
+        Category.FOOD -> if (isDarkTheme) CategoryFoodDark else CategoryFood
+        Category.CABS -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
+        Category.RENT -> if (isDarkTheme) CategoryRentDark else CategoryRent
+        Category.BILLS -> if (isDarkTheme) CategoryBillsDark else CategoryBills
+        Category.SHOPPING -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.SALARY -> if (isDarkTheme) CategorySalaryDark else CategorySalary
+        Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
+        Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
+        Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
+        Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
     }
 }
 

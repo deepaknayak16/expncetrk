@@ -107,7 +107,9 @@ fun AppNavGraph() {
         ) {
             composable("dashboard") {
                 val vm: DashboardViewModel = hiltViewModel()
-                DashboardScreen(vm)
+                DashboardScreen(vm, onNavigateToAddTransaction = {
+                    navController.navigate("add_transaction")
+                })
             }
             composable("transactions") {
                 val vm: TransactionViewModel = hiltViewModel()
@@ -116,6 +118,16 @@ fun AppNavGraph() {
             composable("settings") {
                 val vm: SettingsViewModel = hiltViewModel()
                 SettingsScreen(vm)
+            }
+            composable("analytics") {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Analytics Screen (Coming Soon)")
+                }
+            }
+            composable("budget") {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Budget Screen (Coming Soon)")
+                }
             }
             composable("add_transaction") {
                 AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
@@ -216,32 +228,23 @@ private fun ModernNavigationBar(
 ) {
     val items = listOf(
         NavigationItem("dashboard", "Home", Icons.Default.Home, Icons.Outlined.Home),
+        NavigationItem("analytics", "Analytics", Icons.Default.BarChart, Icons.Outlined.BarChart),
         NavigationItem("transactions", "Ledger", Icons.AutoMirrored.Filled.ListAlt, Icons.AutoMirrored.Outlined.List),
+        NavigationItem("budget", "Budget", Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
         NavigationItem("settings", "Settings", Icons.Default.Settings, Icons.Outlined.Settings)
     )
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentHeight(),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 0.dp,
+    NavigationBar(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(72.dp)
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items.forEach { item ->
-                val isSelected = currentRoute == item.route
-                ModernNavigationBarItem(
-                    item = item,
-                    isSelected = isSelected,
-                    onClick = {
+        items.forEach { item ->
+            val isSelected = currentRoute == item.route
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = {
+                    if (item.route != "analytics" && item.route != "budget") {
                         navController.navigate(item.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
@@ -249,10 +252,29 @@ private fun ModernNavigationBar(
                             launchSingleTop = true
                             restoreState = true
                         }
-                    },
-                    isDarkTheme = isDarkTheme
+                    }
+                },
+                icon = {
+                    Icon(
+                        imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                        contentDescription = item.label
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.label,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
+            )
         }
     }
 }
@@ -263,69 +285,6 @@ data class NavigationItem(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 )
-
-@Composable
-private fun ModernNavigationBarItem(
-    item: NavigationItem,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    isDarkTheme: Boolean
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-
-    Box(
-        modifier = Modifier
-            .width(80.dp)
-            .height(56.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .then(
-                if (isSelected) {
-                    Modifier.background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                            )
-                        )
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(vertical = 8.dp)
-        ) {
-            Icon(
-                imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                contentDescription = item.label,
-                tint = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.size(24.dp)
-            )
-            AnimatedVisibility(visible = isSelected) {
-                Text(
-                    text = item.label,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun ModernFab(

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
+import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.dao.RawSmsDao
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import dagger.Module
@@ -21,8 +22,10 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
+            .fallbackToDestructiveMigration() // Re-enabling for development ease while changing schema
             .build()
 
     @Provides fun provideTransactionDao(db: AppDatabase): TransactionDao = db.transactionDao()
     @Provides fun provideRawSmsDao(db: AppDatabase): RawSmsDao = db.rawSmsDao()
+    @Provides fun provideBudgetDao(db: AppDatabase): BudgetDao = db.budgetDao()
 }

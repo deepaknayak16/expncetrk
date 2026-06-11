@@ -3,14 +3,17 @@ package com.example.expncetracker.exptkr.ui.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.domain.usecase.GetTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
-    getTransactionsUseCase: GetTransactionsUseCase
+    getTransactionsUseCase: GetTransactionsUseCase,
+    private val repository: TransactionRepository
 ) : ViewModel() {
     
     private val _searchQuery = MutableStateFlow("")
@@ -30,5 +33,11 @@ class TransactionViewModel @Inject constructor(
 
     fun onSearchQueryChange(newQuery: String) {
         _searchQuery.value = newQuery
+    }
+
+    fun deleteTransaction(id: Long) {
+        viewModelScope.launch {
+            repository.deleteTransactionById(id)
+        }
     }
 }

@@ -31,6 +31,7 @@ class AddTransactionViewModel @Inject constructor(
                 "SALARY" -> Category.SALARY
                 "INVESTMENT", "INVESTMENTS" -> Category.INVESTMENTS
                 "TRAVEL" -> Category.TRAVEL
+                "ENTERTAINMENT" -> Category.ENTERTAINMENT
                 else -> Category.OTHERS
             }
             
