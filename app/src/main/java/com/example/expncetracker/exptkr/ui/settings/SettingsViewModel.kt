@@ -2,6 +2,11 @@ package com.example.expncetracker.exptkr.ui.settings
 
 import android.app.Activity
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Intent
@@ -18,8 +23,12 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -28,17 +37,26 @@ class SettingsViewModel @Inject constructor(
     private val importBackupUseCase: ImportBackupUseCase,
     private val syncBackupToGoogleDriveUseCase: SyncBackupToGoogleDriveUseCase,
     private val restoreBackupFromGoogleDriveUseCase: RestoreBackupFromGoogleDriveUseCase,
-    private val googleSignInClient: GoogleSignInClient
+    private val googleSignInClient: GoogleSignInClient,
+    private val application: android.app.Application
 ) : ViewModel() {
 
     private val _statusEvent = MutableSharedFlow<String>()
     val statusEvent = _statusEvent.asSharedFlow()
-    
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
 
     init {
         checkLastSignedInAccount()
+        loadDarkModeSetting()
+    }
+
+    private fun loadDarkModeSetting() {
+        viewModelScope.launch {
+            val isDarkMode = application.dataStore.data.first()[DARK_MODE_KEY] ?: false
+            _uiState.value = _uiState.value.copy(isDarkMode = isDarkMode)
+        }
     }
 
     private fun checkLastSignedInAccount() {
@@ -74,7 +92,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun getSignInIntent(): Intent {
         return googleSignInClient.signInIntent
     }
@@ -85,7 +103,7 @@ class SettingsViewModel @Inject constructor(
             try {
                 val task = GoogleSignIn.getSignedInAccountFromIntent(data)
                 val account = task.getResult(Exception::class.java)
-                
+
                 if (account != null) {
                     _uiState.value = _uiState.value.copy(
                         isSignedIn = true,
@@ -102,7 +120,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun syncToGoogleDrive() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -112,10 +130,10 @@ class SettingsViewModel @Inject constructor(
                 _statusEvent.emit("Please sign in first")
                 return@launch
             }
-            
+
             val result = syncBackupToGoogleDriveUseCase.execute(accountName)
             _uiState.value = _uiState.value.copy(isLoading = false)
-            
+
             result.fold(
                 onSuccess = { message ->
                     _statusEvent.emit(message)
@@ -126,7 +144,7 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
-    
+
     fun restoreFromGoogleDrive() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -136,10 +154,10 @@ class SettingsViewModel @Inject constructor(
                 _statusEvent.emit("Please sign in first")
                 return@launch
             }
-            
+
             val result = restoreBackupFromGoogleDriveUseCase.execute(accountName)
             _uiState.value = _uiState.value.copy(isLoading = false)
-            
+
             result.fold(
                 onSuccess = { message ->
                     _statusEvent.emit(message)
@@ -150,7 +168,7 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
-    
+
     fun signOutFromGoogle() {
         viewModelScope.launch {
             googleSignInClient.signOut().addOnCompleteListener {
@@ -162,6 +180,16 @@ class SettingsViewModel @Inject constructor(
                     _statusEvent.emit("Signed out from Google")
                 }
             }
+        }
+    }
+
+    fun toggleDarkMode(isDark: Boolean) {
+        viewModelScope.launch {
+            application.dataStore.edit { preferences ->
+                preferences[DARK_MODE_KEY] = isDark
+            }
+            _uiState.value = _uiState.value.copy(isDarkMode = isDark)
+            _statusEvent.emit(if (isDark) "Dark mode enabled" else "Light mode enabled")
         }
     }
 }

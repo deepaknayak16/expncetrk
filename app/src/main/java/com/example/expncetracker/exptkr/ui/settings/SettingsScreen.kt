@@ -72,7 +72,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             if (uiState.isSignedIn) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -123,7 +123,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         }
                     }
                 }
-                
+
                 Spacer(Modifier.height(12.dp))
 
                 SettingsPreferenceItem(
@@ -172,7 +172,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             SettingsPreferenceItem(
                 label = "Backup to Cloud",
                 subtitle = if (uiState.lastSyncTime != null) "Last synced: ${uiState.lastSyncTime}" else "Sync your data to Google Drive",
@@ -194,13 +194,13 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 trailingContent = {
                     Switch(
                         checked = uiState.isDarkMode,
-                        onCheckedChange = { /* viewModel.toggleDarkMode(it) */ }
+                        onCheckedChange = { viewModel.toggleDarkMode(it) }
                     )
                 },
-                onClick = { /* viewModel.toggleDarkMode(!uiState.isDarkMode) */ }
+                onClick = { viewModel.toggleDarkMode(!uiState.isDarkMode) }
             )
             Spacer(Modifier.height(16.dp))
-            
+
             Button(
                 onClick = { viewModel.loadMockData() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -232,7 +232,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             SettingsPreferenceItem(
                 label = "Version",
                 subtitle = "1.0.0",
@@ -260,7 +260,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 onClick = { }
             )
         }
-        
+
         item {
             Spacer(modifier = Modifier.height(40.dp))
         }
