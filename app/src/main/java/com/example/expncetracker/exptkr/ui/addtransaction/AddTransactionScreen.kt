@@ -29,6 +29,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +42,11 @@ fun AddTransactionScreen(
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
     var selectedCategory by remember { mutableStateOf<CategoryData>(CategoryData.Shopping) }
+    
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+    var showDatePicker by remember { mutableStateOf(false) }
+    val dateFormatter = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
+
     val isDarkTheme = MaterialTheme.isDark
     
     val isAmountValid = remember(amount) {
@@ -148,6 +155,60 @@ fun AddTransactionScreen(
                     shape = RoundedCornerShape(14.dp),
                     singleLine = true
                 )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Date Selection
+        Text(
+            "Date",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDatePicker = true },
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.DateRange,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = dateFormatter.format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp
+                )
+            }
+        }
+        
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
         

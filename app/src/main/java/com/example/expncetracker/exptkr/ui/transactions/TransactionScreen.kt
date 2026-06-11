@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.ui.theme.*
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,23 +33,9 @@ fun TransactionScreen(viewModel: TransactionViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = 20.dp)
     ) {
-        // Header Section
-        Text(
-            text = "Statement Ledger",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        Text(
-            text = "${list.size} transactions",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 20.dp)
-        )
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Search Bar
         OutlinedTextField(
@@ -137,43 +125,60 @@ fun TransactionScreen(viewModel: TransactionViewModel) {
                     }
                 }
             } else {
-                items(list, key = { it.id }) { tx ->
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.deleteTransaction(tx.id)
-                                true
-                            } else {
-                                false
+                val grouped = list.groupBy { 
+                    it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, EEEE", Locale.getDefault()))
+                }
+                
+                grouped.forEach { (date, transactions) ->
+                    item {
+                        Text(
+                            text = date,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+                    
+                    items(transactions, key = { it.id }) { tx ->
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = {
+                                if (it == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.deleteTransaction(tx.id)
+                                    true
+                                } else {
+                                    false
+                                }
                             }
-                        }
-                    )
+                        )
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        enableDismissFromStartToEnd = false,
-                        backgroundContent = {
-                            val color = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                                else -> Color.Transparent
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            enableDismissFromStartToEnd = false,
+                            backgroundContent = {
+                                val color = when (dismissState.dismissDirection) {
+                                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                                    else -> Color.Transparent
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(color),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(end = 24.dp) // Added padding to avoid overlap
+                                    )
+                                }
                             }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(color)
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
+                        ) {
+                            TransactionListItem(transaction = tx)
                         }
-                    ) {
-                        TransactionItemImproved(transaction = tx)
                     }
                 }
             }

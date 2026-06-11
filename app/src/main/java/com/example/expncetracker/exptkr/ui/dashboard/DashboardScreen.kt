@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +22,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
@@ -30,9 +36,7 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
-import com.example.expncetracker.exptkr.ui.transactions.TransactionItemImproved
-import com.example.expncetracker.exptkr.ui.components.GradientCard
-import com.example.expncetracker.exptkr.ui.components.StatItem
+import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
 import com.example.expncetracker.exptkr.ui.components.SectionHeader
 import com.example.expncetracker.exptkr.ui.components.EmptyState
 import com.example.expncetracker.exptkr.ui.theme.*
@@ -41,24 +45,21 @@ import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLa
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
+import java.util.Locale
 
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    onNavigateToAddTransaction: () -> Unit = {}
+    onNavigateToAddTransaction: () -> Unit = {},
+    onNavigateToStatementLedger: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val currentFilter by viewModel.selectedFilter.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
-    val isDarkTheme = MaterialTheme.isDark
 
-    // Gradient colors based on theme
-    val gradientStart = if (isDarkTheme) CardGradientStartDark else CardGradientStartLight
-    val gradientEnd = if (isDarkTheme) CardGradientEndDark else CardGradientEndLight
-
-    // Check permissions before attempting sync
     LaunchedEffect(Unit) {
-        android.util.Log.d("DashboardScreen", "Attempting to sync transactions")
         viewModel.syncTransactions()
     }
 
@@ -89,11 +90,10 @@ fun DashboardScreen(
                     DashboardContent(
                         summary = state.summary,
                         recent = state.recentTransactions,
-                        currentFilter = currentFilter,
-                        gradientStart = gradientStart,
-                        gradientEnd = gradientEnd,
-                        onNavigateToAddTransaction = onNavigateToAddTransaction
-                    ) { viewModel.setFilter(it) }
+                        onNavigateToAddTransaction = onNavigateToAddTransaction,
+                        onSeeAllClick = onNavigateToStatementLedger,
+                        onFilterChange = { viewModel.setFilter(it) }
+                    )
                 }
             }
         }
@@ -104,10 +104,8 @@ fun DashboardScreen(
 fun DashboardContent(
     summary: FinancialSummary,
     recent: List<Transaction>,
-    currentFilter: DateFilter,
-    gradientStart: Color,
-    gradientEnd: Color,
     onNavigateToAddTransaction: () -> Unit,
+    onSeeAllClick: () -> Unit,
     onFilterChange: (DateFilter) -> Unit
 ) {
     LazyColumn(
@@ -116,11 +114,33 @@ fun DashboardContent(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            MainDashboardCard(summary, gradientStart, gradientEnd)
+            val calendar = Calendar.getInstance()
+            val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
+                in 0..11 -> "Good Morning"
+                in 12..15 -> "Good Afternoon"
+                else -> "Good Evening"
+            }
+            Column {
+                Text(
+                    text = "$greeting!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Welcome back to MoneyWise",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         item {
-            TimeFilterRow(currentFilter, onFilterChange)
+            CompactSummaryHeader(summary = summary, onFilterChange = onFilterChange)
+        }
+
+        item {
+            DistributionSection(summary.categoryDistribution)
         }
 
         item {
@@ -154,8 +174,8 @@ fun DashboardContent(
         item {
             SectionHeader(
                 title = "Recent Activity",
-                actionLabel = "See All",
-                onActionClick = { /* Navigate to transactions */ }
+                actionLabel = "See All Ledger",
+                onActionClick = onSeeAllClick
             )
         }
 
@@ -178,8 +198,31 @@ fun DashboardContent(
                 )
             }
         } else {
-            items(recent, key = { it.id }) { transaction ->
-                TransactionItemImproved(transaction)
+            val grouped = recent.groupBy { 
+                it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, EEEE", Locale.getDefault()))
+            }
+            
+            grouped.forEach { (date, transactions) ->
+                item {
+                    Text(
+                        text = date,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                }
+                
+                items(transactions, key = { it.id }) { transaction ->
+                    TransactionListItem(transaction)
+                    if (transaction != transactions.last()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 64.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                    }
+                }
             }
         }
 
@@ -190,148 +233,189 @@ fun DashboardContent(
 }
 
 @Composable
-fun MainDashboardCard(
+fun CompactSummaryHeader(
     summary: FinancialSummary,
-    gradientStart: Color,
-    gradientEnd: Color
+    onFilterChange: (DateFilter) -> Unit
 ) {
-    val animatedBalance by animateFloatAsState(
-        targetValue = summary.balance.toFloat(),
-        animationSpec = tween(durationMillis = 1000),
-        label = "balanceAnimation"
-    )
+    val calendar = remember { Calendar.getInstance() }
+    val monthYearFormat = remember<SimpleDateFormat> { SimpleDateFormat("MMMM, yyyy", Locale.getDefault()) }
 
-    GradientCard(
-        title = "Total Balance",
-        value = animatedBalance.toDouble().formatAsCurrency(),
-        subtitle = "Updated just now",
-        icon = Icons.Default.AccountBalanceWallet,
-        gradientStart = gradientStart,
-        gradientEnd = gradientEnd
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val animatedIncome by animateFloatAsState(
-                targetValue = summary.totalIncome.toFloat(),
-                animationSpec = tween(durationMillis = 1000),
-                label = "incomeAnimation"
-            )
-            val animatedExpense by animateFloatAsState(
-                targetValue = summary.totalExpense.toFloat(),
-                animationSpec = tween(durationMillis = 1000),
-                label = "expenseAnimation"
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { }) {
+                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
+                }
 
-            StatItem(
-                label = "Income",
-                amount = animatedIncome.toDouble().formatAsCurrency(),
-                icon = Icons.Default.ArrowDownward,
-                iconBackgroundColor = LightIncome
-            )
-            StatItem(
-                label = "Expenses",
-                amount = animatedExpense.toDouble().formatAsCurrency(),
-                icon = Icons.Default.ArrowUpward,
-                iconBackgroundColor = LightExpense
-            )
-        }
+                Text(
+                    text = monthYearFormat.format(calendar.time),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-        if (summary.categoryDistribution.isNotEmpty()) {
+                Row {
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(16.dp))
-            DistributionSection(summary.categoryDistribution)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), Color(0xFFEF4444))
+                SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), Color(0xFF10B981))
+                SummaryColumn("TOTAL", summary.balance.formatAsCurrency(), Color(0xFF10B981))
+            }
         }
+    }
+}
+
+@Composable
+private fun SummaryColumn(label: String, value: String, valueColor: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = valueColor
+        )
     }
 }
 
 @Composable
 fun DistributionSection(distribution: Map<Category, Double>) {
     val isDarkTheme = MaterialTheme.isDark
-    val sortedDistribution = distribution.entries
-        .sortedByDescending { it.value }
-        .take(5)
+    val sortedDistribution = Category.entries.map { it to (distribution[it] ?: 0.0) }
+        .sortedByDescending { it.second }
     
-    val total = distribution.values.sum()
+    val maxVal = distribution.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
 
     Column {
         Text(
             text = "Spending Distribution",
-            color = Color.White.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Canvas(modifier = Modifier.size(64.dp)) {
-                var startAngle = -90f
-                sortedDistribution.forEach { entry ->
-                    val sweepAngle = ((entry.value / total) * 360f).toFloat()
-                    drawArc(
-                        color = getCategoryColor(entry.key, isDarkTheme),
-                        startAngle = startAngle,
-                        sweepAngle = sweepAngle,
-                        useCenter = true,
-                        size = Size(size.width, size.height)
-                    )
-                    startAngle += sweepAngle
-                }
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            sortedDistribution.forEach { (category, amount) ->
+                val barHeightFraction = (amount / maxVal).toFloat().coerceIn(0f, 1f)
+                val categoryColor = getCategoryColor(category, isDarkTheme)
                 
-                // If there are more categories, draw the "Others" slice
-                val shownTotal = sortedDistribution.sumOf { it.value }
-                if (shownTotal < total) {
-                    val sweepAngle = ((total - shownTotal) / total * 360f).toFloat()
-                    drawArc(
-                        color = if (isDarkTheme) CategoryOthersDark else CategoryOthers,
-                        startAngle = startAngle,
-                        sweepAngle = sweepAngle,
-                        useCenter = true,
-                        size = Size(size.width, size.height)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(20.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                sortedDistribution.forEach { entry ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxHeight().weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(categoryColor.copy(alpha = 0.15f))
+                            .border(
+                                width = 1.dp,
+                                color = categoryColor.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Box(
-                            Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(getCategoryColor(entry.key, isDarkTheme))
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(barHeightFraction)
+                                .background(categoryColor)
+                                .align(Alignment.BottomCenter)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            entry.key.displayName,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-                
-                val shownTotal = sortedDistribution.sumOf { it.value }
-                if (shownTotal < total) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (isDarkTheme) CategoryOthersDark else CategoryOthers)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Others",
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(
+                                        constraints.copy(
+                                            minWidth = constraints.minHeight,
+                                            maxWidth = constraints.maxHeight,
+                                            minHeight = constraints.minWidth,
+                                            maxHeight = constraints.maxWidth
+                                        )
+                                    )
+                                    layout(placeable.height, placeable.width) {
+                                        placeable.placeWithLayer(
+                                            x = (placeable.height - placeable.width) / 2,
+                                            y = (placeable.width - placeable.height) / 2
+                                        ) {
+                                            rotationZ = -90f
+                                        }
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = if (amount >= 1000) String.format(Locale.US, "%.1fK", amount/1000) else amount.toInt().toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = category.displayName.uppercase(),
+                                color = Color.White,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Visible
+                            )
+                        }
                     }
                 }
             }
         }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Categories",
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            fontSize = 10.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
     }
 }
 

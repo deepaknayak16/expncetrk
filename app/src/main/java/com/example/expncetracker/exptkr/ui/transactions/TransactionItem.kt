@@ -2,6 +2,7 @@ package com.example.expncetracker.exptkr.ui.transactions
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
@@ -25,6 +26,75 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
+
+@Composable
+fun TransactionListItem(transaction: Transaction) {
+    val isDarkTheme = MaterialTheme.isDark
+    val (icon, color) = getTransactionStyle(transaction.category, isDarkTheme)
+    val isExpense = transaction.type == TransactionType.DEBIT
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background // Solid background to prevent overlap with swipe content
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Circular Icon
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                color = color
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Merchant and Account Info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = transaction.merchant,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (transaction.bankName.contains("Card", ignoreCase = true)) Icons.Default.CreditCard else Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = transaction.bankName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            // Amount
+            Text(
+                text = (if (isExpense) "-" else "+") + transaction.amount.formatAsCurrency(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isExpense) Color(0xFFEF4444) else Color(0xFF10B981)
+            )
+        }
+    }
+}
 
 @Composable
 fun TransactionItemImproved(transaction: Transaction) {

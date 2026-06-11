@@ -5,7 +5,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -43,6 +41,7 @@ import com.example.expncetracker.exptkr.ui.budget.BudgetScreen
 import com.example.expncetracker.exptkr.ui.budget.BudgetViewModel
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsScreen
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsViewModel
+import com.example.expncetracker.exptkr.ui.accounts.AccountsScreen
 import com.example.expncetracker.exptkr.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +52,6 @@ fun AppNavGraph() {
     val currentRoute = navBackStackEntry.value?.destination?.route
     val isDarkTheme = MaterialTheme.isDark
 
-    // Hide bottom bar on add transaction screen
     val showBottomBar = currentRoute != "add_transaction"
 
     Scaffold(
@@ -67,8 +65,10 @@ fun AppNavGraph() {
                 exit = slideOutVertically(targetOffsetY = { -it })
             ) {
                 ModernTopAppBar(
-                    title = "MoneyWise",
+                    title = if (currentRoute == "transactions") "Statement Ledger" else "MoneyWise",
                     showSearch = currentRoute == "transactions",
+                    showBack = currentRoute == "transactions",
+                    onBackClick = { navController.popBackStack() },
                     onSearchClick = {
                         if (currentRoute != "transactions") {
                             navController.navigate("transactions")
@@ -86,8 +86,7 @@ fun AppNavGraph() {
             ) {
                 ModernNavigationBar(
                     navController = navController,
-                    currentRoute = currentRoute,
-                    isDarkTheme = isDarkTheme
+                    currentRoute = currentRoute
                 )
             }
         },
@@ -98,8 +97,7 @@ fun AppNavGraph() {
                 exit = slideOutVertically(targetOffsetY = { it })
             ) {
                 ModernFab(
-                    onClick = { navController.navigate("add_transaction") },
-                    isDarkTheme = isDarkTheme
+                    onClick = { navController.navigate("add_transaction") }
                 )
             }
         }
@@ -111,13 +109,23 @@ fun AppNavGraph() {
         ) {
             composable("dashboard") {
                 val vm: DashboardViewModel = hiltViewModel()
-                DashboardScreen(vm, onNavigateToAddTransaction = {
-                    navController.navigate("add_transaction")
-                })
+                DashboardScreen(
+                    viewModel = vm,
+                    onNavigateToAddTransaction = {
+                        navController.navigate("add_transaction")
+                    },
+                    onNavigateToStatementLedger = {
+                        navController.navigate("transactions")
+                    }
+                )
             }
             composable("transactions") {
                 val vm: TransactionViewModel = hiltViewModel()
                 TransactionScreen(vm)
+            }
+            composable("accounts") {
+                val vm: DashboardViewModel = hiltViewModel()
+                AccountsScreen(vm)
             }
             composable("settings") {
                 val vm: SettingsViewModel = hiltViewModel()
@@ -138,11 +146,12 @@ fun AppNavGraph() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ModernTopAppBar(
     title: String,
     showSearch: Boolean = false,
+    showBack: Boolean = false,
+    onBackClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     isDarkTheme: Boolean
 ) {
@@ -152,16 +161,29 @@ private fun ModernTopAppBar(
         shadowElevation = 0.dp,
         tonalElevation = 2.dp
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Logo/Title with gradient
+        Row(
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.statusBars) // Added status bar padding to prevent overlap
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showBack) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier.padding(end = 12.dp).size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -174,48 +196,46 @@ private fun ModernTopAppBar(
                         )
                     )
                 )
+            }
 
-                if (showSearch) {
-                    IconButton(
-                        onClick = onSearchClick,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                } else {
-                    // Notification bell or profile icon
+            if (showSearch) {
+                IconButton(
+                    onClick = onSearchClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "Notifications",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable { },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        // Notification dot
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .align(Alignment.TopEnd)
-                                .offset(x = 4.dp, y = (-4).dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.error)
-                        )
-                    }
+                            .size(8.dp)
+                            .align(Alignment.TopEnd)
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error)
+                    )
                 }
             }
         }
@@ -225,14 +245,13 @@ private fun ModernTopAppBar(
 @Composable
 private fun ModernNavigationBar(
     navController: androidx.navigation.NavHostController,
-    currentRoute: String?,
-    isDarkTheme: Boolean
+    currentRoute: String?
 ) {
     val items = listOf(
         NavigationItem("dashboard", "Home", Icons.Default.Home, Icons.Outlined.Home),
         NavigationItem("analytics", "Analytics", Icons.Default.BarChart, Icons.Outlined.BarChart),
-        NavigationItem("transactions", "Ledger", Icons.AutoMirrored.Filled.ListAlt, Icons.AutoMirrored.Outlined.List),
-        NavigationItem("budget", "Budget", Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
+        NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
+        NavigationItem("budget", "Budgets", Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
         NavigationItem("settings", "Settings", Icons.Default.Settings, Icons.Outlined.Settings)
     )
 
@@ -288,8 +307,7 @@ data class NavigationItem(
 
 @Composable
 private fun ModernFab(
-    onClick: () -> Unit,
-    isDarkTheme: Boolean
+    onClick: () -> Unit
 ) {
     ExtendedFloatingActionButton(
         onClick = onClick,
