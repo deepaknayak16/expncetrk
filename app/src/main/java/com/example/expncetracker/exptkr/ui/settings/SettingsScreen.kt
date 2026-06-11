@@ -1,5 +1,6 @@
 package com.example.expncetracker.exptkr.ui.settings
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,11 +34,13 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val uiState = viewModel.uiState.collectAsState().value
     val isDarkTheme = MaterialTheme.isDark
 
-    // Google account picker launcher
-    val accountPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { _ ->
-        // Handle account selection result
+    // Google sign-in launcher
+    val signInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.handleSignInResult(result.data)
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -138,7 +141,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 )
             } else {
                 Button(
-                    onClick = { viewModel.signInToGoogle() },
+                    onClick = { signInLauncher.launch(viewModel.getSignInIntent()) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(

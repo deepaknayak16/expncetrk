@@ -6,28 +6,28 @@ import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 
 class IciciParser : BankParser {
-    private val amountPattern = "(?:Rs|INR|Amt|Amount)\\.?\\s*([0-9,.]+)"
-    private val debitKeywords = "(?:debited|spent|withdrawn|transferred|paid|payment|sent)"
-    private val creditKeywords = "(?:credited|deposited|received|added)"
+    companion object {
+        private val AMOUNT_REGEX = "(?:Rs|INR|Amt|Amount)\\.?\\s*([0-9,.]+)".toRegex(RegexOption.IGNORE_CASE)
+        private val DEBIT_REGEX = "(?:debited|spent|withdrawn|transferred|paid|payment|sent)".toRegex(RegexOption.IGNORE_CASE)
+        private val CREDIT_REGEX = "(?:credited|deposited|received|added)".toRegex(RegexOption.IGNORE_CASE)
+        private val MERCHANT_REGEX = "(?:to|at|Info:?|VPA[:/])\\s*([^.]+?)(?:Ref|RefNo|\\.|\$|on )".toRegex(RegexOption.IGNORE_CASE)
+    }
 
     override fun parse(smsBody: String, timestamp: Long): ParsedSms? {
         val time = timestamp.toLocalDateTime()
         val cleanBody = smsBody.replace("\n", " ")
 
-        if (cleanBody.contains(debitKeywords.toRegex(RegexOption.IGNORE_CASE))) {
-            amountPattern.toRegex(RegexOption.IGNORE_CASE).find(cleanBody)?.let { match ->
-                val amt = match.groupValues[1].replace(",", "").toDoubleOrNull() ?: return@let
-                return ParsedSms(amt, TransactionType.DEBIT, "ICICI Debit", "ICICI", time)
-            }
-        }
+        val isDebit = DEBIT_REGEX.containsMatchIn(cleanBody)
+        val isCredit = CREDIT_REGEX.containsMatchIn(cleanBody)
+
+        if (!isDebit && !isCredit) return null
+
+        val amountMatch = AMOUNT_REGEX.find(cleanBody) ?: return null
+        val amount = amountMatch.groupValues[1].replace(",", "").toDoubleOrNull() ?: return null
         
-        if (cleanBody.contains(creditKeywords.toRegex(RegexOption.IGNORE_CASE))) {
-            amountPattern.toRegex(RegexOption.IGNORE_CASE).find(cleanBody)?.let { match ->
-                val amt = match.groupValues[1].replace(",", "").toDoubleOrNull() ?: return@let
-                return ParsedSms(amt, TransactionType.CREDIT, "ICICI Credit", "ICICI", time)
-            }
-        }
-        
-        return null
+        val type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT
+        val merchant = MERCHANT_REGEX.find(cleanBody)?.groupValues?.get(1)?.trim() ?: if (isDebit) "ICICI Debit" else "ICICI Credit"
+
+        return ParsedSms(amount, type, merchant, "ICICI", time)
     }
 }

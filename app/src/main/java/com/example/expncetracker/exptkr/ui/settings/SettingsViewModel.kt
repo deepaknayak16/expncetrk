@@ -4,12 +4,14 @@ import android.app.Activity
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Intent
 import com.example.expncetracker.exptkr.domain.usecase.ExportBackupUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportBackupUseCase
 import com.example.expncetracker.exptkr.domain.usecase.LoadSampleDataUseCase
 import com.example.expncetracker.exptkr.domain.usecase.RestoreBackupFromGoogleDriveUseCase
 import com.example.expncetracker.exptkr.domain.usecase.SyncBackupToGoogleDriveUseCase
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,7 +27,8 @@ class SettingsViewModel @Inject constructor(
     private val exportBackupUseCase: ExportBackupUseCase,
     private val importBackupUseCase: ImportBackupUseCase,
     private val syncBackupToGoogleDriveUseCase: SyncBackupToGoogleDriveUseCase,
-    private val restoreBackupFromGoogleDriveUseCase: RestoreBackupFromGoogleDriveUseCase
+    private val restoreBackupFromGoogleDriveUseCase: RestoreBackupFromGoogleDriveUseCase,
+    private val googleSignInClient: GoogleSignInClient
 ) : ViewModel() {
 
     private val _statusEvent = MutableSharedFlow<String>()
@@ -33,6 +36,20 @@ class SettingsViewModel @Inject constructor(
     
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
+
+    init {
+        checkLastSignedInAccount()
+    }
+
+    private fun checkLastSignedInAccount() {
+        val account = GoogleSignIn.getLastSignedInAccount(googleSignInClient.applicationContext)
+        if (account != null) {
+            _uiState.value = _uiState.value.copy(
+                isSignedIn = true,
+                accountName = account.email
+            )
+        }
+    }
 
     fun loadMockData() {
         viewModelScope.launch {
@@ -58,20 +75,27 @@ class SettingsViewModel @Inject constructor(
         }
     }
     
-    fun signInToGoogle() {
+    fun getSignInIntent(): Intent {
+        return googleSignInClient.signInIntent
+    }
+
+    fun handleSignInResult(data: Intent?) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                // In a real implementation, this would trigger the Google Sign-In flow
-                // For now, we'll simulate a successful sign-in
-                // The actual implementation would require an Activity context
-                _uiState.value = _uiState.value.copy(
-                    isSignedIn = true,
-                    accountName = "user@gmail.com", // This would come from Google Sign-In result
-                    isLoading = false
-                )
-                //Launch real Google Sign-In flow here
-                _statusEvent.emit("Signed in to Google successfully")
+                val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+                val account = task.getResult(Exception::class.java)
+                
+                if (account != null) {
+                    _uiState.value = _uiState.value.copy(
+                        isSignedIn = true,
+                        accountName = account.email,
+                        isLoading = false
+                    )
+                    _statusEvent.emit("Signed in to Google successfully")
+                } else {
+                    throw Exception("Account was null")
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
                 _statusEvent.emit("Sign in failed: ${e.message}")
@@ -129,11 +153,15 @@ class SettingsViewModel @Inject constructor(
     
     fun signOutFromGoogle() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isSignedIn = false,
-                accountName = null
-            )
-            _statusEvent.emit("Signed out from Google")
+            googleSignInClient.signOut().addOnCompleteListener {
+                _uiState.value = _uiState.value.copy(
+                    isSignedIn = false,
+                    accountName = null
+                )
+                viewModelScope.launch {
+                    _statusEvent.emit("Signed out from Google")
+                }
+            }
         }
     }
 }

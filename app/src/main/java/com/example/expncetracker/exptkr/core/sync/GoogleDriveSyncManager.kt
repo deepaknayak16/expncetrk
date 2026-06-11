@@ -6,6 +6,8 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -39,8 +41,8 @@ class GoogleDriveSyncManager(private val context: Context) {
      * @param backupFile The local backup file to upload.
      * @return The ID of the uploaded file on Google Drive, or null if failed.
      */
-    suspend fun uploadBackup(backupFile: File): String? {
-        return try {
+    suspend fun uploadBackup(backupFile: File): String? = withContext(Dispatchers.IO) {
+        try {
             val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
 
             // Check if file already exists
@@ -81,8 +83,8 @@ class GoogleDriveSyncManager(private val context: Context) {
      * @param destinationFile The local file to save the backup to.
      * @return True if download was successful, false otherwise.
      */
-    suspend fun downloadBackup(destinationFile: File): Boolean {
-        return try {
+    suspend fun downloadBackup(destinationFile: File): Boolean = withContext(Dispatchers.IO) {
+        try {
             val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
 
             val fileId = findExistingBackupFile()

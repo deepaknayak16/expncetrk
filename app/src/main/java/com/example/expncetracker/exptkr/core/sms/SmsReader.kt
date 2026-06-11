@@ -65,7 +65,7 @@ class SmsReader @Inject constructor(
                             body.uppercase().contains(prefix.uppercase())
                         }
 
-                        val isBank = isBankBySender || isBankByBody
+                        val isBank = isBankBySender //|| isBankByBody
 
                         android.util.Log.d("SmsReader", "Is Bank: $isBank")
 

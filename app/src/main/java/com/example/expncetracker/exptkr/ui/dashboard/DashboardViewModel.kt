@@ -28,7 +28,10 @@ class DashboardViewModel @Inject constructor(
         _selectedFilter.flatMapLatest { getSummaryUseCase(it) },
         getRecentTransactionsUseCase(10)
     ) { summary, recent ->
-        DashboardUiState.Success(summary, recent)
+        DashboardUiState.Success(summary, recent) as DashboardUiState
+    }
+    .catch { e ->
+        emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
