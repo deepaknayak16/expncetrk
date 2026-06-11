@@ -70,6 +70,7 @@ class SettingsViewModel @Inject constructor(
                     accountName = "user@gmail.com", // This would come from Google Sign-In result
                     isLoading = false
                 )
+                //Launch real Google Sign-In flow here
                 _statusEvent.emit("Signed in to Google successfully")
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)

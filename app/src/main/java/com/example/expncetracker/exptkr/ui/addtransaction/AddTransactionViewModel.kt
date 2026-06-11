@@ -36,7 +36,7 @@ class AddTransactionViewModel @Inject constructor(
             
             val transaction = Transaction(
                 id = 0,
-                smsId = System.currentTimeMillis(), // Temporary ID for manual entries
+                smsId = null, // Temporary ID for manual entries must not claim an smsId
                 amount = amount,
                 type = type,
                 category = categoryEnum,
