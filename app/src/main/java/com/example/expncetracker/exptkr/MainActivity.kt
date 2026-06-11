@@ -9,13 +9,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
+import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
 import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
@@ -23,9 +21,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

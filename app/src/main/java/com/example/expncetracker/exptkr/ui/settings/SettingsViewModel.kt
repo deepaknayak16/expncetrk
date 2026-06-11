@@ -2,14 +2,12 @@ package com.example.expncetracker.exptkr.ui.settings
 
 import android.app.Activity
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Intent
+import androidx.datastore.preferences.core.edit
+import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
+import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.domain.usecase.ExportBackupUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportBackupUseCase
 import com.example.expncetracker.exptkr.domain.usecase.LoadSampleDataUseCase
@@ -26,9 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
