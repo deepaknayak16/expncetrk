@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -118,13 +119,19 @@ fun BudgetItem(budget: BudgetUiModel) {
             
             Spacer(Modifier.height(12.dp))
             
+            val progressColor = when {
+                budget.progress < 0.7f -> LightIncome
+                budget.progress < 0.9f -> Color(0xFFFFA500) // Orange
+                else -> MaterialTheme.colorScheme.error
+            }
+
             LinearProgressIndicator(
                 progress = { budget.progress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(5.dp)),
-                color = if (budget.progress > 0.9f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                color = progressColor,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
             

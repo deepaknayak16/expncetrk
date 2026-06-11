@@ -95,6 +95,9 @@ dependencies {
     implementation(libs.vico.compose.m3)
     implementation(libs.vico.core)
 
+    // Lottie
+    implementation(libs.lottie.compose)
+
     // Testing platforms
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

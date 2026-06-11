@@ -36,6 +36,11 @@ import com.example.expncetracker.exptkr.ui.components.StatItem
 import com.example.expncetracker.exptkr.ui.components.SectionHeader
 import com.example.expncetracker.exptkr.ui.components.EmptyState
 import com.example.expncetracker.exptkr.ui.theme.*
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 
 @Composable
 fun DashboardScreen(
@@ -116,6 +121,34 @@ fun DashboardContent(
 
         item {
             TimeFilterRow(currentFilter, onFilterChange)
+        }
+
+        item {
+            Text(
+                text = "Spending Trend",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            val modelProducer = remember { CartesianChartModelProducer() }
+            LaunchedEffect(summary.categoryDistribution) {
+                modelProducer.runTransaction {
+                    lineSeries {
+                        series(summary.categoryDistribution.values.map { it.toFloat() }.ifEmpty { listOf(0f) })
+                    }
+                }
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                CartesianChartHost(
+                    chart = rememberCartesianChart(rememberLineCartesianLayer()),
+                    modelProducer = modelProducer,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
         }
 
         item {

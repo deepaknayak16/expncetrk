@@ -39,6 +39,10 @@ import com.example.expncetracker.exptkr.ui.settings.SettingsViewModel
 import com.example.expncetracker.exptkr.ui.transactions.TransactionScreen
 import com.example.expncetracker.exptkr.ui.transactions.TransactionViewModel
 import com.example.expncetracker.exptkr.ui.addtransaction.AddTransactionScreen
+import com.example.expncetracker.exptkr.ui.budget.BudgetScreen
+import com.example.expncetracker.exptkr.ui.budget.BudgetViewModel
+import com.example.expncetracker.exptkr.ui.analytics.AnalyticsScreen
+import com.example.expncetracker.exptkr.ui.analytics.AnalyticsViewModel
 import com.example.expncetracker.exptkr.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,14 +124,12 @@ fun AppNavGraph() {
                 SettingsScreen(vm)
             }
             composable("analytics") {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Analytics Screen (Coming Soon)")
-                }
+                val vm: AnalyticsViewModel = hiltViewModel()
+                AnalyticsScreen(vm)
             }
             composable("budget") {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Budget Screen (Coming Soon)")
-                }
+                val vm: BudgetViewModel = hiltViewModel()
+                BudgetScreen(vm)
             }
             composable("add_transaction") {
                 AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
@@ -244,14 +246,12 @@ private fun ModernNavigationBar(
             NavigationBarItem(
                 selected = isSelected,
                 onClick = {
-                    if (item.route != "analytics" && item.route != "budget") {
-                        navController.navigate(item.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+                    navController.navigate(item.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
                         }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 icon = {
@@ -291,37 +291,12 @@ private fun ModernFab(
     onClick: () -> Unit,
     isDarkTheme: Boolean
 ) {
-    Surface(
-        modifier = Modifier
-            .size(64.dp)
-            .shadow(
-                elevation = 16.dp,
-                shape = CircleShape,
-                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-            ),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "Add Transaction",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-    }
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = RoundedCornerShape(16.dp),
+        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+        text = { Text("Add Expense") }
+    )
 }

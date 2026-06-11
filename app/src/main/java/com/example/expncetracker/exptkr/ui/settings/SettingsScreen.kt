@@ -174,17 +174,30 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             )
             
             SettingsPreferenceItem(
-                label = "Backup Locally",
-                subtitle = "Export data to device storage",
+                label = "Backup to Cloud",
+                subtitle = if (uiState.lastSyncTime != null) "Last synced: ${uiState.lastSyncTime}" else "Sync your data to Google Drive",
                 icon = Icons.Default.CloudUpload,
-                onClick = { viewModel.exportBackup() }
+                onClick = { viewModel.syncToGoogleDrive() }
             )
             Spacer(Modifier.height(8.dp))
             SettingsPreferenceItem(
-                label = "Restore Locally",
-                subtitle = "Import from device storage",
+                label = "Restore from Cloud",
+                subtitle = "Import data from your Google Drive",
                 icon = Icons.Default.CloudDownload,
-                onClick = { viewModel.importBackup() }
+                onClick = { viewModel.restoreFromGoogleDrive() }
+            )
+            Spacer(Modifier.height(8.dp))
+            SettingsPreferenceItem(
+                label = "Dark Mode",
+                subtitle = if (uiState.isDarkMode) "Enabled" else "Disabled",
+                icon = if (uiState.isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                trailingContent = {
+                    Switch(
+                        checked = uiState.isDarkMode,
+                        onCheckedChange = { /* viewModel.toggleDarkMode(it) */ }
+                    )
+                },
+                onClick = { /* viewModel.toggleDarkMode(!uiState.isDarkMode) */ }
             )
             Spacer(Modifier.height(16.dp))
             
