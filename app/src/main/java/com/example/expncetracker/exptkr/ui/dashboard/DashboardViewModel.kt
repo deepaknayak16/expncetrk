@@ -3,9 +3,12 @@ package com.example.expncetracker.exptkr.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
+import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
+import com.example.expncetracker.exptkr.domain.usecase.GetTransactionsUseCase
+import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,7 +18,8 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val getSummaryUseCase: GetSummaryUseCase,
     private val getRecentTransactionsUseCase: GetRecentTransactionsUseCase,
-    private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase
+    private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
+    private val getTrendsUseCase: GetTrendsUseCase
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -34,6 +38,10 @@ class DashboardViewModel @Inject constructor(
         emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
+
+    val trends: StateFlow<List<SpendingTrend>> = _selectedFilter.flatMapLatest {
+        getTrendsUseCase(6)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun syncTransactions() {
         viewModelScope.launch {

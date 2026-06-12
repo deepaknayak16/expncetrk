@@ -1,18 +1,19 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
-import androidx.compose.foundation.BorderStroke
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,16 +22,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
-import com.example.expncetracker.exptkr.ui.theme.*
-import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.*
+
+// Specific colors to match the image
+private val CalculatorBg = Color(0xFFFEFBEA)
+private val CalculatorGreen = Color(0xFF2D5D4E)
+private val CalculatorGreenLight = Color(0xFF6E9185)
+private val ButtonBorder = Color(0xFFB4C4BD)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,397 +49,483 @@ fun AddTransactionScreen(
     onNavigateBack: () -> Unit,
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
-    var amount by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("0") }
+    var note by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
-    var selectedCategory by remember { mutableStateOf<CategoryData>(CategoryData.Shopping) }
-    
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
-    var showDatePicker by remember { mutableStateOf(false) }
-    val dateFormatter = remember { SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()) }
+    var selectedCategory by remember { mutableStateOf(Category.SHOPPING) }
+    var selectedAccount by remember { mutableStateOf("Card") }
+    var transactionDate by remember { mutableStateOf(LocalDateTime.now()) }
 
-    val isDarkTheme = MaterialTheme.isDark
-    
-    val isAmountValid = remember(amount) {
-        amount.isBlank() || amount.toDoubleOrNull() != null
+    val context = LocalContext.current
+    val locale = Locale.getDefault()
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("MMM dd, yyyy", locale) }
+    val timeFormatter = remember(locale) { DateTimeFormatter.ofPattern("h:mm a", locale) }
+
+    val datePickerDialog = remember {
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                transactionDate = LocalDateTime.of(
+                    LocalDate.of(year, month + 1, dayOfMonth),
+                    transactionDate.toLocalTime()
+                )
+            },
+            transactionDate.year,
+            transactionDate.monthValue - 1,
+            transactionDate.dayOfMonth
+        )
     }
-    
-    val categories = listOf(
-        CategoryData.Shopping,
-        CategoryData.Food,
-        CategoryData.Transport,
-        CategoryData.Entertainment,
-        CategoryData.Bills,
-        CategoryData.Salary,
-        CategoryData.Investment,
-        CategoryData.Travel,
-        CategoryData.Others
-    )
-    
+
+    val timePickerDialog = remember {
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                transactionDate = LocalDateTime.of(
+                    transactionDate.toLocalDate(),
+                    LocalTime.of(hourOfDay, minute)
+                )
+            },
+            transactionDate.hour,
+            transactionDate.minute,
+            false
+        )
+    }
+
+    var showCategorySheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 16.dp, bottom = 32.dp)
+            .background(CalculatorBg)
+            .statusBarsPadding()
+            .padding(top = 16.dp)
     ) {
-        // Header
+        // Top Bar
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onNavigateBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Text(
-                text = "Add Transaction",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // Amount Input Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                Text(
-                    "Amount",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { input ->
-                        if (input.isEmpty() || input.matches(Regex("""^\d*\.?\d{0,2}$"""))) {
-                            amount = input
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = !isAmountValid,
-                    placeholder = { 
-                        Text(
-                            "₹0.00",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                    },
-                    supportingText = {
-                        if (!isAmountValid) {
-                            Text("Please enter a valid amount")
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.AttachMoney,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Date Selection
-        Text(
-            "Date",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showDatePicker = true },
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.clickable { onNavigateBack() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = dateFormatter.format(Date(datePickerState.selectedDateMillis ?: System.currentTimeMillis())),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 15.sp
-                )
+                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = CalculatorGreen, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("CANCEL", color = CalculatorGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
-        }
-        
-        if (showDatePicker) {
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("OK")
+
+            Row(
+                modifier = Modifier.clickable {
+                    val amount = amountText.toDoubleOrNull() ?: 0.0
+                    if (amount > 0) {
+                        viewModel.addTransaction(
+                            amount = amount,
+                            type = selectedType,
+                            category = selectedCategory.name,
+                            description = note.ifBlank { null },
+                            timestamp = transactionDate
+                        )
+                        onNavigateBack()
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("Cancel")
-                    }
-                }
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                DatePicker(state = datePickerState)
+                Icon(Icons.Default.Check, contentDescription = "Save", tint = CalculatorGreen, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("SAVE", color = CalculatorGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Type Selection
-        Text(
-            "Transaction Type",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(12.dp))
+
+        Spacer(Modifier.height(24.dp))
+
+        // Transaction Type Selector
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val expenseColor = if (isDarkTheme) DarkExpense else LightExpense
-            val incomeColor = if (isDarkTheme) DarkIncome else LightIncome
-            
-            TransactionType.values().forEach { type ->
-                val isSelected = selectedType == type
-                val buttonColor = when {
-                    isSelected && type == TransactionType.CREDIT -> incomeColor
-                    isSelected && type == TransactionType.DEBIT -> expenseColor
-                    else -> MaterialTheme.colorScheme.surface
-                }
-                
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp)
-                        .clickable { selectedType = type },
-                    shape = RoundedCornerShape(14.dp),
-                    color = buttonColor,
-                    border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
-                    shadowElevation = if (isSelected) 4.dp else 0.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = if (type == TransactionType.CREDIT) Icons.Default.Add else Icons.Default.Remove,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (type == TransactionType.DEBIT) "Expense" else "Income",
-                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 15.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
+            TypeTab("INCOME", selectedType == TransactionType.CREDIT) { selectedType = TransactionType.CREDIT }
+            Text("|", color = ButtonBorder, modifier = Modifier.padding(horizontal = 8.dp))
+            TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { selectedType = TransactionType.DEBIT }
+            Text("|", color = ButtonBorder, modifier = Modifier.padding(horizontal = 8.dp))
+            TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { selectedType = TransactionType.TRANSFER }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Category Selection
-        Text(
-            "Category",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(categories.size) { index ->
-                val category = categories[index]
-                val isSelected = selectedCategory == category
-                
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { selectedCategory = category },
-                    label = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = category.icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) Color.White else getCategoryColor(category, isDarkTheme)
-                            )
-                            Text(category.name)
-                        }
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
-                        selectedLabelColor = Color.White,
-                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    shape = RoundedCornerShape(20.dp)
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Description Input Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                Text(
-                    "Description (Optional)",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp),
-                    placeholder = { 
-                        Text(
-                            "Enter details...",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Description,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    maxLines = 3
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // Save Button
-        Button(
-            onClick = {
-                val parsedAmount = amount.toDoubleOrNull()
-                if (parsedAmount != null && parsedAmount > 0) {
-                    viewModel.addTransaction(
-                        amount = parsedAmount,
-                        type = selectedType,
-                        category = selectedCategory.category.name,
-                        description = description.ifBlank { null }
-                    )
-                    onNavigateBack()
-                }
-            },
+
+        Spacer(Modifier.height(16.dp))
+
+        // Account and Category Selectors
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                disabledContainerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-            ),
-            shape = RoundedCornerShape(16.dp),
-            enabled = amount.isNotBlank() && isAmountValid && (amount.toDoubleOrNull() ?: 0.0) > 0
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
+            SelectorItem(
+                label = "Account",
+                value = selectedAccount,
+                icon = Icons.Default.CreditCard,
+                modifier = Modifier.weight(1f)
+            ) { /* Show Account Picker */ }
+            
+            SelectorItem(
+                label = "Category",
+                value = selectedCategory.displayName,
+                icon = getCategoryIcon(selectedCategory),
+                modifier = Modifier.weight(1f)
+            ) { showCategorySheet = true }
+        }
+
+        if (showCategorySheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showCategorySheet = false },
+                sheetState = sheetState,
+                containerColor = CalculatorBg
+            ) {
+                CategoryGrid(
+                    onCategorySelected = {
+                        selectedCategory = it
+                        showCategorySheet = false
+                    }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Amount Display
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .border(1.dp, ButtonBorder, RoundedCornerShape(4.dp))
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(Modifier.width(48.dp)) // To center the amount
             Text(
-                text = "Save Transaction",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
+                text = amountText,
+                style = TextStyle(
+                    fontSize = 48.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = CalculatorGreen,
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = {
+                if (amountText.length > 1) {
+                    amountText = amountText.dropLast(1)
+                } else {
+                    amountText = "0"
+                }
+            }) {
+                Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = CalculatorGreen, modifier = Modifier.size(32.dp))
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Note Field (making this scrollable and flexible)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.4f)
+                .padding(horizontal = 12.dp)
+                .border(1.dp, ButtonBorder, RoundedCornerShape(4.dp))
+                .padding(8.dp)
+        ) {
+            BasicTextField(
+                value = note,
+                onValueChange = { note = it },
+                textStyle = TextStyle(fontSize = 16.sp, color = CalculatorGreen),
+                modifier = Modifier.fillMaxSize(),
+                decorationBox = { innerTextField ->
+                    if (note.isEmpty()) {
+                        Text("note...", color = CalculatorGreen.copy(alpha = 0.5f), fontSize = 16.sp)
+                    }
+                    innerTextField()
+                }
             )
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(Modifier.height(8.dp))
+
+        // Calculator Keypad (Giving more weight to keypad)
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            CalculatorKeypad(
+                onDigitClick = { digit ->
+                    if (amountText == "0") {
+                        amountText = digit
+                    } else if (amountText.length < 12) {
+                        amountText += digit
+                    }
+                },
+                onOperatorClick = { op ->
+                    if (!amountText.endsWith("+") && !amountText.endsWith("-") && 
+                        !amountText.endsWith("*") && !amountText.endsWith("/")) {
+                        amountText += op
+                    }
+                },
+                onDecimalClick = {
+                    if (!amountText.contains(".")) {
+                        amountText += "."
+                    }
+                },
+                onEqualsClick = {
+                    try {
+                        val result = evaluate(amountText)
+                        amountText = if (result % 1.0 == 0.0) result.toInt().toString() else "%.2f".format(result)
+                    } catch (_: Exception) {
+                    }
+                }
+            )
+        }
+
+        // Bottom Date/Time bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CalculatorBg)
+                .border(1.dp, ButtonBorder)
+                .navigationBarsPadding()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = transactionDate.format(dateFormatter),
+                color = CalculatorGreen,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { datePickerDialog.show() }
+            )
+            Box(modifier = Modifier.width(1.dp).height(24.dp).background(ButtonBorder))
+            Text(
+                text = transactionDate.format(timeFormatter),
+                color = CalculatorGreen,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { timePickerDialog.show() }
+            )
+        }
     }
 }
 
-// Category data class with icons
-sealed class CategoryData(val category: Category, val icon: ImageVector) {
-    val name: String get() = category.displayName
-
-    object Shopping : CategoryData(Category.SHOPPING, Icons.Default.ShoppingCart)
-    object Food : CategoryData(Category.FOOD, Icons.Default.Restaurant)
-    object Transport : CategoryData(Category.CABS, Icons.Default.DirectionsCar)
-    object Entertainment : CategoryData(Category.ENTERTAINMENT, Icons.Default.LiveTv)
-    object Bills : CategoryData(Category.BILLS, Icons.Default.Receipt)
-    object Salary : CategoryData(Category.SALARY, Icons.Default.Payments)
-    object Investment : CategoryData(Category.INVESTMENTS, Icons.Default.TrendingUp)
-    object Travel : CategoryData(Category.TRAVEL, Icons.Default.Flight)
-    object Others : CategoryData(Category.OTHERS, Icons.Default.MoreHoriz)
+@Composable
+fun TypeTab(label: String, isSelected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(CalculatorGreen),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+            }
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(
+            text = label,
+            color = if (isSelected) CalculatorGreen else CalculatorGreenLight,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp
+        )
+    }
 }
 
-fun getCategoryColor(category: CategoryData, isDarkTheme: Boolean): Color {
-    return com.example.expncetracker.exptkr.ui.dashboard.getCategoryColor(category.category, isDarkTheme)
+@Composable
+fun SelectorItem(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            color = CalculatorGreenLight,
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, ButtonBorder, RoundedCornerShape(4.dp))
+                .clickable { onClick() }
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(0.5.dp, ButtonBorder, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(value, color = CalculatorGreen, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        }
+    }
 }
+
+@Composable
+fun CalculatorKeypad(
+    onDigitClick: (String) -> Unit,
+    onOperatorClick: (String) -> Unit,
+    onDecimalClick: () -> Unit,
+    onEqualsClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        val rowModifier = Modifier.fillMaxWidth().weight(1f)
+        
+        Row(modifier = rowModifier) {
+            KeyButton("+", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("+") }
+            KeyButton("7", modifier = Modifier.weight(1f)) { onDigitClick("7") }
+            KeyButton("8", modifier = Modifier.weight(1f)) { onDigitClick("8") }
+            KeyButton("9", modifier = Modifier.weight(1f)) { onDigitClick("9") }
+        }
+        Row(modifier = rowModifier) {
+            KeyButton("-", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("-") }
+            KeyButton("4", modifier = Modifier.weight(1f)) { onDigitClick("4") }
+            KeyButton("5", modifier = Modifier.weight(1f)) { onDigitClick("5") }
+            KeyButton("6", modifier = Modifier.weight(1f)) { onDigitClick("6") }
+        }
+        Row(modifier = rowModifier) {
+            KeyButton("×", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("*") }
+            KeyButton("1", modifier = Modifier.weight(1f)) { onDigitClick("1") }
+            KeyButton("2", modifier = Modifier.weight(1f)) { onDigitClick("2") }
+            KeyButton("3", modifier = Modifier.weight(1f)) { onDigitClick("3") }
+        }
+        Row(modifier = rowModifier) {
+            KeyButton("÷", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("/") }
+            KeyButton("0", modifier = Modifier.weight(1f)) { onDigitClick("0") }
+            KeyButton(".", modifier = Modifier.weight(1f)) { onDecimalClick() }
+            KeyButton("=", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onEqualsClick() }
+        }
+    }
+}
+
+@Composable
+fun RowScope.KeyButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    textColor: Color = CalculatorGreen,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .border(0.5.dp, ButtonBorder)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = TextStyle(
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+        )
+    }
+}
+
+private fun evaluate(expression: String): Double {
+    // Very basic evaluator for +, -, *, /
+    val operators = listOf('+', '-', '*', '/')
+    val opIndex = expression.indexOfAny(operators.toCharArray())
+    if (opIndex == -1) return expression.toDoubleOrNull() ?: 0.0
+    
+    val op = expression[opIndex]
+    val left = expression.substring(0, opIndex).toDoubleOrNull() ?: 0.0
+    val right = expression.substring(opIndex + 1).toDoubleOrNull() ?: 0.0
+    
+    return when (op) {
+        '+' -> left + right
+        '-' -> left - right
+        '*' -> left * right
+        '/' -> if (right != 0.0) left / right else 0.0
+        else -> left
+    }
+}
+
+@Composable
+fun CategoryGrid(onCategorySelected: (Category) -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        items(Category.entries) { category ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onCategorySelected(category) }
+                    .padding(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, ButtonBorder, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = getCategoryIcon(category),
+                        contentDescription = null,
+                        tint = Color(0xFF3B82F6),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = category.displayName,
+                    fontSize = 12.sp,
+                    color = CalculatorGreen,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+private fun getCategoryIcon(category: Category): ImageVector {
+    return when (category) {
+        Category.FOOD -> Icons.Default.Restaurant
+        Category.CABS -> Icons.Default.DirectionsCar
+        Category.RENT -> Icons.Default.HomeWork
+        Category.BILLS -> Icons.Default.Bolt
+        Category.SHOPPING -> Icons.Default.LocalMall
+        Category.SALARY -> Icons.Default.Payments
+        Category.INVESTMENTS -> Icons.AutoMirrored.Filled.TrendingUp
+        Category.TRAVEL -> Icons.Default.LocalAirport
+        Category.ENTERTAINMENT -> Icons.Default.LiveTv
+        Category.HEALTHCARE -> Icons.Default.Favorite
+        Category.EDUCATION -> Icons.Default.School
+        Category.GROCERIES -> Icons.Default.ShoppingCart
+        Category.OTHERS -> Icons.Default.GridView
+    }
+}
+

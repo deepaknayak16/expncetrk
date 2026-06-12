@@ -1,6 +1,5 @@
 package com.example.expncetracker.exptkr.ui.dashboard
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -58,6 +57,7 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val trends by viewModel.trends.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.syncTransactions()
@@ -90,6 +90,7 @@ fun DashboardScreen(
                     DashboardContent(
                         summary = state.summary,
                         recent = state.recentTransactions,
+                        trends = trends,
                         onNavigateToAddTransaction = onNavigateToAddTransaction,
                         onSeeAllClick = onNavigateToStatementLedger,
                         onFilterChange = { viewModel.setFilter(it) }
@@ -104,9 +105,10 @@ fun DashboardScreen(
 fun DashboardContent(
     summary: FinancialSummary,
     recent: List<Transaction>,
+    trends: List<com.example.expncetracker.exptkr.domain.model.SpendingTrend>,
     onNavigateToAddTransaction: () -> Unit,
     onSeeAllClick: () -> Unit,
-    onFilterChange: (DateFilter) -> Unit
+    onFilterChange: (DateFilter) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -151,10 +153,12 @@ fun DashboardContent(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             val modelProducer = remember { CartesianChartModelProducer() }
-            LaunchedEffect(summary.categoryDistribution) {
-                modelProducer.runTransaction {
-                    lineSeries {
-                        series(summary.categoryDistribution.values.map { it.toFloat() }.ifEmpty { listOf(0f) })
+            LaunchedEffect(trends) {
+                if (trends.isNotEmpty()) {
+                    modelProducer.runTransaction {
+                        lineSeries {
+                            series(trends.map { it.amount.toFloat() })
+                        }
                     }
                 }
             }
@@ -257,7 +261,12 @@ fun CompactSummaryHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { }) {
+                IconButton(onClick = {
+                    val newCal = calendar.clone() as Calendar
+                    newCal.add(Calendar.MONTH, -1)
+                    calendar.time = newCal.time
+                    onFilterChange(DateFilter.MONTH)
+                }) {
                     Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
                 }
 
@@ -269,10 +278,15 @@ fun CompactSummaryHeader(
                 )
 
                 Row {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = {
+                        val newCal = calendar.clone() as Calendar
+                        newCal.add(Calendar.MONTH, 1)
+                        calendar.time = newCal.time
+                        onFilterChange(DateFilter.MONTH)
+                    }) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = MaterialTheme.colorScheme.primary)
                     }
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = { /* filter dialog can be added later */}) {
                         Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -286,7 +300,9 @@ fun CompactSummaryHeader(
             ) {
                 SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), Color(0xFFEF4444))
                 SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), Color(0xFF10B981))
-                SummaryColumn("TOTAL", summary.balance.formatAsCurrency(), Color(0xFF10B981))
+                SummaryColumn("TOTAL", summary.balance.formatAsCurrency(),
+                    if (summary.balance >=0) Color(0xFF10B981) else
+                        Color(0xFFEF4444))
             }
         }
     }

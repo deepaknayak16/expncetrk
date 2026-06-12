@@ -27,6 +27,7 @@ import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.ui.dashboard.DashboardViewModel
 import com.example.expncetracker.exptkr.ui.dashboard.DashboardUiState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(viewModel: DashboardViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -34,12 +35,7 @@ fun AccountsScreen(viewModel: DashboardViewModel) {
 
     Scaffold(
         topBar = {
-            Text(
-                text = "Accounts",
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            TopAppBar(title = { Text("Accounts")})
         }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)) {

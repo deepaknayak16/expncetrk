@@ -18,7 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,7 +42,9 @@ import com.example.expncetracker.exptkr.ui.budget.BudgetViewModel
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsScreen
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsViewModel
 import com.example.expncetracker.exptkr.ui.accounts.AccountsScreen
+import com.example.expncetracker.exptkr.ui.categories.CategoriesScreen
 import com.example.expncetracker.exptkr.ui.theme.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,86 +53,115 @@ fun AppNavGraph() {
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry.value?.destination?.route
     val isDarkTheme = MaterialTheme.isDark
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     val showBottomBar = currentRoute != "add_transaction"
 
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        topBar = {
-            AnimatedVisibility(
-                visible = currentRoute != "add_transaction",
-                enter = slideInVertically(initialOffsetY = { -it }),
-                exit = slideOutVertically(targetOffsetY = { -it })
-            ) {
-                ModernTopAppBar(
-                    title = if (currentRoute == "transactions") "Statement Ledger" else "MoneyWise",
-                    showSearch = currentRoute == "transactions",
-                    showBack = currentRoute == "transactions",
-                    onBackClick = { navController.popBackStack() },
-                    onSearchClick = {
-                        if (currentRoute != "transactions") {
-                            navController.navigate("transactions")
-                        }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(Modifier.height(12.dp))
+                NavigationDrawerItem(
+                    label = { Text("Settings") },
+                    selected = currentRoute == "settings",
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate("settings")
                     },
-                    onAddClick = { navController.navigate("add_transaction") },
-                    isDarkTheme = isDarkTheme
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
-            }
-        },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = slideInVertically(initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it })
-            ) {
-                ModernNavigationBar(
-                    navController = navController,
-                    currentRoute = currentRoute
-                )
+                // Add more drawer items here if needed
             }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "dashboard",
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable("dashboard") {
-                val vm: DashboardViewModel = hiltViewModel()
-                DashboardScreen(
-                    viewModel = vm,
-                    onNavigateToAddTransaction = {
-                        navController.navigate("add_transaction")
-                    },
-                    onNavigateToStatementLedger = {
-                        navController.navigate("transactions")
-                    }
-                )
+    ) {
+        Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            topBar = {
+                AnimatedVisibility(
+                    visible = currentRoute != "add_transaction",
+                    enter = slideInVertically(initialOffsetY = { -it }),
+                    exit = slideOutVertically(targetOffsetY = { -it })
+                ) {
+                    ModernTopAppBar(
+                        title = when (currentRoute) {
+                            "transactions" -> "Statement Ledger"
+                            "categories" -> "MyMoney"
+                            else -> "MoneyWise"
+                        },
+                        showSearch = true,
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onBackClick = { navController.popBackStack() },
+                        onSearchClick = {
+                            if (currentRoute != "transactions") {
+                                navController.navigate("transactions")
+                            }
+                        },
+                        onAddClick = { navController.navigate("add_transaction") },
+                        isDarkTheme = isDarkTheme
+                    )
+                }
+            },
+            bottomBar = {
+                AnimatedVisibility(
+                    visible = showBottomBar,
+                    enter = slideInVertically(initialOffsetY = { it }),
+                    exit = slideOutVertically(targetOffsetY = { it })
+                ) {
+                    ModernNavigationBar(
+                        navController = navController,
+                        currentRoute = currentRoute
+                    )
+                }
             }
-            composable("transactions") {
-                val vm: TransactionViewModel = hiltViewModel()
-                TransactionScreen(vm)
-            }
-            composable("accounts") {
-                val vm: DashboardViewModel = hiltViewModel()
-                AccountsScreen(vm)
-            }
-            composable("settings") {
-                val vm: SettingsViewModel = hiltViewModel()
-                SettingsScreen(vm)
-            }
-            composable("analytics") {
-                val vm: AnalyticsViewModel = hiltViewModel()
-                AnalyticsScreen(vm)
-            }
-            composable("budget") {
-                val vm: BudgetViewModel = hiltViewModel()
-                BudgetScreen(vm)
-            }
-            composable("add_transaction") {
-                AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = "dashboard",
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable("dashboard") {
+                    val vm: DashboardViewModel = hiltViewModel()
+                    DashboardScreen(
+                        viewModel = vm,
+                        onNavigateToAddTransaction = {
+                            navController.navigate("add_transaction")
+                        },
+                        onNavigateToStatementLedger = {
+                            navController.navigate("transactions")
+                        }
+                    )
+                }
+                composable("transactions") {
+                    val vm: TransactionViewModel = hiltViewModel()
+                    TransactionScreen(vm)
+                }
+                composable("accounts") {
+                    val vm: DashboardViewModel = hiltViewModel()
+                    AccountsScreen(vm)
+                }
+                composable("settings") {
+                    val vm: SettingsViewModel = hiltViewModel()
+                    SettingsScreen(vm)
+                }
+                composable("analytics") {
+                    val vm: AnalyticsViewModel = hiltViewModel()
+                    AnalyticsScreen(vm)
+                }
+                composable("budget") {
+                    val vm: BudgetViewModel = hiltViewModel()
+                    BudgetScreen(vm)
+                }
+                composable("categories") {
+                    CategoriesScreen()
+                }
+                composable("add_transaction") {
+                    AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
+                }
             }
         }
     }
@@ -141,7 +171,7 @@ fun AppNavGraph() {
 private fun ModernTopAppBar(
     title: String,
     showSearch: Boolean = false,
-    showBack: Boolean = false,
+    onMenuClick: () -> Unit = {},
     onBackClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onAddClick: () -> Unit = {},
@@ -163,17 +193,15 @@ private fun ModernTopAppBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (showBack) {
-                    IconButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.padding(end = 12.dp).size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                IconButton(
+                    onClick = onMenuClick,
+                    modifier = Modifier.padding(end = 12.dp).size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menu",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
 
                 Text(
@@ -191,7 +219,21 @@ private fun ModernTopAppBar(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Add Expense Button moved to Top Bar
+                if (showSearch) {
+                    IconButton(
+                        onClick = onSearchClick,
+                        modifier = Modifier
+                            .size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
                 IconButton(
                     onClick = onAddClick,
                     modifier = Modifier
@@ -206,47 +248,6 @@ private fun ModernTopAppBar(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-
-                if (showSearch) {
-                    IconButton(
-                        onClick = onSearchClick,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
-                            .clickable { },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .align(Alignment.TopEnd)
-                                .offset(x = 4.dp, y = (-4).dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.error)
-                        )
-                    }
-                }
             }
         }
     }
@@ -260,9 +261,9 @@ private fun ModernNavigationBar(
     val items = listOf(
         NavigationItem("dashboard", "Home", Icons.Default.Home, Icons.Outlined.Home),
         NavigationItem("analytics", "Analytics", Icons.Default.BarChart, Icons.Outlined.BarChart),
+        NavigationItem("categories", "Category", Icons.Default.Category, Icons.Outlined.Category),
         NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
-        NavigationItem("budget", "Budgets", Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
-        NavigationItem("settings", "Settings", Icons.Default.Settings, Icons.Outlined.Settings)
+        NavigationItem("budget", "Budgets", Icons.Default.AccountBalance, Icons.Outlined.AccountBalance)
     )
 
     NavigationBar(

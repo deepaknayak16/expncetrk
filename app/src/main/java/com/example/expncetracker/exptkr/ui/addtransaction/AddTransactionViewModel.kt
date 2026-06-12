@@ -19,7 +19,8 @@ class AddTransactionViewModel @Inject constructor(
         amount: Double,
         type: TransactionType,
         category: String,
-        description: String?
+        description: String?,
+        timestamp: java.time.LocalDateTime = java.time.LocalDateTime.now()
     ) {
         viewModelScope.launch {
             val categoryEnum = when (category.uppercase()) {
@@ -43,7 +44,7 @@ class AddTransactionViewModel @Inject constructor(
                 category = categoryEnum,
                 merchant = description ?: "Manual Entry",
                 bankName = "Manual",
-                timestamp = java.time.LocalDateTime.now()
+                timestamp = timestamp
             )
             repository.insertTransactions(listOf(transaction))
         }

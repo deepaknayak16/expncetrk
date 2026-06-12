@@ -38,7 +38,8 @@ class BudgetViewModel @Inject constructor(
             
             BudgetUiModel(category, budget.limitAmount, spent, remaining, progress)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.catch { emptyList<BudgetUiModel>() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun saveBudget(category: Category, limit: Double) {
         viewModelScope.launch {

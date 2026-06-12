@@ -25,13 +25,13 @@ class GetTrendsUseCase @Inject constructor(
             // Initialize last N months with 0
             for (i in 0 until months) {
                 val month = now.minusMonths(i.toLong())
-                val label = month.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                val label = "${month.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${month.year % 100}"
                 trends[label] = 0.0
             }
 
             txList.forEach { tx ->
                 if (tx.type == TransactionType.DEBIT) {
-                    val label = tx.timestamp.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                    val label = "${tx.timestamp.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${tx.timestamp.year % 100}"
                     if (trends.containsKey(label)) {
                         trends[label] = trends[label]!! + tx.amount
                     }

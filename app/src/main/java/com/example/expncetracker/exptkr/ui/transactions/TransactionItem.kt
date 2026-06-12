@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
@@ -22,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
+import com.example.expncetracker.exptkr.core.common.formatToDisplay
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
@@ -31,8 +31,6 @@ import com.example.expncetracker.exptkr.ui.theme.*
 fun TransactionListItem(transaction: Transaction) {
     val isDarkTheme = MaterialTheme.isDark
     val (icon, color) = getTransactionStyle(transaction.category, isDarkTheme)
-    val isExpense = transaction.type == TransactionType.DEBIT
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background // Solid background to prevent overlap with swipe content
@@ -61,7 +59,7 @@ fun TransactionListItem(transaction: Transaction) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Merchant and Account Info
+            // Merchant and Category Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transaction.merchant,
@@ -69,28 +67,34 @@ fun TransactionListItem(transaction: Transaction) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (transaction.bankName.contains("Card", ignoreCase = true)) Icons.Default.CreditCard else Icons.Default.AccountBalanceWallet,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = transaction.bankName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
+                Text(
+                    text = transaction.category.displayName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+                Text(
+                    text = transaction.timestamp.formatToDisplay(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
             }
 
             // Amount
+            val prefix = when (transaction.type) {
+                TransactionType.CREDIT -> "+"
+                TransactionType.DEBIT -> "-"
+                TransactionType.TRANSFER -> "⇄ "
+            }
+            val amountColor = when (transaction.type) {
+                TransactionType.CREDIT -> Color(0xFF10B981)
+                TransactionType.DEBIT -> Color(0xFFEF4444)
+                TransactionType.TRANSFER -> Color(0xFF3B82F6)
+            }
             Text(
-                text = (if (isExpense) "-" else "+") + transaction.amount.formatAsCurrency(),
+                text = prefix + transaction.amount.formatAsCurrency(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (isExpense) Color(0xFFEF4444) else Color(0xFF10B981)
+                color = amountColor
             )
         }
     }
@@ -151,11 +155,15 @@ fun TransactionItemImproved(transaction: Transaction) {
 
             // Amount
             Column(horizontalAlignment = Alignment.End) {
-                val prefix = if (transaction.type == TransactionType.CREDIT) "+" else "-"
-                val amountColor = if (transaction.type == TransactionType.CREDIT) {
-                    if (isDarkTheme) DarkIncome else LightIncome
-                } else {
-                    if (isDarkTheme) DarkExpense else LightExpense
+                val prefix = when (transaction.type) {
+                    TransactionType.CREDIT -> "+"
+                    TransactionType.DEBIT -> "-"
+                    TransactionType.TRANSFER -> "⇄"
+                }
+                val amountColor = when (transaction.type) {
+                    TransactionType.CREDIT -> if (isDarkTheme) DarkIncome else LightIncome
+                    TransactionType.DEBIT -> if (isDarkTheme) DarkExpense else LightExpense
+                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
                 }
                 Text(
                     text = "$prefix ${transaction.amount.formatAsCurrency()}",
@@ -177,7 +185,7 @@ fun TransactionItemImproved(transaction: Transaction) {
 private fun getTransactionStyle(category: Category, isDarkTheme: Boolean): Pair<ImageVector, Color> {
     return when (category.name) {
         "FOOD" -> Icons.Default.Restaurant to if (isDarkTheme) CategoryFoodDark else CategoryFood
-        "CABS" -> Icons.AutoMirrored.Filled.DirectionsRun to if (isDarkTheme) CategoryCabsDark else CategoryCabs
+        "CABS" -> Icons.Default.DirectionsCar to if (isDarkTheme) CategoryCabsDark else CategoryCabs
         "BILLS" -> Icons.Default.Bolt to if (isDarkTheme) CategoryBillsDark else CategoryBills
         "SHOPPING" -> Icons.Default.LocalMall to if (isDarkTheme) CategoryShoppingDark else CategoryShopping
         "SALARY" -> Icons.Default.Payments to if (isDarkTheme) CategorySalaryDark else CategorySalary

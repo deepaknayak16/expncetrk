@@ -26,9 +26,9 @@ class AnalyticsViewModel @Inject constructor(
         .flatMapLatest { getSummaryUseCase(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val trends: StateFlow<List<SpendingTrend>> = getTrendsUseCase(6)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
+    val trends: StateFlow<List<SpendingTrend>> = _selectedFilter.flatMapLatest { filter ->
+        getTrendsUseCase(filter.toMonths())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun setFilter(filter: DateFilter) {
         _selectedFilter.value = filter
     }
