@@ -185,8 +185,9 @@ private fun getTransactionStyle(category: Category, isDarkTheme: Boolean): Pair<
         "INVESTMENTS" -> Icons.AutoMirrored.Filled.TrendingUp to if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
         "TRAVEL" -> Icons.Default.LocalAirport to if (isDarkTheme) CategoryTravelDark else CategoryTravel
         "ENTERTAINMENT" -> Icons.Default.LiveTv to if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        "HEALTH" -> Icons.Default.Favorite to if (isDarkTheme) CategoryHealthDark else CategoryHealth
+        "HEALTHCARE" -> Icons.Default.Favorite to if (isDarkTheme) CategoryHealthDark else CategoryHealth
         "EDUCATION" -> Icons.Default.School to if (isDarkTheme) CategoryEducationDark else CategoryEducation
+        "GROCERIES" -> Icons.Default.ShoppingCart to if (isDarkTheme) CategoryShoppingDark else CategoryShopping
         else -> Icons.Default.GridView to if (isDarkTheme) CategoryOthersDark else CategoryOthers
     }
 }

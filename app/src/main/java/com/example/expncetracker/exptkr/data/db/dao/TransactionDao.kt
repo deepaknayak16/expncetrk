@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -20,6 +21,9 @@ interface TransactionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
+
+    @Update
+    suspend fun updateTransaction(transaction: TransactionEntity)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransactions(transactions: List<TransactionEntity>)

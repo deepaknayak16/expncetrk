@@ -119,16 +119,10 @@ class SettingsViewModel @Inject constructor(
     fun syncToGoogleDrive() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            val accountName = _uiState.value.accountName
-            if (accountName == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false)
-                _statusEvent.emit("Please sign in first")
-                return@launch
-            }
-
-            val result = syncBackupToGoogleDriveUseCase.execute(accountName)
+            
+            val result = syncBackupToGoogleDriveUseCase.execute()
             _uiState.value = _uiState.value.copy(isLoading = false)
-
+            
             result.fold(
                 onSuccess = { message ->
                     _statusEvent.emit(message)
@@ -143,14 +137,8 @@ class SettingsViewModel @Inject constructor(
     fun restoreFromGoogleDrive() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            val accountName = _uiState.value.accountName
-            if (accountName == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false)
-                _statusEvent.emit("Please sign in first")
-                return@launch
-            }
-
-            val result = restoreBackupFromGoogleDriveUseCase.execute(accountName)
+            
+            val result = restoreBackupFromGoogleDriveUseCase.execute()
             _uiState.value = _uiState.value.copy(isLoading = false)
 
             result.fold(

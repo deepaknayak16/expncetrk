@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -74,6 +75,7 @@ fun AppNavGraph() {
                             navController.navigate("transactions")
                         }
                     },
+                    onAddClick = { navController.navigate("add_transaction") },
                     isDarkTheme = isDarkTheme
                 )
             }
@@ -87,17 +89,6 @@ fun AppNavGraph() {
                 ModernNavigationBar(
                     navController = navController,
                     currentRoute = currentRoute
-                )
-            }
-        },
-        floatingActionButton = {
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = slideInVertically(initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it })
-            ) {
-                ModernFab(
-                    onClick = { navController.navigate("add_transaction") }
                 )
             }
         }
@@ -153,6 +144,7 @@ private fun ModernTopAppBar(
     showBack: Boolean = false,
     onBackClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
+    onAddClick: () -> Unit = {},
     isDarkTheme: Boolean
 ) {
     Surface(
@@ -163,7 +155,7 @@ private fun ModernTopAppBar(
     ) {
         Row(
             modifier = Modifier
-                .windowInsetsPadding(WindowInsets.statusBars) // Added status bar padding to prevent overlap
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .fillMaxWidth()
                 .height(64.dp)
                 .padding(horizontal = 20.dp),
@@ -198,44 +190,62 @@ private fun ModernTopAppBar(
                 )
             }
 
-            if (showSearch) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Add Expense Button moved to Top Bar
                 IconButton(
-                    onClick = onSearchClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            } else {
-                Box(
+                    onClick = onAddClick,
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { },
-                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Notifications",
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Expense",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
+                }
+
+                if (showSearch) {
+                    IconButton(
+                        onClick = onSearchClick,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                } else {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
-                            .align(Alignment.TopEnd)
-                            .offset(x = 4.dp, y = (-4).dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.error)
-                    )
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+                            .clickable { },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.error)
+                        )
+                    }
                 }
             }
         }
@@ -304,17 +314,3 @@ data class NavigationItem(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 )
-
-@Composable
-private fun ModernFab(
-    onClick: () -> Unit
-) {
-    ExtendedFloatingActionButton(
-        onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = RoundedCornerShape(16.dp),
-        icon = { Icon(Icons.Default.Add, contentDescription = null) },
-        text = { Text("Add Expense") }
-    )
-}

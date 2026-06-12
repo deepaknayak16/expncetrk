@@ -430,6 +430,9 @@ fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
         Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
         Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
         Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
+        Category.GROCERIES -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
+        Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
         Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
     }
 }

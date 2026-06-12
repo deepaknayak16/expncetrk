@@ -2,6 +2,7 @@ package com.example.expncetracker.exptkr
 
 import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,8 +28,13 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ ->
-        // Handle runtime authorization changes here if necessary
+    ) { result ->
+        val granted = result.entries.all { it.value }
+        if (granted) {
+            Toast.makeText(this, "SMS permissions granted", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "SMS permissions denied. SMS sync will not work.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private val _uiStateFlow = MutableStateFlow(false)

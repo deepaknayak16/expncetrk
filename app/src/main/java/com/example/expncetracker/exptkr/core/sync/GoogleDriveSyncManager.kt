@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.core.sync
 
 import android.content.Context
+import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -18,14 +19,17 @@ class GoogleDriveSyncManager(private val context: Context) {
     private var driveService: Drive? = null
 
     /**
-     * Initialize the Google Drive service with the provided account name.
-     * @param accountName The Google account email to use for authentication.
+     * Initialize the Google Drive service using the last signed-in account.
+     * @return True if initialized successfully, false otherwise.
      */
-    fun initializeDriveService(accountName: String) {
+    fun initializeDriveService(): Boolean {
+        val account = GoogleSignIn.getLastSignedInAccount(context) ?: return false
+        
         val credential = GoogleAccountCredential.usingOAuth2(
             context,
             listOf(DriveScopes.DRIVE_FILE)
-        ).setSelectedAccountName(accountName)
+        )
+        credential.selectedAccount = account.account
 
         driveService = Drive.Builder(
             NetHttpTransport(),
@@ -34,6 +38,8 @@ class GoogleDriveSyncManager(private val context: Context) {
         )
             .setApplicationName("ExpenseTracker")
             .build()
+            
+        return true
     }
 
     /**
@@ -43,9 +49,9 @@ class GoogleDriveSyncManager(private val context: Context) {
      */
     suspend fun uploadBackup(backupFile: File): String? = withContext(Dispatchers.IO) {
         try {
-            val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
+            val drive = driveService ?: if (initializeDriveService()) driveService else null
+            if (drive == null) throw IllegalStateException("Drive service not initialized")
 
-            // Check if file already exists
             val existingFileId = findExistingBackupFile()
 
             val fileMetadata = com.google.api.services.drive.model.File().apply {
@@ -59,12 +65,10 @@ class GoogleDriveSyncManager(private val context: Context) {
             )
 
             val fileId = if (existingFileId != null) {
-                // Update existing file
                 drive.files().update(existingFileId, fileMetadata, mediaContent)
                     .execute()
                     .id
             } else {
-                // Create new file
                 drive.files().create(fileMetadata, mediaContent)
                     .setFields("id")
                     .execute()
@@ -73,7 +77,7 @@ class GoogleDriveSyncManager(private val context: Context) {
 
             fileId
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("GDriveSync", "Upload failed: ${e.message}")
             null
         }
     }
@@ -85,26 +89,23 @@ class GoogleDriveSyncManager(private val context: Context) {
      */
     suspend fun downloadBackup(destinationFile: File): Boolean = withContext(Dispatchers.IO) {
         try {
-            val drive = driveService ?: throw IllegalStateException("Drive service not initialized")
+            val drive = driveService ?: if (initializeDriveService()) driveService else null
+            if (drive == null) throw IllegalStateException("Drive service not initialized")
 
             val fileId = findExistingBackupFile()
                 ?: throw IllegalStateException("No backup file found on Google Drive")
 
-            val outputStream = destinationFile.outputStream()
-            drive.files().get(fileId).executeMediaAndDownloadTo(outputStream)
-            outputStream.close()
+            destinationFile.outputStream().use { outputStream ->
+                drive.files().get(fileId).executeMediaAndDownloadTo(outputStream)
+            }
 
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("GDriveSync", "Download failed: ${e.message}")
             false
         }
     }
 
-    /**
-     * Find the existing backup file on Google Drive.
-     * @return The file ID if found, null otherwise.
-     */
     private fun findExistingBackupFile(): String? {
         val drive = driveService ?: return null
 
@@ -119,17 +120,10 @@ class GoogleDriveSyncManager(private val context: Context) {
         return result.files.firstOrNull()?.id
     }
 
-    /**
-     * Check if the user is signed in to Google Drive.
-     * @return True if signed in, false otherwise.
-     */
     fun isSignedIn(): Boolean {
-        return driveService != null
+        return GoogleSignIn.getLastSignedInAccount(context) != null
     }
 
-    /**
-     * Sign out from Google Drive.
-     */
     fun signOut() {
         driveService = null
     }

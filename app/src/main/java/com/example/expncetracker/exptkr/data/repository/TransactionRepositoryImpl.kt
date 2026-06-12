@@ -27,6 +27,9 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun insertTransaction(transaction: Transaction): Long =
         transactionDao.insertTransaction(transaction.toEntity())
 
+    override suspend fun updateTransaction(transaction: Transaction) =
+        transactionDao.updateTransaction(transaction.toEntity())
+
     override suspend fun insertTransactions(transactions: List<Transaction>) =
         transactionDao.insertTransactions(transactions.map { it.toEntity() })
 

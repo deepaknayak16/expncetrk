@@ -123,22 +123,6 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         }
                     }
                 }
-
-                Spacer(Modifier.height(12.dp))
-
-                SettingsPreferenceItem(
-                    label = "Backup to Google Drive",
-                    subtitle = "Sync your data securely",
-                    icon = Icons.Default.CloudUpload,
-                    onClick = { viewModel.syncToGoogleDrive() }
-                )
-                Spacer(Modifier.height(8.dp))
-                SettingsPreferenceItem(
-                    label = "Restore from Google Drive",
-                    subtitle = "Recover your backed up data",
-                    icon = Icons.Default.CloudDownload,
-                    onClick = { viewModel.restoreFromGoogleDrive() }
-                )
             } else {
                 Button(
                     onClick = { signInLauncher.launch(viewModel.getSignInIntent()) },
@@ -174,7 +158,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             )
 
             SettingsPreferenceItem(
-                label = "Backup to Cloud",
+                label = "Cloud Backup",
                 subtitle = if (uiState.lastSyncTime != null) "Last synced: ${uiState.lastSyncTime}" else "Sync your data to Google Drive",
                 icon = Icons.Default.CloudUpload,
                 onClick = { viewModel.syncToGoogleDrive() }

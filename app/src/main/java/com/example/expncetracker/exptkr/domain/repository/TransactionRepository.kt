@@ -8,6 +8,7 @@ interface TransactionRepository {
     fun getRecentTransactions(limit: Int): Flow<List<Transaction>>
     fun getTransactionsInRange(start: Long, end: Long): Flow<List<Transaction>>
     suspend fun insertTransaction(transaction: Transaction): Long
+    suspend fun updateTransaction(transaction: Transaction)
     suspend fun insertTransactions(transactions: List<Transaction>)
     suspend fun deleteTransactionById(id: Long)
     suspend fun getLatestTransactionTimestamp(): Long
