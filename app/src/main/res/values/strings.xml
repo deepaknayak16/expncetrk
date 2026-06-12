@@ -1,3 +1,171 @@
 <resources>
-    <string name="app_name">expncetracker</string>
+    <!-- App Name -->
+    <string name="app_name">Expense Tracker</string>
+
+    <!-- Greetings -->
+    <string name="greeting_morning">Good Morning</string>
+    <string name="greeting_afternoon">Good Afternoon</string>
+    <string name="greeting_evening">Good Evening</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="total_balance">Total Balance</string>
+    <string name="total_expense">Total Expense</string>
+    <string name="total_income">Total Income</string>
+    <string name="recent_transactions">Recent Transactions</string>
+    <string name="view_all">View All</string>
+    <string name="spending_trend">Spending Trend</string>
+
+    <!-- Add Transaction -->
+    <string name="add_transaction_title">Add Transaction</string>
+    <string name="amount_hint">Amount</string>
+    <string name="description_hint">Description</string>
+    <string name="category_label">Category</string>
+    <string name="account_label">Account</string>
+    <string name="save_button">Save</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="expense_type">Expense</string>
+    <string name="income_type">Income</string>
+    <string name="investment_type">Investment</string>
+
+    <!-- Categories -->
+    <string name="category_food">Food</string>
+    <string name="category_cabs">Cabs</string>
+    <string name="category_rent">Rent</string>
+    <string name="category_bills">Bills</string>
+    <string name="category_shopping">Shopping</string>
+    <string name="category_salary">Salary</string>
+    <string name="category_investment">Investment</string>
+    <string name="category_travel">Travel</string>
+    <string name="category_entertainment">Entertainment</string>
+    <string name="category_others">Others</string>
+
+    <!-- Accounts -->
+    <string name="account_cash">Cash</string>
+    <string name="account_card">Card</string>
+    <string name="account_bank">Bank Account</string>
+    <string name="account_wallet">Wallet</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="theme_label">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System Default</string>
+    <string name="currency_label">Currency</string>
+    <string name="backup_restore">Backup &amp; Restore</string>
+    <string name="sync_with_drive">Sync with Google Drive</string>
+    <string name="notifications_label">Notifications</string>
+    <string name="biometric_auth">Biometric Authentication</string>
+    <string name="about_app">About App</string>
+    <string name="version_label">Version</string>
+
+    <!-- Budget -->
+    <string name="budget_title">Budget</string>
+    <string name="set_budget">Set Monthly Budget</string>
+    <string name="budget_limit">Budget Limit</string>
+    <string name="budget_spent">Spent</string>
+    <string name="budget_remaining">Remaining</string>
+    <string name="budget_exceeded">Budget Exceeded!</string>
+    <string name="budget_warning">You have spent %1$d%% of your budget</string>
+
+    <!-- Analytics -->
+    <string name="analytics_title">Analytics</string>
+    <string name="category_breakdown">Category Breakdown</string>
+    <string name="monthly_summary">Monthly Summary</string>
+    <string name="yearly_summary">Yearly Summary</string>
+
+    <!-- Backup & Restore -->
+    <string name="backup_title">Backup Data</string>
+    <string name="restore_title">Restore Data</string>
+    <string name="backup_success">Data backed up successfully</string>
+    <string name="backup_failed">Backup failed</string>
+    <string name="restore_success">Data restored successfully</string>
+    <string name="restore_failed">Restore failed</string>
+    <string name="backup_confirm">Are you sure you want to backup your data?</string>
+    <string name="restore_confirm">Are you sure you want to restore? This will replace current data.</string>
+
+    <!-- Biometric Auth -->
+    <string name="biometric_title">Authenticate</string>
+    <string name="biometric_subtitle">Use your biometric to access the app</string>
+    <string name="biometric_cancel">Cancel</string>
+    <string name="biometric_required">Biometric authentication is required</string>
+    <string name="biometric_not_available">Biometric authentication is not available on this device</string>
+    <string name="biometric_not_enrolled">No biometric credentials enrolled. Please set up fingerprint or face unlock in device settings.</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_expenses">Expense Reminders</string>
+    <string name="notification_channel_budget">Budget Alerts</string>
+    <string name="bill_reminder_title">Bill Reminder</string>
+    <string name="bill_reminder_text">Don\'t forget to pay your %1$s bill of %2$s</string>
+    <string name="budget_alert_title">Budget Alert</string>
+    <string name="budget_alert_text">You have spent %1$s out of %2$s budget this month</string>
+
+    <!-- Export -->
+    <string name="export_pdf">Export as PDF</string>
+    <string name="export_csv">Export as CSV</string>
+    <string name="export_success">File exported successfully</string>
+    <string name="export_failed">Export failed</string>
+    <string name="share_report">Share Report</string>
+
+    <!-- Search & Filter -->
+    <string name="search_hint">Search transactions...</string>
+    <string name="filter_label">Filter</string>
+    <string name="filter_date">Date Range</string>
+    <string name="filter_category">Category</string>
+    <string name="filter_amount">Amount Range</string>
+    <string name="filter_apply">Apply Filters</string>
+    <string name="filter_clear">Clear Filters</string>
+
+    <!-- Empty States -->
+    <string name="empty_transactions">No transactions yet</string>
+    <string name="empty_transactions_subtitle">Tap + to add your first transaction</string>
+    <string name="empty_search">No results found</string>
+    <string name="empty_search_subtitle">Try different keywords or clear filters</string>
+
+    <!-- Error Messages -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_database">Database error. Please restart the app.</string>
+    <string name="error_permission">Permission denied. Please grant required permissions.</string>
+    <string name="error_invalid_amount">Please enter a valid amount</string>
+
+    <!-- Content Descriptions (Accessibility) -->
+    <string name="cd_add_transaction">Add new transaction</string>
+    <string name="cd_delete_transaction">Delete transaction</string>
+    <string name="cd_edit_transaction">Edit transaction</string>
+    <string name="cd_transaction_icon">Transaction category icon</string>
+    <string name="cd_theme_toggle">Toggle dark mode</string>
+    <string name="cd_back_button">Go back</string>
+    <string name="cd_menu_button">Open menu</string>
+    <string name="cd_profile_image">Profile image</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome">Welcome to Expense Tracker</string>
+    <string name="onboarding_subtitle">Track your expenses effortlessly</string>
+    <string name="onboarding_feature_1">Easy expense tracking</string>
+    <string name="onboarding_feature_2">Smart insights &amp; analytics</string>
+    <string name="onboarding_feature_3">Secure cloud backup</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="loading">Loading...</string>
+    <string name="retry">Retry</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="this_week">This Week</string>
+    <string name="this_month">This Month</string>
+    <string name="this_year">This Year</string>
+    <string name="all_time">All Time</string>
+
 </resources>

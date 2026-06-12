@@ -13,6 +13,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -20,10 +21,19 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
-            .fallbackToDestructiveMigration() // Re-enabling for development ease while changing schema
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        // Load the native SQLCipher library
+        System.loadLibrary("sqlcipher")
+
+        // Create passphrase for encrypted database (in production, store this securely)
+        val passphrase = "expense_tracker_secure_key".toByteArray()
+        val factory = SupportOpenHelperFactory(passphrase)
+
+        return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
+            .fallbackToDestructiveMigration()
+            .openHelperFactory(factory) // Enable SQLCipher encryption
             .build()
+    }
 
     @Provides fun provideTransactionDao(db: AppDatabase): TransactionDao = db.transactionDao()
     @Provides fun provideRawSmsDao(db: AppDatabase): RawSmsDao = db.rawSmsDao()

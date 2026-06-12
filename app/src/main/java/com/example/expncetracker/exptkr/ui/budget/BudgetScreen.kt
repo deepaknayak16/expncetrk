@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -20,23 +19,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.components.EmptyState
 import com.example.expncetracker.exptkr.ui.theme.*
-
-private val CalculatorBg = Color(0xFFFEFBEA)
-private val CalculatorGreen = Color(0xFF2D5D4E)
-private val CalculatorGreenLight = Color(0xFF6E9185)
-private val ExpenseRed = Color(0xFFD32F2F)
-private val IncomeGreen = Color(0xFF388E3C)
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetScreen(viewModel: BudgetViewModel) {
     val budgetList by viewModel.budgetList.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    val isDark = MaterialTheme.isDark
     
     val totalBudget = budgetList.sumOf { it.limit }
     val totalSpent = budgetList.sumOf { it.spent }
@@ -45,8 +41,9 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = CalculatorGreen,
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = MaterialTheme.shapes.large
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Budget")
             }
@@ -56,9 +53,9 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(CalculatorBg)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // New Top Header from Image
+            // New Top Header
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -66,31 +63,37 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Month Selector
+                val locale = remember { Locale.getDefault() }
+                val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", locale) }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "Previous",
-                        tint = CalculatorGreen,
-                        modifier = Modifier.size(32.dp).clickable { /* Handle prev */ }
-                    )
+                    IconButton(onClick = { /* Handle prev */ }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Previous",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                     Spacer(Modifier.width(16.dp))
                     Text(
-                        text = "January, 2021",
-                        color = CalculatorGreen,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium
+                        text = LocalDate.now().format(monthFormatter),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.width(16.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Next",
-                        tint = CalculatorGreen,
-                        modifier = Modifier.size(32.dp).clickable { /* Handle next */ }
-                    )
+                    IconButton(onClick = { /* Handle next */ }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -100,12 +103,12 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    BudgetStatItem("TOTAL BUDGET", "₹${totalBudget.formatAsCurrency()}", CalculatorGreen)
-                    BudgetStatItem("TOTAL SPENT", "₹${totalSpent.formatAsCurrency()}", ExpenseRed)
+                    BudgetStatItem("TOTAL BUDGET", "₹${totalBudget.formatAsCurrency()}", MaterialTheme.colorScheme.primary)
+                    BudgetStatItem("TOTAL SPENT", "₹${totalSpent.formatAsCurrency()}", if (isDark) DarkExpense else LightExpense)
                 }
             }
 
-            HorizontalDivider(color = CalculatorGreen.copy(alpha = 0.2f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -114,9 +117,9 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
             ) {
                 item {
                     Text(
-                        text = "Budgeted categories: Jan, 2021",
-                        color = CalculatorGreen,
-                        fontSize = 18.sp,
+                        text = "Budgeted categories",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -131,7 +134,7 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                             action = {
                                 Button(
                                     onClick = { showAddDialog = true },
-                                    colors = ButtonDefaults.buttonColors(containerColor = CalculatorGreen)
+                                    shape = MaterialTheme.shapes.medium
                                 ) {
                                     Text("Set Your First Budget")
                                 }
@@ -164,19 +167,21 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
 @Composable
 private fun BudgetStatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, color = CalculatorGreenLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(text = value, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(text = value, color = color, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
+    val isDark = MaterialTheme.isDark
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -190,10 +195,10 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                     text = budget.category.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = CalculatorGreen
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = CalculatorGreen)
+                    Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DropdownMenu(
                     expanded = showMenu,
@@ -215,19 +220,19 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             
             val progressColor = when {
-                budget.progress < 0.7f -> IncomeGreen
-                budget.progress < 0.9f -> Color(0xFFFFA500) // Orange
-                else -> ExpenseRed
+                budget.progress < 0.7f -> if (isDark) DarkIncome else LightIncome
+                budget.progress < 0.9f -> Color(0xFFFFA500) // Orange (maybe add to theme later)
+                else -> if (isDark) DarkExpense else LightExpense
             }
 
             LinearProgressIndicator(
                 progress = { budget.progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(5.dp)),
+                    .height(8.dp)
+                    .clip(MaterialTheme.shapes.extraSmall),
                 color = progressColor,
-                trackColor = CalculatorGreen.copy(alpha = 0.1f)
+                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
             
             Spacer(Modifier.height(8.dp))
@@ -239,12 +244,12 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 Text(
                     text = "${budget.spent.formatAsCurrency()} spent",
                     style = MaterialTheme.typography.labelMedium,
-                    color = CalculatorGreenLight
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "${budget.remaining.formatAsCurrency()} left",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (budget.remaining > 0) IncomeGreen else ExpenseRed,
+                    color = if (budget.remaining > 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense),
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -261,7 +266,7 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set Monthly Budget") },
+        title = { Text("Set Monthly Budget", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 ExposedDropdownMenuBox(
@@ -274,7 +279,8 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
                         readOnly = true,
                         label = { Text("Category") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
@@ -300,7 +306,8 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
                     label = { Text("Monthly Limit") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
-                    prefix = { Text("₹") }
+                    prefix = { Text("₹") },
+                    shape = MaterialTheme.shapes.medium
                 )
             }
         },
@@ -311,7 +318,7 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
                     if (l > 0) onConfirm(selectedCategory, l) 
                 },
                 enabled = limit.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(containerColor = CalculatorGreen)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Text("Save")
             }

@@ -125,13 +125,13 @@ fun DashboardContent(
             Column {
                 Text(
                     text = "$greeting!",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Welcome back to MoneyWise",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -148,7 +148,7 @@ fun DashboardContent(
         item {
             Text(
                 text = "Spending Trend",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -164,7 +164,7 @@ fun DashboardContent(
             }
             Card(
                 modifier = Modifier.fillMaxWidth().height(120.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 CartesianChartHost(
@@ -192,7 +192,7 @@ fun DashboardContent(
                     action = {
                         Button(
                             onClick = onNavigateToAddTransaction,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = MaterialTheme.shapes.medium
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
@@ -243,10 +243,11 @@ fun CompactSummaryHeader(
 ) {
     val calendar = remember { Calendar.getInstance() }
     val monthYearFormat = remember<SimpleDateFormat> { SimpleDateFormat("MMMM, yyyy", Locale.getDefault()) }
+    val isDark = MaterialTheme.isDark
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -272,7 +273,7 @@ fun CompactSummaryHeader(
 
                 Text(
                     text = monthYearFormat.format(calendar.time),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -298,11 +299,11 @@ fun CompactSummaryHeader(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), Color(0xFFEF4444))
-                SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), Color(0xFF10B981))
+                SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), if (isDark) DarkExpense else LightExpense)
+                SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), if (isDark) DarkIncome else LightIncome)
                 SummaryColumn("TOTAL", summary.balance.formatAsCurrency(),
-                    if (summary.balance >=0) Color(0xFF10B981) else
-                        Color(0xFFEF4444))
+                    if (summary.balance >=0) (if (isDark) DarkIncome else LightIncome) else
+                        (if (isDark) DarkExpense else LightExpense))
             }
         }
     }
@@ -313,14 +314,14 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp),
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = valueColor
         )
@@ -339,7 +340,7 @@ fun DistributionSection(distribution: Map<Category, Double>) {
         Text(
             text = "Spending Distribution",
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(24.dp))
@@ -363,12 +364,12 @@ fun DistributionSection(distribution: Map<Category, Double>) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(MaterialTheme.shapes.small)
                             .background(categoryColor.copy(alpha = 0.15f))
                             .border(
                                 width = 1.dp,
                                 color = categoryColor.copy(alpha = 0.3f),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = MaterialTheme.shapes.small
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -458,7 +459,7 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
     Column {
         Text(
             text = "Select Period",
-            fontSize = 14.sp,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
@@ -467,7 +468,7 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.extraLarge)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -480,12 +481,12 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
                     label = {
                         Text(
                             text = filter.title,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                         )
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.large,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimary,

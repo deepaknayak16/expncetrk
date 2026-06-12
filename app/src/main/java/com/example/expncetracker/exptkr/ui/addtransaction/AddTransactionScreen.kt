@@ -6,13 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -31,17 +30,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.ui.theme.*
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.*
-
-// Specific colors to match the image
-private val CalculatorBg = Color(0xFFFEFBEA)
-private val CalculatorGreen = Color(0xFF2D5D4E)
-private val CalculatorGreenLight = Color(0xFF6E9185)
-private val ButtonBorder = Color(0xFFB4C4BD)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,11 +87,12 @@ fun AddTransactionScreen(
 
     var showCategorySheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+    val isDark = MaterialTheme.isDark
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CalculatorBg)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .padding(top = 16.dp)
     ) {
@@ -113,9 +108,9 @@ fun AddTransactionScreen(
                 modifier = Modifier.clickable { onNavigateBack() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = CalculatorGreen, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("CANCEL", color = CalculatorGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("CANCEL", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
 
             Row(
@@ -134,9 +129,9 @@ fun AddTransactionScreen(
                 },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Check, contentDescription = "Save", tint = CalculatorGreen, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Check, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("SAVE", color = CalculatorGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("SAVE", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -149,9 +144,9 @@ fun AddTransactionScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TypeTab("INCOME", selectedType == TransactionType.CREDIT) { selectedType = TransactionType.CREDIT }
-            Text("|", color = ButtonBorder, modifier = Modifier.padding(horizontal = 8.dp))
+            Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 8.dp))
             TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { selectedType = TransactionType.DEBIT }
-            Text("|", color = ButtonBorder, modifier = Modifier.padding(horizontal = 8.dp))
+            Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 8.dp))
             TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { selectedType = TransactionType.TRANSFER }
         }
 
@@ -183,9 +178,10 @@ fun AddTransactionScreen(
             ModalBottomSheet(
                 onDismissRequest = { showCategorySheet = false },
                 sheetState = sheetState,
-                containerColor = CalculatorBg
+                containerColor = MaterialTheme.colorScheme.surface
             ) {
                 CategoryGrid(
+                    isDark = isDark,
                     onCategorySelected = {
                         selectedCategory = it
                         showCategorySheet = false
@@ -194,27 +190,50 @@ fun AddTransactionScreen(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         // Amount Display
+        val formattedAmount = remember(amountText) {
+            if (amountText.isEmpty()) "0"
+            else if (amountText.any { it in "+-*/" }) amountText // Don't format expressions yet
+            else {
+                try {
+                    val parts = amountText.split(".")
+                    val intPart = parts[0].toLongOrNull() ?: 0L
+                    val formattedInt = java.text.NumberFormat.getNumberInstance(Locale.US).format(intPart)
+                    if (parts.size > 1) "$formattedInt.${parts[1]}" else formattedInt
+                } catch (e: Exception) {
+                    amountText
+                }
+            }
+        }
+
+        val dynamicFontSize = when {
+            formattedAmount.length <= 8 -> 48.sp
+            formattedAmount.length <= 11 -> 36.sp
+            formattedAmount.length <= 14 -> 28.sp
+            else -> 22.sp
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
-                .border(1.dp, ButtonBorder, RoundedCornerShape(4.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
                 .padding(vertical = 12.dp, horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Spacer(Modifier.width(48.dp)) // To center the amount
+            Spacer(Modifier.width(48.dp))
             Text(
-                text = amountText,
+                text = formattedAmount,
                 style = TextStyle(
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = CalculatorGreen,
+                    fontSize = dynamicFontSize,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
                 ),
+                maxLines = 1,
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = {
@@ -224,29 +243,29 @@ fun AddTransactionScreen(
                     amountText = "0"
                 }
             }) {
-                Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = CalculatorGreen, modifier = Modifier.size(32.dp))
+                Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
-        // Note Field (making this scrollable and flexible)
+        // Note Field
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.4f)
                 .padding(horizontal = 12.dp)
-                .border(1.dp, ButtonBorder, RoundedCornerShape(4.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
                 .padding(8.dp)
         ) {
             BasicTextField(
                 value = note,
                 onValueChange = { note = it },
-                textStyle = TextStyle(fontSize = 16.sp, color = CalculatorGreen),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 modifier = Modifier.fillMaxSize(),
                 decorationBox = { innerTextField ->
                     if (note.isEmpty()) {
-                        Text("note...", color = CalculatorGreen.copy(alpha = 0.5f), fontSize = 16.sp)
+                        Text("note...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), style = MaterialTheme.typography.bodyLarge)
                     }
                     innerTextField()
                 }
@@ -255,7 +274,7 @@ fun AddTransactionScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        // Calculator Keypad (Giving more weight to keypad)
+        // Calculator Keypad
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             CalculatorKeypad(
                 onDigitClick = { digit ->
@@ -290,8 +309,8 @@ fun AddTransactionScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CalculatorBg)
-                .border(1.dp, ButtonBorder)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 .navigationBarsPadding()
                 .padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -299,16 +318,16 @@ fun AddTransactionScreen(
         ) {
             Text(
                 text = transactionDate.format(dateFormatter),
-                color = CalculatorGreen,
-                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { datePickerDialog.show() }
             )
-            Box(modifier = Modifier.width(1.dp).height(24.dp).background(ButtonBorder))
+            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
             Text(
                 text = transactionDate.format(timeFormatter),
-                color = CalculatorGreen,
-                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { timePickerDialog.show() }
             )
@@ -327,18 +346,18 @@ fun TypeTab(label: String, isSelected: Boolean, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(18.dp)
                     .clip(CircleShape)
-                    .background(CalculatorGreen),
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(12.dp))
             }
             Spacer(Modifier.width(4.dp))
         }
         Text(
             text = label,
-            color = if (isSelected) CalculatorGreen else CalculatorGreenLight,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -351,11 +370,11 @@ fun SelectorItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Column(modifier = modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
-            color = CalculatorGreenLight,
-            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
@@ -363,7 +382,7 @@ fun SelectorItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, ButtonBorder, RoundedCornerShape(4.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
                 .clickable { onClick() }
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -373,14 +392,13 @@ fun SelectorItem(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(0.5.dp, ButtonBorder, CircleShape),
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(8.dp))
-            Text(value, color = CalculatorGreen, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Text(value, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -396,28 +414,28 @@ fun CalculatorKeypad(
         val rowModifier = Modifier.fillMaxWidth().weight(1f)
         
         Row(modifier = rowModifier) {
-            KeyButton("+", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("+") }
+            KeyButton("+", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("+") }
             KeyButton("7", modifier = Modifier.weight(1f)) { onDigitClick("7") }
             KeyButton("8", modifier = Modifier.weight(1f)) { onDigitClick("8") }
             KeyButton("9", modifier = Modifier.weight(1f)) { onDigitClick("9") }
         }
         Row(modifier = rowModifier) {
-            KeyButton("-", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("-") }
+            KeyButton("-", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("-") }
             KeyButton("4", modifier = Modifier.weight(1f)) { onDigitClick("4") }
             KeyButton("5", modifier = Modifier.weight(1f)) { onDigitClick("5") }
             KeyButton("6", modifier = Modifier.weight(1f)) { onDigitClick("6") }
         }
         Row(modifier = rowModifier) {
-            KeyButton("×", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("*") }
+            KeyButton("×", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("*") }
             KeyButton("1", modifier = Modifier.weight(1f)) { onDigitClick("1") }
             KeyButton("2", modifier = Modifier.weight(1f)) { onDigitClick("2") }
             KeyButton("3", modifier = Modifier.weight(1f)) { onDigitClick("3") }
         }
         Row(modifier = rowModifier) {
-            KeyButton("÷", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onOperatorClick("/") }
+            KeyButton("÷", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("/") }
             KeyButton("0", modifier = Modifier.weight(1f)) { onDigitClick("0") }
             KeyButton(".", modifier = Modifier.weight(1f)) { onDecimalClick() }
-            KeyButton("=", modifier = Modifier.weight(1f).background(CalculatorGreenLight), textColor = Color.White) { onEqualsClick() }
+            KeyButton("=", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primary), textColor = MaterialTheme.colorScheme.onPrimary) { onEqualsClick() }
         }
     }
 }
@@ -426,19 +444,19 @@ fun CalculatorKeypad(
 fun RowScope.KeyButton(
     text: String,
     modifier: Modifier = Modifier,
-    textColor: Color = CalculatorGreen,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
     onClick: () -> Unit
 ) {
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .border(0.5.dp, ButtonBorder)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            style = TextStyle(
+            style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -448,7 +466,6 @@ fun RowScope.KeyButton(
 }
 
 private fun evaluate(expression: String): Double {
-    // Very basic evaluator for +, -, *, /
     val operators = listOf('+', '-', '*', '/')
     val opIndex = expression.indexOfAny(operators.toCharArray())
     if (opIndex == -1) return expression.toDoubleOrNull() ?: 0.0
@@ -467,7 +484,7 @@ private fun evaluate(expression: String): Double {
 }
 
 @Composable
-fun CategoryGrid(onCategorySelected: (Category) -> Unit) {
+fun CategoryGrid(isDark: Boolean, onCategorySelected: (Category) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = Modifier
@@ -480,7 +497,7 @@ fun CategoryGrid(onCategorySelected: (Category) -> Unit) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .clickable { onCategorySelected(category) }
                     .padding(8.dp)
             ) {
@@ -488,22 +505,21 @@ fun CategoryGrid(onCategorySelected: (Category) -> Unit) {
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
-                        .border(1.dp, ButtonBorder, CircleShape),
+                        .background(getCategoryColor(category, isDark)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = getCategoryIcon(category),
                         contentDescription = null,
-                        tint = Color(0xFF3B82F6),
+                        tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = category.displayName,
-                    fontSize = 12.sp,
-                    color = CalculatorGreen,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
             }
@@ -529,3 +545,20 @@ private fun getCategoryIcon(category: Category): ImageVector {
     }
 }
 
+private fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
+    return when (category) {
+        Category.FOOD -> if (isDarkTheme) CategoryFoodDark else CategoryFood
+        Category.CABS -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
+        Category.RENT -> if (isDarkTheme) CategoryRentDark else CategoryRent
+        Category.BILLS -> if (isDarkTheme) CategoryBillsDark else CategoryBills
+        Category.SHOPPING -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.SALARY -> if (isDarkTheme) CategorySalaryDark else CategorySalary
+        Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
+        Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
+        Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
+        Category.GROCERIES -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
+        Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
+        Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
+    }
+}

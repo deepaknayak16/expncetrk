@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -14,11 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.ui.dashboard.DistributionSection
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -33,17 +31,15 @@ import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
 import com.patrykandpatrick.vico.core.common.shape.Shape
-
-private val CalculatorBg = Color(0xFFFEFBEA)
-private val CalculatorGreen = Color(0xFF2D5D4E)
-private val CalculatorGreenLight = Color(0xFF6E9185)
-private val ExpenseRed = Color(0xFFD32F2F)
-private val IncomeGreen = Color(0xFF388E3C)
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val summary by viewModel.summary.collectAsState()
     val trends by viewModel.trends.collectAsState()
+    val isDark = MaterialTheme.isDark
     
     val lineModelProducer = remember { CartesianChartModelProducer() }
     val columnModelProducer = remember { CartesianChartModelProducer() }
@@ -66,12 +62,13 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(CalculatorBg),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
-        // --- CURRENT CHANGE (TOP) ---
         item {
             // Date Range Selector
+            val locale = remember { Locale.getDefault() }
+            val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd", locale) }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -79,34 +76,41 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = "Previous",
-                    tint = CalculatorGreen,
-                    modifier = Modifier.size(32.dp).clickable { /* Handle prev */ }
-                )
+                IconButton(onClick = { /* Handle prev */ }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Previous",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
                 
                 Text(
-                    text = "Jan 03 - Jan 09",
-                    color = CalculatorGreen,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium
+                    text = LocalDate.now().format(dateFormatter) + " - " + 
+                           LocalDate.now().plusDays(6).format(dateFormatter),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Next",
-                        tint = CalculatorGreen,
-                        modifier = Modifier.size(32.dp).clickable { /* Handle next */ }
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    Icon(
-                        imageVector = Icons.Default.FilterList,
-                        contentDescription = "Filter",
-                        tint = CalculatorGreen,
-                        modifier = Modifier.size(28.dp).clickable { /* Handle filter */ }
-                    )
+                    IconButton(onClick = { /* Handle next */ }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = { /* Handle filter */ }) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Filter",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
         }
@@ -119,9 +123,9 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                StatItem("EXPENSE", "₹${summary?.totalExpense ?: 0.0}", ExpenseRed, Modifier.weight(1f))
-                StatItem("INCOME", "₹${summary?.totalIncome ?: 0.0}", IncomeGreen, Modifier.weight(1f))
-                StatItem("TOTAL", "₹${summary?.balance ?: 0.0}", CalculatorGreen, Modifier.weight(1f))
+                StatItem("EXPENSE", "₹${summary?.totalExpense ?: 0.0}", if (isDark) DarkExpense else LightExpense, Modifier.weight(1f))
+                StatItem("INCOME", "₹${summary?.totalIncome ?: 0.0}", if (isDark) DarkIncome else LightIncome, Modifier.weight(1f))
+                StatItem("TOTAL", "₹${summary?.balance ?: 0.0}", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -132,15 +136,16 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 48.dp)
-                    .border(2.dp, CalculatorGreen, RoundedCornerShape(8.dp))
+                    .clip(MaterialTheme.shapes.medium)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
                     .clickable { }
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = CalculatorGreen)
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.width(8.dp))
-                    Text("EXPENSE FLOW", color = CalculatorGreen, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("EXPENSE FLOW", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -161,7 +166,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             startAxis = rememberStartAxis(
                                 label = null,
                                 tick = null,
-                                guideline = rememberLineComponent(color = CalculatorGreen.copy(alpha = 0.1f))
+                                guideline = rememberLineComponent(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f))
                             ),
                             bottomAxis = rememberBottomAxis(
                                 label = null,
@@ -188,14 +193,14 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     .padding(horizontal = 16.dp)
             ) {
                 Text(
-                    text = "Jan 03 - Jan 09",
-                    color = CalculatorGreen,
-                    fontSize = 18.sp,
+                    text = "Weekly Overview",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 
-                HorizontalDivider(color = CalculatorGreen.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
@@ -211,12 +216,10 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         )
                     }
                 }
-                HorizontalDivider(color = CalculatorGreen.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
             Spacer(Modifier.height(32.dp))
         }
-
-        // --- PREVIOUS CHANGES (BELOW) ---
 
         item {
             // Spending Distribution Section
@@ -225,16 +228,17 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
                     colors = CardDefaults.cardColors(
-                        containerColor = CalculatorGreen.copy(alpha = 0.05f)
-                    )
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             "Expense Breakdown",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = CalculatorGreen,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.height(16.dp))
@@ -251,16 +255,17 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(
-                    containerColor = CalculatorGreen.copy(alpha = 0.05f)
-                )
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         "Monthly Trends",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = CalculatorGreen,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(16.dp))
@@ -271,7 +276,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                 rememberColumnCartesianLayer(
                                     columnProvider = ColumnCartesianLayer.ColumnProvider.series(
                                         rememberLineComponent(
-                                            color = CalculatorGreen,
+                                            color = MaterialTheme.colorScheme.primary,
                                             thickness = 16.dp,
                                             shape = Shape.rounded(4)
                                         )
@@ -292,7 +297,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             modifier = Modifier.height(200.dp).fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No trend data available", color = CalculatorGreenLight)
+                            Text("No trend data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -304,22 +309,23 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
 @Composable
 private fun StatItem(label: String, amount: String, color: Color, modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, color = CalculatorGreenLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(text = amount, color = color, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(text = amount, color = color, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun CalendarDayItem(day: String, date: String, value: String, modifier: Modifier = Modifier) {
+    val isDark = MaterialTheme.isDark
     Column(
         modifier = modifier
-            .border(0.5.dp, CalculatorGreen.copy(alpha = 0.1f))
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = day, color = CalculatorGreen, fontSize = 12.sp)
-        Text(text = date, color = CalculatorGreenLight, fontSize = 14.sp)
+        Text(text = day, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
+        Text(text = date, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
-        Text(text = value, color = ExpenseRed, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Text(text = value, color = if (isDark) DarkExpense else LightExpense, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
     }
 }

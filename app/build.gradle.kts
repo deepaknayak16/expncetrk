@@ -42,6 +42,9 @@ android {
         compose = true
     }
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/INDEX.LIST"
@@ -97,6 +100,16 @@ dependencies {
 
     // Lottie
     implementation(libs.lottie.compose)
+
+    // Biometric Authentication
+    implementation(libs.androidx.biometric)
+
+    // SQLCipher for Encrypted Database
+    implementation(libs.androidx.sqlite.framework)
+    implementation(libs.zetetic.sqlcipher)
+
+    // PDF Generation (for export feature)
+    implementation(libs.itext7.core)
 
     // Testing platforms
     testImplementation(libs.junit)

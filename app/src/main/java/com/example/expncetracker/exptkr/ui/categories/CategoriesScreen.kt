@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,16 +17,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.theme.*
 
-// Reusing colors from AddTransaction for consistency
-private val CalculatorBg = Color(0xFFFEFBEA)
-private val CalculatorGreen = Color(0xFF2D5D4E)
-
 @Composable
 fun CategoriesScreen() {
+    val isDark = MaterialTheme.isDark
     val incomeCategories = listOf(
         Category.SALARY,
         Category.INVESTMENTS,
@@ -38,50 +34,73 @@ fun CategoriesScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(CalculatorBg)
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        // Summary Header (matching image style)
-        Column(
+        // Summary Header
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Text(
-                text = "[ All Accounts ₹9,096.28 ]",
-                color = CalculatorGreen,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-            
-            Spacer(Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                SummaryItem("EXPENSE SO FAR", "₹4,853.72", Color(0xFFD32F2F))
-                SummaryItem("INCOME SO FAR", "₹8,700.00", Color(0xFF388E3C))
+                Text(
+                    text = "Total Financial Health",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "₹9,096.28",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                Spacer(Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(Modifier.height(20.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    SummaryItem("EXPENSE", "₹4,853.72", if (isDark) DarkExpense else LightExpense)
+                    SummaryItem("INCOME", "₹8,700.00", if (isDark) DarkIncome else LightIncome)
+                }
             }
         }
 
-        HorizontalDivider(color = CalculatorGreen.copy(alpha = 0.2f))
-
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
             item {
-                CategoryHeader("Income categories")
+                CategoryHeader("Income Categories")
             }
             items(incomeCategories) { category ->
-                CategoryListItem(category)
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CalculatorGreen.copy(alpha = 0.1f))
+                CategoryListItem(category, isDark)
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 72.dp, end = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
             }
             
             item {
-                CategoryHeader("Expense categories")
+                CategoryHeader("Expense Categories")
             }
             items(expenseCategories) { category ->
-                CategoryListItem(category)
-                HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CalculatorGreen.copy(alpha = 0.1f))
+                CategoryListItem(category, isDark)
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 72.dp, end = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
             }
         }
     }
@@ -90,8 +109,8 @@ fun CategoriesScreen() {
 @Composable
 private fun SummaryItem(label: String, amount: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, color = CalculatorGreen.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(text = amount, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        Text(text = amount, color = color, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -99,15 +118,15 @@ private fun SummaryItem(label: String, amount: String, color: Color) {
 private fun CategoryHeader(title: String) {
     Text(
         text = title,
-        color = CalculatorGreen,
-        fontSize = 18.sp,
+        color = MaterialTheme.colorScheme.onSurface,
+        style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)
     )
 }
 
 @Composable
-private fun CategoryListItem(category: Category) {
+private fun CategoryListItem(category: Category, isDark: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -116,9 +135,9 @@ private fun CategoryListItem(category: Category) {
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(getCategoryColor(category)),
+                .size(44.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(getCategoryColor(category, isDark)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -134,16 +153,18 @@ private fun CategoryListItem(category: Category) {
         Text(
             text = category.displayName,
             modifier = Modifier.weight(1f),
-            color = CalculatorGreen,
-            fontSize = 18.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
         
-        Icon(
-            imageVector = Icons.Default.MoreHoriz,
-            contentDescription = "Options",
-            tint = CalculatorGreen.copy(alpha = 0.5f)
-        )
+        IconButton(onClick = { }) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -165,15 +186,20 @@ private fun getCategoryIcon(category: Category): ImageVector {
     }
 }
 
-private fun getCategoryColor(category: Category): Color {
+private fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
     return when (category) {
-        Category.SALARY -> Color(0xFF1E88E5)
-        Category.SHOPPING -> Color(0xFFD81B60)
-        Category.INVESTMENTS -> Color(0xFF8E24AA)
-        Category.FOOD -> Color(0xFFF4511E)
-        Category.BILLS -> Color(0xFF43A047)
-        Category.RENT -> Color(0xFF795548)
-        Category.TRAVEL -> Color(0xFF00ACC1)
-        else -> Color(0xFF546E7A)
+        Category.FOOD -> if (isDarkTheme) CategoryFoodDark else CategoryFood
+        Category.CABS -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
+        Category.RENT -> if (isDarkTheme) CategoryRentDark else CategoryRent
+        Category.BILLS -> if (isDarkTheme) CategoryBillsDark else CategoryBills
+        Category.SHOPPING -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.SALARY -> if (isDarkTheme) CategorySalaryDark else CategorySalary
+        Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
+        Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
+        Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
+        Category.GROCERIES -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
+        Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
+        Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
     }
 }

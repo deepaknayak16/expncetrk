@@ -4,13 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -19,11 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -52,7 +45,6 @@ fun AppNavGraph() {
     val navController = rememberNavController()
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry.value?.destination?.route
-    val isDarkTheme = MaterialTheme.isDark
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -64,7 +56,7 @@ fun AppNavGraph() {
             ModalDrawerSheet {
                 Spacer(Modifier.height(12.dp))
                 NavigationDrawerItem(
-                    label = { Text("Settings") },
+                    label = { Text("Settings", style = MaterialTheme.typography.labelLarge) },
                     selected = currentRoute == "settings",
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -73,7 +65,6 @@ fun AppNavGraph() {
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
-                // Add more drawer items here if needed
             }
         }
     ) {
@@ -90,7 +81,10 @@ fun AppNavGraph() {
                     ModernTopAppBar(
                         title = when (currentRoute) {
                             "transactions" -> "Statement Ledger"
-                            "categories" -> "MyMoney"
+                            "categories" -> "Categories"
+                            "analytics" -> "Insights"
+                            "budget" -> "Budgets"
+                            "accounts" -> "My Accounts"
                             else -> "MoneyWise"
                         },
                         showSearch = true,
@@ -101,8 +95,7 @@ fun AppNavGraph() {
                                 navController.navigate("transactions")
                             }
                         },
-                        onAddClick = { navController.navigate("add_transaction") },
-                        isDarkTheme = isDarkTheme
+                        onAddClick = { navController.navigate("add_transaction") }
                     )
                 }
             },
@@ -174,8 +167,7 @@ private fun ModernTopAppBar(
     onMenuClick: () -> Unit = {},
     onBackClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
-    onAddClick: () -> Unit = {},
-    isDarkTheme: Boolean
+    onAddClick: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -222,8 +214,7 @@ private fun ModernTopAppBar(
                 if (showSearch) {
                     IconButton(
                         onClick = onSearchClick,
-                        modifier = Modifier
-                            .size(40.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -238,7 +229,7 @@ private fun ModernTopAppBar(
                     onClick = onAddClick,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(MaterialTheme.shapes.medium)
                         .background(MaterialTheme.colorScheme.primaryContainer)
                 ) {
                     Icon(
@@ -293,7 +284,7 @@ private fun ModernNavigationBar(
                 label = {
                     Text(
                         text = item.label,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 },

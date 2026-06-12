@@ -10,7 +10,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -43,18 +42,16 @@ fun GradientCard(
     gradientEnd: Color = CardGradientEndLight,
     content: @Composable (() -> Unit)? = null
 ) {
-    val isDarkTheme = MaterialTheme.isDark
-
     Card(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
                 elevation = 20.dp,
-                shape = RoundedCornerShape(28.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 ambientColor = gradientStart.copy(alpha = 0.15f),
                 spotColor = gradientStart.copy(alpha = 0.15f)
             ),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Box(
@@ -71,15 +68,14 @@ fun GradientCard(
                     Text(
                         text = title,
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 0.5.sp
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium
                     )
                     if (icon != null) {
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .background(Color.White.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -98,9 +94,8 @@ fun GradientCard(
                 Text(
                     text = value,
                     color = Color.White,
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.5).sp
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold
                 )
 
                 if (subtitle != null) {
@@ -108,8 +103,7 @@ fun GradientCard(
                     Text(
                         text = subtitle,
                         color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
 
@@ -141,7 +135,7 @@ fun StatItem(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(iconBackgroundColor.copy(alpha = 0.25f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -157,13 +151,13 @@ fun StatItem(
                 Text(
                     text = label,
                     color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = amount,
                     color = Color.White,
-                    fontSize = 17.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -186,20 +180,15 @@ fun TransactionCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val backgroundColor = MaterialTheme.colorScheme.surface
-    val elevationColor = if (MaterialTheme.isDark) {
-        DarkCardElevation
-    } else {
-        LightCardElevation
-    }
-
+    val isDark = MaterialTheme.isDark
+    
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        color = backgroundColor,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 6.dp,
+        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.large,
+        shadowElevation = 2.dp,
         tonalElevation = 2.dp
     ) {
         Row(
@@ -210,7 +199,7 @@ fun TransactionCard(
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.large)
                     .background(categoryColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -229,15 +218,14 @@ fun TransactionCard(
                 Text(
                     text = merchant,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = category,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
@@ -247,16 +235,15 @@ fun TransactionCard(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = amount,
-                    color = if (isCredit) LightIncome else LightExpense,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    color = if (isCredit) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
                 if (bankName != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = bankName,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        fontSize = 11.sp
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }
@@ -275,23 +262,12 @@ fun FilterChipWithIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val contentColor = if (isSelected) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
     Surface(
         modifier = modifier
             .height(40.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = containerColor,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
     ) {
         Row(
@@ -304,59 +280,17 @@ fun FilterChipWithIcon(
                     imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
-                    tint = contentColor
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
                 text = label,
-                color = contentColor,
-                fontSize = 13.sp,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
             )
         }
-    }
-}
-
-/**
- * Loading skeleton for cards
- */
-@Composable
-fun SkeletonCard(
-    modifier: Modifier = Modifier,
-    height: Int = 160
-) {
-    val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.3f),
-        Color.LightGray.copy(alpha = 0.5f),
-        Color.LightGray.copy(alpha = 0.3f)
-    )
-
-    val transition = rememberInfiniteTransition(label = "skeleton")
-    val alpha by transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000),
-            repeatMode = RepeatMode.Reverse
-        ), label = "skeletonAlpha"
-    )
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(shimmerColors),
-                    RoundedCornerShape(20.dp)
-                )
-        )
     }
 }
 
@@ -396,7 +330,7 @@ fun EmptyState(
         Text(
             text = title,
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 18.sp,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
@@ -404,7 +338,7 @@ fun EmptyState(
         Text(
             text = description,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-            fontSize = 14.sp,
+            style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
@@ -431,8 +365,8 @@ fun SettingsPreferenceItem(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp),
-        shadowElevation = 2.dp
+        shape = MaterialTheme.shapes.large,
+        shadowElevation = 1.dp
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -441,14 +375,14 @@ fun SettingsPreferenceItem(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -457,15 +391,14 @@ fun SettingsPreferenceItem(
                 Text(
                     text = label,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
                 if (subtitle != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
@@ -500,7 +433,7 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            fontSize = 18.sp,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -509,8 +442,8 @@ fun SectionHeader(
                 Text(
                     text = actionLabel,
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

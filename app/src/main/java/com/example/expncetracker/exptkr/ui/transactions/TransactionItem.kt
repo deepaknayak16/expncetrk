@@ -2,15 +2,10 @@ package com.example.expncetracker.exptkr.ui.transactions
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,7 +14,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.core.common.formatToDisplay
 import com.example.expncetracker.exptkr.domain.model.Category
@@ -27,100 +21,32 @@ import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
 
+/**
+ * Unified Transaction List Item used across Home and Transaction screens.
+ */
 @Composable
-fun TransactionListItem(transaction: Transaction) {
-    val isDarkTheme = MaterialTheme.isDark
-    val (icon, color) = getTransactionStyle(transaction.category, isDarkTheme)
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background // Solid background to prevent overlap with swipe content
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Circular Icon
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = CircleShape,
-                color = color
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Merchant and Category Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = transaction.merchant,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = transaction.category.displayName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = transaction.timestamp.formatToDisplay(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-            }
-
-            // Amount
-            val prefix = when (transaction.type) {
-                TransactionType.CREDIT -> "+"
-                TransactionType.DEBIT -> "-"
-                TransactionType.TRANSFER -> "⇄ "
-            }
-            val amountColor = when (transaction.type) {
-                TransactionType.CREDIT -> Color(0xFF10B981)
-                TransactionType.DEBIT -> Color(0xFFEF4444)
-                TransactionType.TRANSFER -> Color(0xFF3B82F6)
-            }
-            Text(
-                text = prefix + transaction.amount.formatAsCurrency(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = amountColor
-            )
-        }
-    }
-}
-
-@Composable
-fun TransactionItemImproved(transaction: Transaction) {
+fun TransactionListItem(
+    transaction: Transaction,
+    onDelete: (() -> Unit)? = null
+) {
     val isDarkTheme = MaterialTheme.isDark
     val (icon, color) = getTransactionStyle(transaction.category, isDarkTheme)
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 4.dp,
-        tonalElevation = 2.dp
+        shape = MaterialTheme.shapes.large,
+        shadowElevation = 1.dp
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category Icon with larger container
+            // Category Icon Container
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.large)
                     .background(color.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -138,45 +64,56 @@ fun TransactionItemImproved(transaction: Transaction) {
             Column(Modifier.weight(1f)) {
                 Text(
                     text = transaction.merchant,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
                     maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = transaction.category.displayName,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = transaction.timestamp.formatToDisplay(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
 
             // Amount
             Column(horizontalAlignment = Alignment.End) {
                 val prefix = when (transaction.type) {
                     TransactionType.CREDIT -> "+"
                     TransactionType.DEBIT -> "-"
-                    TransactionType.TRANSFER -> "⇄"
+                    TransactionType.TRANSFER -> "⇄ "
                 }
                 val amountColor = when (transaction.type) {
                     TransactionType.CREDIT -> if (isDarkTheme) DarkIncome else LightIncome
                     TransactionType.DEBIT -> if (isDarkTheme) DarkExpense else LightExpense
-                    TransactionType.TRANSFER -> Color(0xFF3B82F6)
+                    TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
                 }
                 Text(
-                    text = "$prefix ${transaction.amount.formatAsCurrency()}",
-                    color = amountColor,
+                    text = "$prefix${transaction.amount.formatAsCurrency()}",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    color = amountColor
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = transaction.bankName,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    fontSize = 11.sp
-                )
+                
+                if (onDelete != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }
