@@ -52,7 +52,12 @@ class MainActivity : FragmentActivity() {
                             .collect { result ->
                                 when (result) {
                                     is BiometricResult.Success -> authenticated = true
-                                    else -> { /* keep showing auth or finish() */ }
+                                    is BiometricResult.Error -> {
+                                        // Show error and maybe exit app
+                                        android.widget.Toast.makeText(this@MainActivity, result.message, android.widget.Toast.LENGTH_LONG).show()
+                                        finish()
+                                    }
+                                    else -> { /* keep showing auth */ }
                                 }
                             }
                     }

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import com.example.expncetracker.exptkr.ui.dashboard.TimeFilterRow
 import com.example.expncetracker.exptkr.ui.dashboard.DistributionSection
+import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
@@ -43,6 +44,8 @@ import java.util.Locale
 fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val summary by viewModel.summary.collectAsState()
     val trends by viewModel.trends.collectAsState()
+    val dailyTotals by viewModel.dailyTotals.collectAsState()
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isDark = MaterialTheme.isDark
     var showFilterSheet by remember { mutableStateOf(false) }
 
@@ -53,6 +56,10 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         )
     }
     val weekEnd = currentWeekStart.plusDays(6)
+
+    LaunchedEffect(currentWeekStart) {
+        viewModel.setWeekRange(currentWeekStart, weekEnd)
+    }
 
     val lineModelProducer = remember { CartesianChartModelProducer() }
     val columnModelProducer = remember { CartesianChartModelProducer() }
@@ -128,10 +135,15 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     onDismissRequest = { showFilterSheet = false },
                     containerColor = MaterialTheme.colorScheme.surface
                 ) {
-                    TimeFilterRow(
-                        currentFilter = DateFilter.MONTH, // Defaulting to month for now
-                        onFilterSelected = { showFilterSheet = false }
-                    )
+                    Box(modifier = Modifier.padding(16.dp)) {
+                        TimeFilterRow(
+                            currentFilter = selectedFilter,
+                            onFilterSelected = { 
+                                viewModel.setFilter(it)
+                                showFilterSheet = false 
+                            }
+                        )
+                    }
                     Spacer(Modifier.height(24.dp))
                 }
             }
@@ -144,9 +156,9 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     .padding(horizontal = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                StatItem("EXPENSE", "₹${summary?.totalExpense ?: 0.0}", if (isDark) DarkExpense else LightExpense, Modifier.weight(1f))
-                StatItem("INCOME", "₹${summary?.totalIncome ?: 0.0}", if (isDark) DarkIncome else LightIncome, Modifier.weight(1f))
-                StatItem("TOTAL", "₹${summary?.balance ?: 0.0}", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                StatItem("EXPENSE", (summary?.totalExpense ?: 0.0).formatAsCurrency(), if (isDark) DarkExpense else LightExpense, Modifier.weight(1f))
+                StatItem("INCOME", (summary?.totalIncome ?: 0.0).formatAsCurrency(), if (isDark) DarkIncome else LightIncome, Modifier.weight(1f))
+                StatItem("TOTAL", (summary?.balance ?: 0.0).formatAsCurrency(), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -185,7 +197,9 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Text("No trend data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No trend data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -208,21 +222,17 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 // FIX #6: Derive actual week data dynamically
+                val locale = remember { Locale.getDefault() }
                 val weekDays = (0..6).map { currentWeekStart.plusDays(it.toLong()) }
-                val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-                // Approximate daily spending from total expense / 7
-                // In production, replace with a usecase that returns Map<LocalDate, Double>
                 val daySpending = weekDays.map { day ->
-                    summary?.let { s ->
-                        val dayTotal = (s.totalExpense / 7.0).let { if (it.isNaN()) 0.0 else it }
-                        String.format("-%.2f", dayTotal)
-                    } ?: "-0.0"
+                    val dayTotal = dailyTotals[day] ?: 0.0
+                    String.format("-%.2f", dayTotal)
                 }
 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     weekDays.forEachIndexed { index, day ->
                         CalendarDayItem(
-                            day = dayNames[day.dayOfWeek.value % 7],
+                            day = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale),
                             date = day.dayOfMonth.toString(),
                             value = daySpending[index],
                             modifier = Modifier.weight(1f)

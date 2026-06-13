@@ -11,5 +11,6 @@ data class SettingsUiState(
     val isBiometricEnabled: Boolean = false,
     val isBiometricAvailable: Boolean = false,
     val isLoading: Boolean = false,
+    val isExporting: Boolean = false,
     val error: String? = null
 )

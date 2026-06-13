@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.ui.transactions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,7 +30,9 @@ import com.example.expncetracker.exptkr.ui.theme.*
 @Composable
 fun TransactionListItem(
     transaction: Transaction,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDarkTheme = MaterialTheme.isDark
@@ -61,7 +64,11 @@ fun TransactionListItem(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = onClick != null || onEdit != null) { 
+                if (onClick != null) onClick() else onEdit?.invoke() 
+            },
         color = MaterialTheme.colorScheme.background
     ) {
         Column {

@@ -151,6 +151,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     label = "Export as CSV",
                     subtitle = "Share transactions as a spreadsheet",
                     icon = Icons.Default.TableChart,
+                    enabled = !uiState.isExporting,
                     onClick = {
                         viewModel.exportCsv { file ->
                             shareFile(ctx, file, "text/csv")
@@ -162,12 +163,17 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     label = "Export as PDF",
                     subtitle = "Generate a printable expense report",
                     icon = Icons.Default.PictureAsPdf,
+                    enabled = !uiState.isExporting,
                     onClick = {
                         viewModel.exportPdf { file ->
                             shareFile(ctx, file, "application/pdf")
                         }
                     }
                 )
+                
+                if (uiState.isExporting) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
                 SettingsPreferenceItem(
                     label = "Dark Mode",
                     subtitle = if (uiState.isDarkMode) "Enabled" else "Disabled",

@@ -24,20 +24,10 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
     val isDark = MaterialTheme.isDark
     val summary by viewModel.summary.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
-
-    var showAddDialog by remember { mutableStateOf(false) }
+    val showAddDialog by viewModel.showAddDialog.collectAsState()
 
     Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Account")
-            }
-        }
+        /* FAB removed as requested - Add icon in top bar handles this */
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -143,10 +133,10 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
 
     if (showAddDialog) {
         AddAccountDialog(
-            onDismiss = { showAddDialog = false },
+            onDismiss = { viewModel.onDialogDismissed() },
             onConfirm = { name, balance, type ->
                 viewModel.addAccount(name, balance, type)
-                showAddDialog = false
+                viewModel.onDialogDismissed()
             }
         )
     }
@@ -165,7 +155,7 @@ private fun AccountCard(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Delete Account") },
-            text = { Text("Are you sure you want to delete '${account.name}'? This won't delete the transactions associated with it.") },
+            text = { Text("This will remove '${account.name}' from your dashboard. Transactions previously tagged with this account will remain in your history, but the account itself will be deleted. This action cannot be undone.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -230,7 +220,7 @@ private fun AccountCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "₹${account.balance.formatAsCurrency()}",
+                    text = account.balance.formatAsCurrency(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (account.balance >= 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense)

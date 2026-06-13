@@ -17,14 +17,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.expncetracker.R
 import com.example.expncetracker.exptkr.ui.dashboard.DashboardScreen
 import com.example.expncetracker.exptkr.ui.dashboard.DashboardViewModel
 import com.example.expncetracker.exptkr.ui.settings.SettingsScreen
@@ -52,7 +56,14 @@ fun AppNavGraph() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    val budgetViewModel: BudgetViewModel = hiltViewModel()
+    val accountsViewModel: AccountsViewModel = hiltViewModel()
+    val categoriesViewModel: CategoriesViewModel = hiltViewModel()
+
     val showBottomBar = currentRoute != "add_transaction"
+
+    // Removed LocalViewModel logic as it caused composition issues
+    // We will use a shared state or simply pass the VM down properly.
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -87,7 +98,7 @@ fun AppNavGraph() {
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "MoneyWise",
+                            stringResource(R.string.app_name),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -97,20 +108,22 @@ fun AppNavGraph() {
                 Spacer(Modifier.height(12.dp))
                 
                 val drawerItems = listOf(
-                    Triple("Home", Icons.Default.Home, "dashboard"),
-                    Triple("Transactions", Icons.AutoMirrored.Filled.ReceiptLong, "transactions"),
-                    Triple("Analytics", Icons.Default.BarChart, "analytics"),
-                    Triple("Budgets", Icons.Default.AccountBalance, "budget"),
-                    Triple("Settings", Icons.Default.Settings, "settings")
+                    NavigationItem("dashboard", stringResource(R.string.today), Icons.Default.Home, Icons.Outlined.Home),
+                    NavigationItem("transactions", "Ledger", Icons.Default.ReceiptLong, Icons.Outlined.ReceiptLong),
+                    NavigationItem("analytics", stringResource(R.string.analytics_title), Icons.Default.BarChart, Icons.Outlined.BarChart),
+                    NavigationItem("budget", stringResource(R.string.budget_title), Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
+                    NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
+                    NavigationItem("categories", stringResource(R.string.category_label), Icons.Default.Category, Icons.Outlined.Category),
+                    NavigationItem("settings", stringResource(R.string.settings_title), Icons.Default.Settings, Icons.Outlined.Settings)
                 )
                 
-                drawerItems.forEach { (label, icon, route) ->
+                drawerItems.forEach { item ->
                     NavigationDrawerItem(
-                        label = { Text(label, style = MaterialTheme.typography.labelLarge) },
-                        selected = currentRoute == route,
+                        label = { Text(item.label, style = MaterialTheme.typography.labelLarge) },
+                        selected = currentRoute == item.route,
                         onClick = {
                             scope.launch { drawerState.close() }
-                            navController.navigate(route) {
+                            navController.navigate(item.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
                                 }
@@ -118,7 +131,7 @@ fun AppNavGraph() {
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(icon, contentDescription = null) },
+                        icon = { Icon(if (currentRoute == item.route) item.selectedIcon else item.unselectedIcon, contentDescription = null) },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
                 }
@@ -137,20 +150,30 @@ fun AppNavGraph() {
                 ) {
                     ModernTopAppBar(
                         title = when (currentRoute) {
-                            "transactions" -> "Statement Ledger"
-                            "categories" -> "Categories"
-                            "analytics" -> "Insights"
-                            "budget" -> "Budgets"
-                            "accounts" -> "My Accounts"
-                            else -> "MoneyWise"
+                            "transactions" -> "Ledger"
+                            "categories" -> stringResource(R.string.category_label)
+                            "analytics" -> stringResource(R.string.analytics_title)
+                            "budget" -> stringResource(R.string.budget_title)
+                            "accounts" -> "Accounts"
+                            "settings" -> stringResource(R.string.settings_title)
+                            else -> stringResource(R.string.app_name)
                         },
-                        showSearch = currentRoute == "transactions",
+                        showSearch = currentRoute != "transactions",
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onBackClick = { navController.popBackStack() },
                         onSearchClick = {
-                            // Already on transactions screen, handle search logic here if needed
+                            if (currentRoute != "transactions") {
+                                navController.navigate("transactions")
+                            }
                         },
-                        onAddClick = { navController.navigate("add_transaction") }
+                        onAddClick = { 
+                            when (currentRoute) {
+                                "budget" -> budgetViewModel.triggerAddBudget()
+                                "accounts" -> accountsViewModel.triggerAddAccount()
+                                "categories" -> categoriesViewModel.triggerAddCategory()
+                                else -> navController.navigate("add_transaction")
+                            }
+                        }
                     )
                 }
             },
@@ -186,11 +209,15 @@ fun AppNavGraph() {
                 }
                 composable("transactions") {
                     val vm: TransactionViewModel = hiltViewModel()
-                    TransactionScreen(vm)
+                    TransactionScreen(
+                        viewModel = vm,
+                        onNavigateToEdit = { id ->
+                            navController.navigate("add_transaction?transactionId=$id")
+                        }
+                    )
                 }
                 composable("accounts") {
-                    val vm: AccountsViewModel = hiltViewModel()
-                    AccountsScreen(vm)
+                    AccountsScreen(accountsViewModel)
                 }
                 composable("settings") {
                     val vm: SettingsViewModel = hiltViewModel()
@@ -201,15 +228,25 @@ fun AppNavGraph() {
                     AnalyticsScreen(vm)
                 }
                 composable("budget") {
-                    val vm: BudgetViewModel = hiltViewModel()
-                    BudgetScreen(vm)
+                    BudgetScreen(budgetViewModel)
                 }
                 composable("categories") {
-                    val vm: CategoriesViewModel = hiltViewModel()
-                    CategoriesScreen(vm)
+                    CategoriesScreen(categoriesViewModel)
                 }
-                composable("add_transaction") {
-                    AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
+                composable(
+                    route = "add_transaction?transactionId={transactionId}",
+                    arguments = listOf(
+                        navArgument("transactionId") {
+                            type = NavType.LongType
+                            defaultValue = 0L
+                        }
+                    )
+                ) { backStackEntry ->
+                    val id = backStackEntry.arguments?.getLong("transactionId") ?: 0L
+                    AddTransactionScreen(
+                        transactionId = if (id == 0L) null else id,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
             }
         }
@@ -306,11 +343,11 @@ private fun ModernNavigationBar(
     currentRoute: String?
 ) {
     val items = listOf(
-        NavigationItem("dashboard", "Home", Icons.Default.Home, Icons.Outlined.Home),
-        NavigationItem("analytics", "Analytics", Icons.Default.BarChart, Icons.Outlined.BarChart),
-        NavigationItem("categories", "Category", Icons.Default.Category, Icons.Outlined.Category),
-        NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
-        NavigationItem("budget", "Budgets", Icons.Default.AccountBalance, Icons.Outlined.AccountBalance)
+        NavigationItem("dashboard", stringResource(R.string.today), Icons.Default.Home, Icons.Outlined.Home),
+        NavigationItem("analytics", stringResource(R.string.analytics_title), Icons.Default.BarChart, Icons.Outlined.BarChart),
+        NavigationItem("categories", stringResource(R.string.category_label), Icons.Default.Category, Icons.Outlined.Category),
+        NavigationItem("budget", stringResource(R.string.budget_title), Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
+        NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet)
     )
 
     NavigationBar(

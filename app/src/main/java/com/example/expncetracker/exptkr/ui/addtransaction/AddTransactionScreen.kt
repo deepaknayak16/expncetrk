@@ -1,7 +1,5 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,7 +9,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -22,7 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import com.example.expncetracker.exptkr.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -44,17 +44,56 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
+    transactionId: Long? = null,
     onNavigateBack: () -> Unit,
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
+    val transactionToEdit by viewModel.transactionToEdit.collectAsState()
+    val accounts by viewModel.accounts.collectAsState()
+    val allCategories by viewModel.categories.collectAsState()
+
     var amountText by remember { mutableStateOf("0") }
     var note by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
-    var selectedCategory by remember { mutableStateOf(Category.SHOPPING) }
-    var selectedAccount by remember { mutableStateOf("Card") }
+    var selectedCategoryName by remember { mutableStateOf("") }
+    var selectedAccount by remember { mutableStateOf<AccountUiModel?>(null) }
     var transactionDate by remember { mutableStateOf(LocalDateTime.now()) }
+
+    val haptic = LocalHapticFeedback.current
+
+    LaunchedEffect(transactionId) {
+        if (transactionId != null && transactionId != 0L) {
+            viewModel.loadTransaction(transactionId)
+        }
+    }
+
+    LaunchedEffect(transactionToEdit) {
+        transactionToEdit?.let {
+            amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
+            note = it.merchant
+            selectedType = it.type
+            selectedCategoryName = it.category.displayName
+            transactionDate = it.timestamp
+        }
+    }
+
+    LaunchedEffect(allCategories) {
+        if (selectedCategoryName.isEmpty() && allCategories.isNotEmpty()) {
+            selectedCategoryName = allCategories.find { it.type == "EXPENSE" }?.name ?: ""
+        }
+    }
+
+    LaunchedEffect(accounts, transactionToEdit) {
+        if (transactionToEdit != null) {
+            selectedAccount = accounts.find { acc -> acc.name == transactionToEdit?.bankName }
+        } else if (selectedAccount == null && accounts.isNotEmpty()) {
+            selectedAccount = accounts.first()
+        }
+    }
+
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showAccountSheet by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = transactionDate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -64,227 +103,242 @@ fun AddTransactionScreen(
         initialMinute = transactionDate.minute
     )
 
-    val context = LocalContext.current
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
 
     var showCategorySheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-    ) {
-        // Standardized Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Text(
-                "Add Transaction",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            IconButton(
-                onClick = {
-                    val amount = amountText.toDoubleOrNull() ?: 0.0
-                    if (amount > 0) {
-                        viewModel.addTransaction(
-                            amount = amount,
-                            type = selectedType,
-                            category = selectedCategory.name,
-                            description = note.ifBlank { null },
-                            timestamp = transactionDate
-                        )
-                        onNavigateBack()
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(if (transactionId != null) "Edit Transaction" else "Add Transaction") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.Close, contentDescription = "Cancel")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            val amount = try { evaluate(amountText) } catch (e: Exception) { 0.0 }
+                            if (amount > 0) {
+                                viewModel.addTransaction(
+                                    id = transactionId ?: 0L,
+                                    amount = amount,
+                                    type = selectedType,
+                                    category = selectedCategoryName,
+                                    description = note.ifBlank { null },
+                                    bankName = selectedAccount?.name ?: "Manual",
+                                    timestamp = transactionDate
+                                )
+                                onNavigateBack()
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-            ) {
-                Icon(Icons.Default.Check, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary)
-            }
+            )
         }
-
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp)
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // Transaction Type Selector
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
             ) {
-                TypeTab("INCOME", selectedType == TransactionType.CREDIT) { selectedType = TransactionType.CREDIT }
-                Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
-                TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { selectedType = TransactionType.DEBIT }
-                Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
-                TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { selectedType = TransactionType.TRANSFER }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // Account and Category Selectors
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                SelectorItem(
-                    label = "Account",
-                    value = selectedAccount,
-                    icon = Icons.Default.AccountBalanceWallet,
-                    modifier = Modifier.weight(1f)
-                ) { /* For simplicity in this fix, we toggle between a few options */
-                    val accounts = listOf("Cash", "Bank Card", "Savings", "Credit")
-                    val nextIndex = (accounts.indexOf(selectedAccount) + 1) % accounts.size
-                    selectedAccount = accounts[nextIndex]
-                }
-                
-                SelectorItem(
-                    label = "Category",
-                    value = selectedCategory.displayName,
-                    icon = getCategoryIcon(selectedCategory),
-                    modifier = Modifier.weight(1f)
-                ) { showCategorySheet = true }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // Amount Display
-            val formattedAmount = remember(amountText) {
-                if (amountText.isEmpty()) "0"
-                else if (amountText.any { it in "+-*/" }) amountText
-                else {
-                    try {
-                        val parts = amountText.split(".")
-                        val intPart = parts[0].toLongOrNull() ?: 0L
-                        val formattedInt = java.text.NumberFormat.getNumberInstance(Locale.US).format(intPart)
-                        if (parts.size > 1) "$formattedInt.${parts[1]}" else formattedInt
-                    } catch (e: Exception) {
-                        amountText
+                // Transaction Type Selector
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TypeTab("INCOME", selectedType == TransactionType.CREDIT) { 
+                        selectedType = TransactionType.CREDIT 
+                        // Filter category if current is not valid for income
+                        val incomeCats = allCategories.filter { it.type == "INCOME" }
+                        if (incomeCats.none { it.name == selectedCategoryName }) {
+                            selectedCategoryName = incomeCats.firstOrNull()?.name ?: ""
+                        }
+                    }
+                    Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                    TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { 
+                        selectedType = TransactionType.DEBIT 
+                    }
+                    Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                    TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { 
+                        selectedType = TransactionType.TRANSFER 
                     }
                 }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Account and Category Selectors
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SelectorItem(
+                        label = "Account",
+                        value = selectedAccount?.name ?: "Select Account",
+                        icon = Icons.Default.AccountBalanceWallet,
+                        modifier = Modifier.weight(1f)
+                    ) { showAccountSheet = true }
+                    
+                    SelectorItem(
+                        label = "Category",
+                        value = selectedCategoryName,
+                        icon = Icons.Default.Category,
+                        modifier = Modifier.weight(1f)
+                    ) { showCategorySheet = true }
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                // Amount Display
+                val formattedAmount = remember(amountText) {
+                    if (amountText.isEmpty()) "0"
+                    else if (amountText.any { it in "+-*/" }) amountText
+                    else {
+                        try {
+                            val parts = amountText.split(".")
+                            val intPart = parts[0].toLongOrNull() ?: 0L
+                            val formattedInt = java.text.NumberFormat.getNumberInstance(Locale.US).format(intPart)
+                            if (parts.size > 1) "$formattedInt.${parts[1]}" else formattedInt
+                        } catch (e: Exception) {
+                            amountText
+                        }
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "₹",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = formattedAmount,
+                            style = when {
+                                formattedAmount.length <= 8 -> MaterialTheme.typography.displayMedium
+                                formattedAmount.length <= 11 -> MaterialTheme.typography.headlineLarge
+                                else -> MaterialTheme.typography.headlineMedium
+                            },
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                        )
+                        IconButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (amountText.length > 1) {
+                                amountText = amountText.dropLast(1)
+                            } else {
+                                amountText = "0"
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Note Field
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    placeholder = { Text("Add a note...") },
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Calculator Keypad
+                CalculatorKeypad(
+                    modifier = Modifier.weight(1f),
+                    onDigitClick = { digit ->
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (amountText == "0") amountText = digit
+                        else if (amountText.length < 12) amountText += digit
+                    },
+                    onOperatorClick = { op ->
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (amountText.isNotEmpty() && !amountText.last().isDigit() && amountText.last() != '.') {
+                            // Replace last operator
+                            amountText = amountText.dropLast(1) + op
+                        } else if (amountText.isNotEmpty() && amountText.last() != '.') {
+                            amountText += op
+                        }
+                    },
+                    onDecimalClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val lastPart = amountText.split('+', '-', '*', '/').last()
+                        if (!lastPart.contains(".")) {
+                            amountText += if (amountText.isEmpty() || !amountText.last().isDigit()) "0." else "."
+                        }
+                    },
+                    onEqualsClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        try {
+                            val result = evaluate(amountText)
+                            amountText = if (result % 1.0 == 0.0) result.toLong().toString() else "%.2f".format(result)
+                        } catch (_: Exception) { }
+                    }
+                )
             }
 
+            // Bottom Date/Time bar
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(80.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "₹",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = formattedAmount,
-                        style = when {
-                            formattedAmount.length <= 8 -> MaterialTheme.typography.displayMedium
-                            formattedAmount.length <= 11 -> MaterialTheme.typography.headlineLarge
-                            else -> MaterialTheme.typography.headlineMedium
-                        },
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.End,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
-                    )
-                    IconButton(onClick = {
-                        if (amountText.length > 1) {
-                            amountText = amountText.dropLast(1)
-                        } else {
-                            amountText = "0"
-                        }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(transactionDate.format(dateFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                     }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Note Field
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                placeholder = { Text("Add a note...") },
-                textStyle = MaterialTheme.typography.bodyLarge,
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                )
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            // Calculator Keypad
-            CalculatorKeypad(
-                modifier = Modifier.weight(1f),
-                onDigitClick = { digit ->
-                    if (amountText == "0") amountText = digit
-                    else if (amountText.length < 12) amountText += digit
-                },
-                onOperatorClick = { op ->
-                    if (!amountText.endsWith("+") && !amountText.endsWith("-") && 
-                        !amountText.endsWith("*") && !amountText.endsWith("/")) {
-                        amountText += op
+                    Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                    TextButton(onClick = { showTimePicker = true }) {
+                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(transactionDate.format(timeFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                     }
-                },
-                onDecimalClick = {
-                    if (!amountText.contains(".")) amountText += "."
-                },
-                onEqualsClick = {
-                    try {
-                        val result = evaluate(amountText)
-                        amountText = if (result % 1.0 == 0.0) result.toInt().toString() else "%.2f".format(result)
-                    } catch (_: Exception) { }
-                }
-            )
-        }
-
-        // Bottom Date/Time bar
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            tonalElevation = 2.dp,
-            shadowElevation = 8.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = { showDatePicker = true }) {
-                    Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(transactionDate.format(dateFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                }
-                Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                TextButton(onClick = { showTimePicker = true }) {
-                    Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(transactionDate.format(timeFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -339,12 +393,72 @@ fun AddTransactionScreen(
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            CategoryGrid(
-                onCategorySelected = {
-                    selectedCategory = it
-                    showCategorySheet = false
+            val categoriesToShow = if (selectedType == TransactionType.CREDIT) {
+                allCategories.filter { it.type == "INCOME" }
+            } else {
+                allCategories.filter { it.type == "EXPENSE" }
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(categoriesToShow) { category ->
+                    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
+                    val color = Color(category.color)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.height(90.dp).clip(MaterialTheme.shapes.medium).clickable { 
+                            selectedCategoryName = category.name
+                            showCategorySheet = false 
+                        }.padding(4.dp)
+                    ) {
+                        Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                            Icon(imageVector = getCategoryIcon(categoryEnum), contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(text = category.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
-            )
+            }
+        }
+    }
+
+    if (showAccountSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAccountSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("Select Account", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                if (accounts.isEmpty()) {
+                    Text("No accounts found. Add one in the Accounts screen.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                accounts.forEach { account ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedAccount = account
+                                showAccountSheet = false
+                            }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = account.color.copy(alpha = 0.2f)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = account.color, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Text(account.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
         }
     }
 }
@@ -472,18 +586,11 @@ fun RowScope.KeyButton(
 
 private fun evaluate(expression: String): Double {
     if (expression.isEmpty()) return 0.0
-    
-    // Simple improvement: evaluate left to right for multiple operators
     val operators = listOf('+', '-', '*', '/')
     var currentExpression = expression.replace("÷", "/").replace("×", "*")
-    
-    // Handle the case where it starts with an operator
-    if (operators.contains(currentExpression.first())) {
-        currentExpression = "0$currentExpression"
-    }
+    if (operators.contains(currentExpression.first())) currentExpression = "0$currentExpression"
 
     try {
-        // Regex to split by operators while keeping them
         val tokens = mutableListOf<String>()
         var currentToken = ""
         for (char in currentExpression) {
@@ -498,12 +605,11 @@ private fun evaluate(expression: String): Double {
         if (currentToken.isNotEmpty()) tokens.add(currentToken)
 
         if (tokens.isEmpty()) return 0.0
-        
         var result = tokens[0].toDoubleOrNull() ?: 0.0
         var i = 1
-        while (i < tokens.size) {
+        while (i < tokens.size - 1) {
             val op = tokens[i]
-            val nextVal = if (i + 1 < tokens.size) tokens[i+1].toDoubleOrNull() ?: 0.0 else 0.0
+            val nextVal = tokens[i+1].toDoubleOrNull() ?: 0.0
             result = when (op) {
                 "+" -> result + nextVal
                 "-" -> result - nextVal
@@ -516,54 +622,6 @@ private fun evaluate(expression: String): Double {
         return result
     } catch (e: Exception) {
         return expression.toDoubleOrNull() ?: 0.0
-    }
-}
-
-@Composable
-fun CategoryGrid(onCategorySelected: (Category) -> Unit) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(Category.entries) { category ->
-            val color = getCategoryColor(category)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .height(90.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { onCategorySelected(category) }
-                    .padding(4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(color.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = getCategoryIcon(category),
-                        contentDescription = null,
-                        tint = color,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = category.displayName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
     }
 }
 
@@ -598,7 +656,7 @@ private fun getCategoryColor(category: Category): Color {
         Category.INVESTMENTS -> if (isDark) CategoryInvestmentsDark else CategoryInvestments
         Category.TRAVEL -> if (isDark) CategoryTravelDark else CategoryTravel
         Category.ENTERTAINMENT -> if (isDark) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> if (isDark) CategoryShoppingDark else CategoryShopping
+        Category.GROCERIES -> if (isDark) CategoryEducationDark else CategoryEducation
         Category.HEALTHCARE -> if (isDark) CategoryHealthDark else CategoryHealth
         Category.EDUCATION -> if (isDark) CategoryEducationDark else CategoryEducation
         Category.OTHERS -> if (isDark) CategoryOthersDark else CategoryOthers

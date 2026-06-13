@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -357,13 +358,17 @@ fun SettingsPreferenceItem(
     label: String,
     subtitle: String? = null,
     icon: ImageVector,
+    enabled: Boolean = true,
     trailingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer { alpha = if (enabled) 1f else 0.5f },
         color = MaterialTheme.colorScheme.surface,
         shape = MaterialTheme.shapes.large,
         shadowElevation = 1.dp

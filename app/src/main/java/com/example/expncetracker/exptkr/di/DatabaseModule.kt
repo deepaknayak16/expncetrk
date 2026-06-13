@@ -6,6 +6,7 @@ import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
+import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 import com.example.expncetracker.exptkr.data.db.dao.RawSmsDao
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import dagger.Module
@@ -40,4 +41,5 @@ object DatabaseModule {
     @Provides fun provideRawSmsDao(db: AppDatabase): RawSmsDao = db.rawSmsDao()
     @Provides fun provideBudgetDao(db: AppDatabase): BudgetDao = db.budgetDao()
     @Provides fun provideAccountDao(db: AppDatabase): AccountDao = db.accountDao()
+    @Provides fun provideCategoryDao(db: AppDatabase): CategoryDao = db.categoryDao()
 }

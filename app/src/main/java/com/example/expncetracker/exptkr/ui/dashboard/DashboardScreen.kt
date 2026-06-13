@@ -29,11 +29,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.expncetracker.R
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
@@ -141,11 +143,11 @@ fun DashboardContent(
     ) {
         item {
             val calendar = Calendar.getInstance()
-            val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
-                in 5..11 -> "Good Morning"
-                in 12..16 -> "Good Afternoon"
-                in 17..20 -> "Good Evening"
-                else -> "Good Night"
+            val greetingRes = when (calendar.get(Calendar.HOUR_OF_DAY)) {
+                in 5..11 -> R.string.greeting_morning
+                in 12..16 -> R.string.greeting_afternoon
+                in 17..20 -> R.string.greeting_evening
+                else -> R.string.greeting_night
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp),
@@ -154,13 +156,13 @@ fun DashboardContent(
             ) {
                 Column {
                     Text(
-                        text = "$greeting!",
+                        text = "${stringResource(greetingRes)}!",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Welcome back to MoneyWise",
+                        text = "Welcome back to ${stringResource(R.string.app_name)}",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -410,11 +412,12 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
 @Composable
 fun DistributionSection(distribution: Map<Category, Double>) {
     val isDarkTheme = MaterialTheme.isDark
-    val sortedDistribution = Category.entries.map { it to (distribution[it] ?: 0.0) }
-        .filter { it.second > 0 }  // Remove zero-spend categories
-        .sortedByDescending { it.second }
+    val sortedDistribution = distribution.entries
+        .filter { it.value > 0 }
+        .sortedByDescending { it.value }
+        .take(6) // Cap to top 6 to prevent clipping
     
-    val maxVal = distribution.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+    val maxVal = sortedDistribution.maxOfOrNull { it.value }?.coerceAtLeast(1.0) ?: 1.0
 
     Column {
         Text(
@@ -423,97 +426,71 @@ fun DistributionSection(distribution: Map<Category, Double>) {
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .height(200.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             sortedDistribution.forEach { (category, amount) ->
-                val barHeightFraction = (amount / maxVal).toFloat().coerceIn(0f, 1f)
+                val barHeightFraction = (amount / maxVal).toFloat().coerceIn(0.01f, 1f)
                 val categoryColor = getCategoryColor(category, isDarkTheme)
                 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxHeight().weight(1f)
+                    modifier = Modifier.weight(1f)
                 ) {
+                    Text(
+                        text = if (amount >= 1000) String.format(Locale.US, "%.1fK", amount/1000) else amount.toInt().toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .clip(MaterialTheme.shapes.small)
-                            .background(categoryColor.copy(alpha = 0.15f))
-                            .border(
-                                width = 1.dp,
-                                color = categoryColor.copy(alpha = 0.3f),
-                                shape = MaterialTheme.shapes.small
-                            ),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(categoryColor.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.BottomCenter
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(barHeightFraction)
-                                .background(categoryColor)
-                                .align(Alignment.BottomCenter)
-                        )
-                        
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .layout { measurable, constraints ->
-                                    val placeable = measurable.measure(
-                                        constraints.copy(
-                                            minWidth = constraints.minHeight,
-                                            maxWidth = constraints.maxHeight,
-                                            minHeight = constraints.minWidth,
-                                            maxHeight = constraints.maxWidth
-                                        )
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(categoryColor, categoryColor.copy(alpha = 0.7f))
                                     )
-                                    layout(placeable.height, placeable.width) {
-                                        placeable.placeWithLayer(
-                                            x = (placeable.height - placeable.width) / 2,
-                                            y = (placeable.width - placeable.height) / 2
-                                        ) {
-                                            rotationZ = -90f
-                                        }
-                                    }
-                                }
-                        ) {
-                            Text(
-                                text = if (amount >= 1000) String.format(Locale.US, "%.1fK", amount/1000) else amount.toInt().toString(),
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Black,
-                                maxLines = 1
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = category.displayName.uppercase(),
-                                color = Color.White,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Visible
-                            )
-                        }
+                                )
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // Rotated Label
+                    Box(
+                        modifier = Modifier.height(60.dp),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Text(
+                            text = category.displayName,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.graphicsLayer {
+                                rotationZ = -45f
+                                translationY = 8.dp.toPx()
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Categories",
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
     }
 }
 
@@ -528,7 +505,7 @@ fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
         Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
         Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
         Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.GROCERIES -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
         Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
         Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
         Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers

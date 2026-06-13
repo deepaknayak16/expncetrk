@@ -27,8 +27,9 @@ class BiometricAuthManager @Inject constructor(
      */
     fun checkBiometricAvailability(): BiometricStatus {
         val biometricManager = BiometricManager.from(context)
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
 
-        return when (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.BIOMETRIC_WEAK)) {
+        return when (biometricManager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> BiometricStatus.Available
             BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> BiometricStatus.NoHardware
             BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> BiometricStatus.HardwareUnavailable
@@ -44,8 +45,7 @@ class BiometricAuthManager @Inject constructor(
     fun authenticate(
         activity: androidx.fragment.app.FragmentActivity,
         title: String = "Authenticate",
-        subtitle: String = "Use your biometric to continue",
-        negativeButtonText: String = "Cancel"
+        subtitle: String = "Use your biometric or PIN/Pattern to continue"
     ): Flow<BiometricResult> = callbackFlow {
         val executor = ContextCompat.getMainExecutor(context)
 
@@ -73,7 +73,7 @@ class BiometricAuthManager @Inject constructor(
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setNegativeButtonText(negativeButtonText)
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
             .build()
 
         biometricPrompt.authenticate(promptInfo)

@@ -8,6 +8,7 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -59,6 +60,28 @@ class BudgetViewModel @Inject constructor(
         }
     }.catch { emptyList<BudgetUiModel>() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
+    private val _showAddDialog = MutableStateFlow(false)
+    val showAddDialog = _showAddDialog.asStateFlow()
+
+    fun triggerAddBudget() {
+        _showAddDialog.value = true
+    }
+
+    fun onDialogDismissed() {
+        _showAddDialog.value = false
+    }
+
+    fun refreshBudgets() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            delay(500)
+            _isRefreshing.value = false
+        }
+    }
 
     fun setMonth(month: YearMonth) {
         _selectedMonth.value = month

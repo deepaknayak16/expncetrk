@@ -41,14 +41,33 @@ class AccountsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _showAddDialog = MutableStateFlow(false)
+    val showAddDialog = _showAddDialog.asStateFlow()
+
+    fun triggerAddAccount() {
+        _showAddDialog.value = true
+    }
+
+    fun onDialogDismissed() {
+        _showAddDialog.value = false
+    }
+
     fun addAccount(name: String, balance: Double, type: String) {
         viewModelScope.launch {
+            val color = when (type) {
+                "Bank Account" -> Color(0xFF3B82F6) // Blue
+                "Cash" -> Color(0xFF10B981) // Green
+                "Wallet" -> Color(0xFF8B5CF6) // Purple
+                "Investment" -> Color(0xFF06B6D4) // Cyan
+                "Credit Card" -> Color(0xFFEF4444) // Red
+                else -> Color(0xFF64748B) // Slate
+            }
             accountDao.insertAccount(
                 AccountEntity(
                     name = name,
                     balance = balance,
                     type = type,
-                    color = Color(0xFF4CAF50).toArgb()
+                    color = color.toArgb()
                 )
             )
         }

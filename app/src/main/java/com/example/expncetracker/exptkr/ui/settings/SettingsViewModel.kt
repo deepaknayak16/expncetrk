@@ -112,6 +112,7 @@ class SettingsViewModel @Inject constructor(
     // FIX #4: Export CSV
     fun exportCsv(onShare: (File) -> Unit) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true) }
             _statusEvent.send("Generating CSV...")
             csvExporter.exportToCsv()
                 .onSuccess { file ->
@@ -121,12 +122,14 @@ class SettingsViewModel @Inject constructor(
                 .onFailure { e ->
                     _statusEvent.send("Export failed: ${e.message}")
                 }
+            _uiState.update { it.copy(isExporting = false) }
         }
     }
 
     // FIX #4: Export PDF
     fun exportPdf(onShare: (File) -> Unit) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isExporting = true) }
             _statusEvent.send("Generating PDF...")
             pdfExporter.exportToPdf()
                 .onSuccess { file ->
@@ -136,6 +139,7 @@ class SettingsViewModel @Inject constructor(
                 .onFailure { e ->
                     _statusEvent.send("Export failed: ${e.message}")
                 }
+            _uiState.update { it.copy(isExporting = false) }
         }
     }
 

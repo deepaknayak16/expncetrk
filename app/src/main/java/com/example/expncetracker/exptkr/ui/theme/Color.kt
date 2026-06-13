@@ -147,3 +147,8 @@ val CardGradientStartLight = Color(0xFF3B82F6)
 val CardGradientEndLight = Color(0xFF8B5CF6)
 val CardGradientStartDark = Color(0xFF1E40AF)
 val CardGradientEndDark = Color(0xFF5B21B6)
+
+// Budget Status Colors
+val BudgetHealthy = Color(0xFF10B981)
+val BudgetWarning = Color(0xFFF59E0B)
+val BudgetOver = Color(0xFFEF4444)

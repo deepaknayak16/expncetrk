@@ -37,34 +37,24 @@ import java.util.Locale
 fun BudgetScreen(viewModel: BudgetViewModel) {
     val budgetList by viewModel.budgetList.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val showAddDialog by viewModel.showAddDialog.collectAsState()
     val isDark = MaterialTheme.isDark
 
     val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", Locale.getDefault()) }
 
-    var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
 
     val totalBudget = budgetList.sumOf { it.limit }
     val totalSpent = budgetList.sumOf { it.spent }
 
     Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = MaterialTheme.shapes.large
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Budget")
-            }
-        }
+        /* FAB removed as requested - Add icon in top bar handles this */
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = {
-                isRefreshing = true
-                isRefreshing = false
+                viewModel.refreshBudgets()
             },
             state = pullRefreshState,
             modifier = Modifier.fillMaxSize().padding(innerPadding)
@@ -117,8 +107,8 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        BudgetStatItem("TOTAL BUDGET", "₹${totalBudget.formatAsCurrency()}", MaterialTheme.colorScheme.primary)
-                        BudgetStatItem("TOTAL SPENT", "₹${totalSpent.formatAsCurrency()}", if (isDark) DarkExpense else LightExpense)
+                        BudgetStatItem("TOTAL BUDGET", totalBudget.formatAsCurrency(), MaterialTheme.colorScheme.primary)
+                        BudgetStatItem("TOTAL SPENT", totalSpent.formatAsCurrency(), if (isDark) DarkExpense else LightExpense)
                     }
                 }
 
@@ -147,7 +137,7 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                                 description = "Add a monthly limit for categories to track your spending",
                                 action = {
                                     Button(
-                                        onClick = { showAddDialog = true },
+                                        onClick = { viewModel.triggerAddBudget() },
                                         shape = MaterialTheme.shapes.medium
                                     ) {
                                         Text("Set Your First Budget")
@@ -170,10 +160,10 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
 
     if (showAddDialog) {
         AddBudgetDialog(
-            onDismiss = { showAddDialog = false },
+            onDismiss = { viewModel.onDialogDismissed() },
             onConfirm = { category, limit ->
                 viewModel.saveBudget(category, limit)
-                showAddDialog = false
+                viewModel.onDialogDismissed()
             }
         )
     }
@@ -258,9 +248,9 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
             Spacer(Modifier.height(12.dp))
 
             val progressColor = when {
-                budget.progress < 0.7f -> MaterialTheme.colorScheme.primary
-                budget.progress < 0.9f -> MaterialTheme.colorScheme.tertiary
-                else -> MaterialTheme.colorScheme.error
+                budget.progress < 0.7f -> BudgetHealthy
+                budget.progress < 0.9f -> BudgetWarning
+                else -> BudgetOver
             }
 
             LinearProgressIndicator(
