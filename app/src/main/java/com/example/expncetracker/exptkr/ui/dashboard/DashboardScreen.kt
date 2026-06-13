@@ -1,5 +1,7 @@
 package com.example.expncetracker.exptkr.ui.dashboard
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -59,7 +61,16 @@ fun DashboardScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     val trends by viewModel.trends.collectAsState()
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[android.Manifest.permission.READ_SMS] == true) {
+            viewModel.syncTransactions()
+        }
+    }
+
     LaunchedEffect(Unit) {
+        permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
         viewModel.syncTransactions()
     }
 
@@ -342,7 +353,7 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
         Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = value,
-            style = if (value.length > 10) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleSmall,
+            style = if (value.length > 10) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = valueColor,
             textAlign = TextAlign.Center,

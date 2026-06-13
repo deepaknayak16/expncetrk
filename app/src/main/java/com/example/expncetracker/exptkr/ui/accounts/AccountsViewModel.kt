@@ -1,5 +1,7 @@
 package com.example.expncetracker.exptkr.ui.accounts
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
@@ -28,8 +30,8 @@ class AccountsViewModel @Inject constructor(
             name = name,
             balance = balance,
             type = type,
-            icon = androidx.compose.material.icons.Icons.Default.AccountBalance,
-            color = androidx.compose.ui.graphics.Color(0xFF4CAF50)
+            icon = Icons.Default.AccountBalance,
+            color = Color(0xFF4CAF50)
         )
         _accounts.update { it + newAccount }
     }

@@ -20,6 +20,7 @@ import com.example.expncetracker.exptkr.ui.theme.*
 
 // FIX #15: Minimal improvement — use real summary data if available
 // Full fix requires AccountDao + AccountRepository (architectural change)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(viewModel: AccountsViewModel) {
     val isDark = MaterialTheme.isDark
@@ -191,6 +192,7 @@ private fun AccountCard(account: AccountUiModel, isDark: Boolean) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddAccountDialog(
     onDismiss: () -> Unit,

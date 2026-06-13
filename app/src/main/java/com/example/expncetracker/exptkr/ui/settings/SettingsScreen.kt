@@ -31,18 +31,9 @@ import com.example.expncetracker.exptkr.ui.theme.*
 import java.io.File
 
 @Composable
-fun SettingsScreen(
-    viewModel: SettingsViewModel,
-    csvExporter: CsvExporter,
-    pdfExporter: PdfExporter,
-    biometricAuthManager: BiometricAuthManager
-) {
+fun SettingsScreen(viewModel: SettingsViewModel) {
     val ctx = LocalContext.current
     val uiState = viewModel.uiState.collectAsState().value
-
-    // FIX #3: Check biometric availability
-    val biometricStatus = remember { biometricAuthManager.checkBiometricAvailability() }
-    val canUseBiometric = biometricStatus.isAvailable
 
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -159,7 +150,7 @@ fun SettingsScreen(
                     subtitle = "Share transactions as a spreadsheet",
                     icon = Icons.Default.TableChart,
                     onClick = {
-                        viewModel.exportCsv(csvExporter) { file ->
+                        viewModel.exportCsv { file ->
                             shareFile(ctx, file, "text/csv")
                         }
                     }
@@ -170,7 +161,7 @@ fun SettingsScreen(
                     subtitle = "Generate a printable expense report",
                     icon = Icons.Default.PictureAsPdf,
                     onClick = {
-                        viewModel.exportPdf(pdfExporter) { file ->
+                        viewModel.exportPdf { file ->
                             shareFile(ctx, file, "application/pdf")
                         }
                     }
@@ -189,7 +180,7 @@ fun SettingsScreen(
                 )
 
                 // FIX #3: Biometric lock toggle
-                if (canUseBiometric) {
+                if (uiState.isBiometricAvailable) {
                     SettingsPreferenceItem(
                         label = "Biometric Lock",
                         subtitle = if (uiState.isBiometricEnabled) "Enabled" else "Disabled",

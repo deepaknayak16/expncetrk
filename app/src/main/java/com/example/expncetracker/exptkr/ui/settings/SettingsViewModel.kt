@@ -2,13 +2,20 @@ package com.example.expncetracker.exptkr.ui.settings
 
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.datastore.preferences.core.edit
+import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
+import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
+import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter
-import com.example.expncetracker.exptkr.domain.repository.GoogleDriveSyncRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.domain.usecase.RestoreBackupFromGoogleDriveUseCase
+import com.example.expncetracker.exptkr.domain.usecase.SyncBackupToGoogleDriveUseCase
+import com.example.expncetracker.exptkr.domain.usecase.LoadSampleDataUseCase
+import com.example.expncetracker.exptkr.security.BiometricAuthManager
+import com.example.expncetracker.exptkr.security.BiometricStatus
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,15 +24,19 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
-import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val googleDriveSyncRepository: GoogleDriveSyncRepository,
+    private val syncBackupToGoogleDriveUseCase: SyncBackupToGoogleDriveUseCase,
+    private val restoreBackupFromGoogleDriveUseCase: RestoreBackupFromGoogleDriveUseCase,
     private val transactionRepository: TransactionRepository,
-    private val googleSignInClient: GoogleSignInClient
+    private val loadSampleDataUseCase: LoadSampleDataUseCase,
+    private val googleSignInClient: GoogleSignInClient,
+    private val biometricAuthManager: BiometricAuthManager,
+    private val csvExporter: CsvExporter,
+    private val pdfExporter: PdfExporter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -37,10 +48,18 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val account = GoogleSignIn.getLastSignedInAccount(context)
+            val preferences = context.dataStore.data.first()
+            val isDark = preferences[DARK_MODE_KEY] ?: false
+            val isBiometric = preferences[BIOMETRIC_ENABLED_KEY] ?: false
+            val biometricStatus = biometricAuthManager.checkBiometricAvailability()
+
             _uiState.update {
                 it.copy(
                     isSignedIn = account != null,
-                    accountName = account?.displayName
+                    accountName = account?.displayName,
+                    isDarkMode = isDark,
+                    isBiometricEnabled = isBiometric,
+                    isBiometricAvailable = biometricStatus is BiometricStatus.Available
                 )
             }
         }
@@ -73,29 +92,25 @@ class SettingsViewModel @Inject constructor(
     fun syncToGoogleDrive() {
         viewModelScope.launch {
             _statusEvent.send("Syncing to Google Drive...")
-            try {
-                googleDriveSyncRepository.syncToDrive()
-                _statusEvent.send("Sync completed successfully")
-            } catch (e: Exception) {
-                _statusEvent.send("Sync failed: ${e.message}")
-            }
+            syncBackupToGoogleDriveUseCase.execute().fold(
+                onSuccess = { msg -> _statusEvent.send(msg) },
+                onFailure = { e -> _statusEvent.send("Sync failed: ${e.message}") }
+            )
         }
     }
 
     fun restoreFromGoogleDrive() {
         viewModelScope.launch {
             _statusEvent.send("Restoring from Google Drive...")
-            try {
-                googleDriveSyncRepository.restoreFromDrive()
-                _statusEvent.send("Restore completed successfully")
-            } catch (e: Exception) {
-                _statusEvent.send("Restore failed: ${e.message}")
-            }
+            restoreBackupFromGoogleDriveUseCase.execute().fold(
+                onSuccess = { msg -> _statusEvent.send(msg) },
+                onFailure = { e -> _statusEvent.send("Restore failed: ${e.message}") }
+            )
         }
     }
 
     // FIX #4: Export CSV
-    fun exportCsv(csvExporter: CsvExporter, onShare: (File) -> Unit) {
+    fun exportCsv(onShare: (File) -> Unit) {
         viewModelScope.launch {
             _statusEvent.send("Generating CSV...")
             csvExporter.exportToCsv()
@@ -110,7 +125,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     // FIX #4: Export PDF
-    fun exportPdf(pdfExporter: PdfExporter, onShare: (File) -> Unit) {
+    fun exportPdf(onShare: (File) -> Unit) {
         viewModelScope.launch {
             _statusEvent.send("Generating PDF...")
             pdfExporter.exportToPdf()
@@ -125,20 +140,29 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun toggleDarkMode(enabled: Boolean) {
-        _uiState.update { it.copy(isDarkMode = enabled) }
-        // TODO: persist to DataStore
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[DARK_MODE_KEY] = enabled
+            }
+            _uiState.update { it.copy(isDarkMode = enabled) }
+        }
     }
 
     // FIX #3: Biometric toggle
     fun toggleBiometric(enabled: Boolean) {
-        _uiState.update { it.copy(isBiometricEnabled = enabled) }
-        // TODO: persist to DataStore
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[BIOMETRIC_ENABLED_KEY] = enabled
+            }
+            _uiState.update { it.copy(isBiometricEnabled = enabled) }
+            _statusEvent.send(if (enabled) "Biometric lock enabled" else "Biometric lock disabled")
+        }
     }
 
     fun loadMockData() {
         viewModelScope.launch {
             try {
-                transactionRepository.loadMockData()
+                loadSampleDataUseCase.execute()
                 _statusEvent.send("Demo data loaded successfully")
             } catch (e: Exception) {
                 _statusEvent.send("Failed to load demo data: ${e.message}")
@@ -146,11 +170,3 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
-
-data class SettingsUiState(
-    val isSignedIn: Boolean = false,
-    val accountName: String? = null,
-    val isDarkMode: Boolean = false,
-    val isBiometricEnabled: Boolean = false,
-    val lastSyncTime: String? = null
-)

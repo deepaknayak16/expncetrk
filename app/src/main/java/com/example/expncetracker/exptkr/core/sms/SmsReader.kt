@@ -2,10 +2,14 @@ package com.example.expncetracker.exptkr.core.sms
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.entity.RawSmsEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+
+// Helper to avoid production logging
+private const val DEBUG = true // In production, this should be false or use BuildConfig
 
 class SmsReader @Inject constructor(
     @ApplicationContext private val context: Context
@@ -13,12 +17,12 @@ class SmsReader @Inject constructor(
     fun fetchSmsSince(timestamp: Long): List<RawSmsEntity> {
         val smsList = mutableListOf<RawSmsEntity>()
         
-        android.util.Log.d("SmsReader", "Checking SMS permissions...")
+        if (DEBUG) Log.d("SmsReader", "Checking SMS permissions...")
         if (!SmsPermissionManager.hasPermissions(context)) {
-            android.util.Log.e("SmsReader", "SMS permission not granted. Cannot fetch SMS.")
+            if (DEBUG) Log.e("SmsReader", "SMS permission not granted. Cannot fetch SMS.")
             return smsList
         }
-        android.util.Log.d("SmsReader", "SMS permissions granted. Fetching SMS since $timestamp")
+        if (DEBUG) Log.d("SmsReader", "SMS permissions granted. Fetching SMS since $timestamp")
 
         val uris = listOf(
             Uri.parse("content://sms/inbox"),
@@ -29,7 +33,7 @@ class SmsReader @Inject constructor(
 
         for (uri in uris) {
             try {
-                android.util.Log.d("SmsReader", "Querying URI: $uri")
+                if (DEBUG) Log.d("SmsReader", "Querying URI: $uri")
                 context.contentResolver.query(
                     uri,
                     arrayOf("_id", "address", "body", "date"),
@@ -37,9 +41,9 @@ class SmsReader @Inject constructor(
                     arrayOf(timestamp.toString()),
                     "date DESC"
                 )?.use { cursor ->
-                    android.util.Log.d("SmsReader", "Cursor count for $uri: ${cursor.count}")
+                    if (DEBUG) Log.d("SmsReader", "Cursor count for $uri: ${cursor.count}")
                     if (cursor.count == 0) {
-                        android.util.Log.d("SmsReader", "No SMS found since timestamp $timestamp for $uri")
+                        if (DEBUG) Log.d("SmsReader", "No SMS found since timestamp $timestamp for $uri")
                     }
                     
                     val idIndex = cursor.getColumnIndexOrThrow("_id")
@@ -54,8 +58,8 @@ class SmsReader @Inject constructor(
                         val address = cursor.getString(addressIndex) ?: ""
                         val body = cursor.getString(bodyIndex) ?: ""
                         
-                        android.util.Log.d("SmsReader", "Processing SMS from: $address")
-                        android.util.Log.d("SmsReader", "Body: ${body.take(100)}...")
+                        if (DEBUG) Log.d("SmsReader", "Processing SMS from: $address")
+                        if (DEBUG) Log.d("SmsReader", "Body: ${body.take(100)}...")
 
                         val isBankBySender = Constants.BANK_SENDERS.any { prefix ->
                             address.uppercase().contains(prefix.uppercase()) 
@@ -65,12 +69,12 @@ class SmsReader @Inject constructor(
                             body.uppercase().contains(prefix.uppercase())
                         }
 
-                        val isBank = isBankBySender //|| isBankByBody
+                        val isBank = isBankBySender || isBankByBody
 
-                        android.util.Log.d("SmsReader", "Is Bank: $isBank")
+                        if (DEBUG) Log.d("SmsReader", "Is Bank: $isBank")
 
                         if (isBank) {
-                            android.util.Log.d("SmsReader", "Found bank SMS from - Sender match: $isBankBySender, Body match: $isBankByBody")
+                            if (DEBUG) Log.d("SmsReader", "Found bank SMS from - Sender match: $isBankBySender, Body match: $isBankByBody")
                             smsList.add(
                                 RawSmsEntity(
                                     smsId = id,
@@ -84,11 +88,11 @@ class SmsReader @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("SmsReader", "Error fetching SMS from $uri: ${e.message}", e)
+                if (DEBUG) Log.e("SmsReader", "Error fetching SMS from $uri: ${e.message}", e)
             }
         }
         
-        android.util.Log.d("SmsReader", "Total bank SMS messages found: ${smsList.size}")
+        if (DEBUG) Log.d("SmsReader", "Total bank SMS messages found: ${smsList.size}")
         return smsList
     }
 }

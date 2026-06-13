@@ -124,7 +124,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 StatItem("EXPENSE", "₹${summary?.totalExpense ?: 0.0}", if (isDark) DarkExpense else LightExpense, Modifier.weight(1f))
@@ -210,8 +210,8 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 // In production, replace with a usecase that returns Map<LocalDate, Double>
                 val daySpending = weekDays.map { day ->
                     summary?.let { s ->
-                        val dayTotal = (s.totalExpense / 7.0).let { if (it.isNaN()) 0.0 else it }
-                        String.format("-%.1f", dayTotal)
+                        val dayTotal = (s.totalExpense / 1.0).let { if (it.isNaN()) 0.0 else it }
+                        String.format("-%.2f", dayTotal)
                     } ?: "-0.0"
                 }
 

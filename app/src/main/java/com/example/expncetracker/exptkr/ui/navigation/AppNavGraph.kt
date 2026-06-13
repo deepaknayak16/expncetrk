@@ -34,7 +34,9 @@ import com.example.expncetracker.exptkr.ui.budget.BudgetScreen
 import com.example.expncetracker.exptkr.ui.budget.BudgetViewModel
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsScreen
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsViewModel
+import com.example.expncetracker.exptkr.ui.accounts.AccountsViewModel
 import com.example.expncetracker.exptkr.ui.accounts.AccountsScreen
+import com.example.expncetracker.exptkr.ui.categories.CategoriesViewModel
 import com.example.expncetracker.exptkr.ui.categories.CategoriesScreen
 import com.example.expncetracker.exptkr.ui.theme.*
 import kotlinx.coroutines.launch
@@ -134,7 +136,7 @@ fun AppNavGraph() {
                     TransactionScreen(vm)
                 }
                 composable("accounts") {
-                    val vm: DashboardViewModel = hiltViewModel()
+                    val vm: AccountsViewModel = hiltViewModel()
                     AccountsScreen(vm)
                 }
                 composable("settings") {
@@ -150,7 +152,8 @@ fun AppNavGraph() {
                     BudgetScreen(vm)
                 }
                 composable("categories") {
-                    CategoriesScreen()
+                    val vm: CategoriesViewModel = hiltViewModel()
+                    CategoriesScreen(vm)
                 }
                 composable("add_transaction") {
                     AddTransactionScreen(onNavigateBack = { navController.popBackStack() })
