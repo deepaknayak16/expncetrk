@@ -210,6 +210,7 @@ fun TransactionDetailContent(
 ) {
     val isDark = MaterialTheme.isDark
     val canDelete = transaction.smsId == null && java.time.Duration.between(transaction.timestamp, java.time.LocalDateTime.now()).toMinutes() <= 60
+    val canEdit = transaction.smsId == null
 
     Column(
         modifier = Modifier
@@ -242,7 +243,7 @@ fun TransactionDetailContent(
         Spacer(Modifier.height(16.dp))
         
         Text(
-            text = "₹${transaction.amount.formatAsCurrency()}",
+            text = transaction.amount.formatAsCurrency(),
             style = MaterialTheme.typography.displayMedium,
             fontWeight = FontWeight.Black,
             color = when(transaction.type) {
@@ -277,6 +278,7 @@ fun TransactionDetailContent(
             
             Button(
                 onClick = onEdit,
+                enabled = canEdit,
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.Edit, contentDescription = null)
@@ -287,7 +289,7 @@ fun TransactionDetailContent(
         
         if (transaction.smsId != null) {
             Text(
-                "SMS transactions are immutable and cannot be deleted.",
+                "SMS transactions are immutable and cannot be edited or deleted.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = 12.dp)

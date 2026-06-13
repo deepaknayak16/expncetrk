@@ -62,6 +62,11 @@ class AddTransactionViewModel @Inject constructor(
         timestamp: java.time.LocalDateTime = java.time.LocalDateTime.now()
     ) {
         viewModelScope.launch {
+            if (_transactionToEdit.value?.smsId != null) {
+                // Should not happen as UI prevents editing SMS transactions
+                return@launch
+            }
+
             val categoryEnum = Category.entries.find { it.name == category.uppercase() } ?: Category.OTHERS
             
             val transaction = Transaction(
