@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.core.sync
 
 import android.content.Context
+import com.example.expncetracker.exptkr.BuildConfig
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -24,7 +25,7 @@ class GoogleDriveSyncManager(private val context: Context) {
      */
     fun initializeDriveService(): Boolean {
         val account = GoogleSignIn.getLastSignedInAccount(context) ?: return false
-        
+
         val credential = GoogleAccountCredential.usingOAuth2(
             context,
             listOf(DriveScopes.DRIVE_FILE)
@@ -38,7 +39,7 @@ class GoogleDriveSyncManager(private val context: Context) {
         )
             .setApplicationName("ExpenseTracker")
             .build()
-            
+
         return true
     }
 
@@ -77,7 +78,9 @@ class GoogleDriveSyncManager(private val context: Context) {
 
             fileId
         } catch (e: Exception) {
-            android.util.Log.e("GDriveSync", "Upload failed: ${e.message}")
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("GDriveSync", "Upload failed: ${e.message}")
+            }
             null
         }
     }
@@ -101,7 +104,9 @@ class GoogleDriveSyncManager(private val context: Context) {
 
             true
         } catch (e: Exception) {
-            android.util.Log.e("GDriveSync", "Download failed: ${e.message}")
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("GDriveSync", "Download failed: ${e.message}")
+            }
             false
         }
     }
@@ -110,7 +115,7 @@ class GoogleDriveSyncManager(private val context: Context) {
         val drive = driveService ?: return null
 
         val query = "name='expense_tracker_backup.json' and mimeType='application/json' and trashed=false"
-        
+
         val result = drive.files().list()
             .setQ(query)
             .setSpaces("drive")

@@ -2,6 +2,7 @@ package com.example.expncetracker.exptkr.data.export
 
 import android.content.Context
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.kernel.geom.PageSize
@@ -18,6 +19,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -104,9 +106,9 @@ class PdfExporter @Inject constructor(
                         .setMarginTop(20f)
                         .setMarginBottom(10f))
 
-                    doc.add(Paragraph("Total Income: ₹${String.format("%.2f", totalIncome)}"))
-                    doc.add(Paragraph("Total Expense: ₹${String.format("%.2f", totalExpense)}"))
-                    doc.add(Paragraph("Balance: ₹${String.format("%.2f", balance)}")
+                    doc.add(Paragraph("Total Income: ₹${String.format(Locale.US, "%.2f", totalIncome)}"))
+                    doc.add(Paragraph("Total Expense: ₹${String.format(Locale.US, "%.2f", totalExpense)}"))
+                    doc.add(Paragraph("Balance: ₹${String.format(Locale.US, "%.2f", balance)}")
                         .setBold()
                         .setMarginBottom(20f))
 
@@ -127,13 +129,17 @@ class PdfExporter @Inject constructor(
                     // Table data
                     transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
                         table.addCell(transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                        table.addCell(transaction.category.name)
-                        table.addCell(transaction.type.name)
+                        table.addCell(transaction.category.name.lowercase().replaceFirstChar { it.uppercase() })
+                        table.addCell(when(transaction.type) {
+                            TransactionType.CREDIT -> "Income"
+                            TransactionType.DEBIT -> "Expense"
+                            TransactionType.TRANSFER -> "Transfer"
+                        })
                         table.addCell(transaction.merchant.take(20))
-                        val amountText = if (transaction.type == TransactionType.DEBIT) {
-                            "-₹${String.format("%.2f", transaction.amount)}"
-                        } else {
-                            "+₹${String.format("%.2f", transaction.amount)}"
+                        val amountText = when (transaction.type) {
+                            TransactionType.DEBIT -> "-₹${String.format(Locale.US, "%.2f", transaction.amount)}"
+                            TransactionType.CREDIT -> "+₹${String.format(Locale.US, "%.2f", transaction.amount)}"
+                            TransactionType.TRANSFER -> "₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                         }
                         table.addCell(amountText)
                     }
