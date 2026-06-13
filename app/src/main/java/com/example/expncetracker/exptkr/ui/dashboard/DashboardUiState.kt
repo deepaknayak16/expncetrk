@@ -7,7 +7,8 @@ sealed interface DashboardUiState {
     object Loading : DashboardUiState
     data class Success(
         val summary: FinancialSummary,
-        val recentTransactions: List<Transaction>
+        val recentTransactions: List<Transaction>,
+        val categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>
     ) : DashboardUiState
     data class Error(val message: String) : DashboardUiState
 }

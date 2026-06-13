@@ -110,10 +110,6 @@ fun AppNavGraph() {
                 val drawerItems = listOf(
                     NavigationItem("dashboard", stringResource(R.string.today), Icons.Default.Home, Icons.Outlined.Home),
                     NavigationItem("transactions", "Ledger", Icons.Default.ReceiptLong, Icons.Outlined.ReceiptLong),
-                    NavigationItem("analytics", stringResource(R.string.analytics_title), Icons.Default.BarChart, Icons.Outlined.BarChart),
-                    NavigationItem("budget", stringResource(R.string.budget_title), Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
-                    NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet),
-                    NavigationItem("categories", stringResource(R.string.category_label), Icons.Default.Category, Icons.Outlined.Category),
                     NavigationItem("settings", stringResource(R.string.settings_title), Icons.Default.Settings, Icons.Outlined.Settings)
                 )
                 

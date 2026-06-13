@@ -28,6 +28,12 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransactions(transactions: List<TransactionEntity>)
 
+    @Query("SELECT * FROM transactions WHERE timestamp >= :start AND timestamp <= :end AND (merchant LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%' OR bankName LIKE '%' || :query || '%') ORDER BY timestamp DESC")
+    fun searchTransactionsInRange(start: Long, end: Long, query: String): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun getTransactionById(id: Long): TransactionEntity?
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: Long)
 

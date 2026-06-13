@@ -1,20 +1,21 @@
 package com.example.expncetracker.exptkr
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.lifecycleScope
 import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
+import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
 import com.example.expncetracker.exptkr.security.BiometricResult
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
@@ -34,45 +35,72 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        lifecycleScope.launch {
-            val preferencesFlow = dataStore.data
-            val biometricEnabled = preferencesFlow.map { it[BIOMETRIC_ENABLED_KEY] ?: false }
-            val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] ?: false }
-            
-            val biometricStatus = biometricAuthManager.checkBiometricAvailability()
+        val preferencesFlow = dataStore.data
+        val biometricEnabled = preferencesFlow.map { it[BIOMETRIC_ENABLED_KEY] ?: false }
+        val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] ?: false }
 
-            setContent {
-                val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
-                val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
-                
-                if (isBiometricEnabled && biometricStatus.isAvailable) {
-                    var authenticated by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) {
-                        biometricAuthManager.authenticate(this@MainActivity)
-                            .collect { result ->
-                                when (result) {
-                                    is BiometricResult.Success -> authenticated = true
-                                    is BiometricResult.Error -> {
-                                        // Show error and maybe exit app
-                                        android.widget.Toast.makeText(this@MainActivity, result.message, android.widget.Toast.LENGTH_LONG).show()
-                                        finish()
-                                    }
-                                    else -> { /* keep showing auth */ }
-                                }
-                            }
+        setContent {
+            val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
+            val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
+            
+            var showPermissionRationale by remember { 
+                mutableStateOf(!SmsPermissionManager.hasPermissions(this@MainActivity)) 
+            }
+
+            val permissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions()
+            ) { result ->
+                val granted = result.values.all { it }
+                if (granted) {
+                    Toast.makeText(this@MainActivity, "SMS permission granted", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            val biometricStatus = remember { biometricAuthManager.checkBiometricAvailability() }
+
+            if (showPermissionRationale) {
+                AlertDialog(
+                    onDismissRequest = { showPermissionRationale = false },
+                    title = { Text("SMS Permission Required") },
+                    text = { Text("This app tracks expenses automatically by reading transaction SMS. Please grant SMS access to enable this feature.") },
+                    confirmButton = {
+                        Button(onClick = {
+                            permissionLauncher.launch(SmsPermissionManager.permissions)
+                            showPermissionRationale = false
+                        }) { Text("Grant Access") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPermissionRationale = false }) { Text("Maybe Later") }
                     }
-                    if (authenticated) {
-                        ExpncetrackerTheme(darkTheme = isDarkMode) {
-                            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                                AppNavGraph()
+                )
+            }
+
+            if (isBiometricEnabled && biometricStatus.isAvailable) {
+                var authenticated by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    biometricAuthManager.authenticate(this@MainActivity)
+                        .collect { result ->
+                            when (result) {
+                                is BiometricResult.Success -> authenticated = true
+                                is BiometricResult.Error -> {
+                                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                                    finish()
+                                }
+                                else -> { }
                             }
                         }
-                    }
-                } else {
+                }
+                if (authenticated) {
                     ExpncetrackerTheme(darkTheme = isDarkMode) {
                         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                             AppNavGraph()
                         }
+                    }
+                }
+            } else {
+                ExpncetrackerTheme(darkTheme = isDarkMode) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        AppNavGraph()
                     }
                 }
             }

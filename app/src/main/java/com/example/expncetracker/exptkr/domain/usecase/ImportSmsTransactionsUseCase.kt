@@ -25,7 +25,7 @@ class ImportSmsTransactionsUseCase @Inject constructor(
                 smsId = raw.smsId,
                 amount = parsedSms.amount,
                 type = parsedSms.type,
-                category = category,
+                categoryName = category.name,
                 merchant = parsedSms.merchant,
                 bankName = parsedSms.bankName,
                 timestamp = parsedSms.timestamp

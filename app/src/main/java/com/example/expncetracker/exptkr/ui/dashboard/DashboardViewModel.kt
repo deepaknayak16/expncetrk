@@ -18,7 +18,8 @@ class DashboardViewModel @Inject constructor(
     private val getSummaryUseCase: GetSummaryUseCase,
     private val getRecentTransactionsUseCase: GetRecentTransactionsUseCase,
     private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
-    private val getTrendsUseCase: GetTrendsUseCase
+    private val getTrendsUseCase: GetTrendsUseCase,
+    private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -29,9 +30,10 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         _selectedFilter.flatMapLatest { getSummaryUseCase(it) },
-        getRecentTransactionsUseCase(10)
-    ) { summary, recent ->
-        DashboardUiState.Success(summary, recent) as DashboardUiState
+        getRecentTransactionsUseCase(10),
+        categoryDao.getAllCategories()
+    ) { summary, recent, categories ->
+        DashboardUiState.Success(summary, recent, categories) as DashboardUiState
     }
     .catch { e ->
         emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))

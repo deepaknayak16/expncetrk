@@ -25,22 +25,37 @@ class CategoriesViewModel @Inject constructor(
     private val _showAddDialog = MutableStateFlow(false)
     val showAddDialog = _showAddDialog.asStateFlow()
 
-    // We still use the enum for legacy data, but we can combine it with DB categories
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Pre-populate if empty
+        // Pre-populate if empty with correct colors
         viewModelScope.launch {
             if (categoryDao.getAllCategories().first().isEmpty()) {
                 Category.entries.forEach { cat ->
                     val type = if (cat in listOf(Category.SALARY, Category.INVESTMENTS)) "INCOME" else "EXPENSE"
+                    val color = when (cat) {
+                        Category.FOOD -> 0xFFF97316
+                        Category.CABS -> 0xFF6366F1
+                        Category.RENT -> 0xFFEAB308
+                        Category.BILLS -> 0xFFEC4899
+                        Category.SHOPPING -> 0xFFA855F7
+                        Category.SALARY -> 0xFF10B981
+                        Category.INVESTMENTS -> 0xFF06B6D4
+                        Category.TRAVEL -> 0xFF3B82F6
+                        Category.ENTERTAINMENT -> 0xFF8B5CF6
+                        Category.GROCERIES -> 0xFF4ADE80
+                        Category.HEALTHCARE -> 0xFFEF4444
+                        Category.EDUCATION -> 0xFF14B8A6
+                        Category.OTHERS -> 0xFF64748B
+                    }.toInt()
+                    
                     categoryDao.insertCategory(
                         CategoryEntity(
                             name = cat.displayName,
                             type = type,
                             iconName = cat.name,
-                            color = 0xFF3B82F6.toInt() // Default blue
+                            color = color
                         )
                     )
                 }
@@ -56,14 +71,14 @@ class CategoriesViewModel @Inject constructor(
         _showAddDialog.value = false
     }
 
-    fun addCategory(name: String, type: String) {
+    fun addCategory(name: String, type: String, iconName: String, color: Int) {
         viewModelScope.launch {
             categoryDao.insertCategory(
                 CategoryEntity(
                     name = name,
                     type = type,
-                    iconName = "OTHERS",
-                    color = 0xFF3B82F6.toInt()
+                    iconName = iconName,
+                    color = color
                 )
             )
         }

@@ -7,7 +7,7 @@ data class Transaction(
     val smsId: Long? = null,
     val amount: Double,
     val type: TransactionType,
-    val category: Category,
+    val categoryName: String,
     val merchant: String,
     val bankName: String,
     val timestamp: LocalDateTime
@@ -16,5 +16,6 @@ data class Transaction(
         require(amount >= 0) { "Amount cannot be negative" }
         require(merchant.isNotBlank()) { "Merchant name cannot be blank" }
         require(bankName.isNotBlank()) { "Bank name cannot be blank" }
+        require(categoryName.isNotBlank()) { "Category name cannot be blank" }
     }
 }

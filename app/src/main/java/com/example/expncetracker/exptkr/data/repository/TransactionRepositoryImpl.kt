@@ -24,6 +24,12 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getTransactionsInRange(start: Long, end: Long): Flow<List<Transaction>> =
         transactionDao.getTransactionsInRange(start, end).map { entities -> entities.map { it.toDomain() } }
 
+    override fun searchTransactions(start: Long, end: Long, query: String): Flow<List<Transaction>> =
+        transactionDao.searchTransactionsInRange(start, end, query).map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun getTransactionById(id: Long): Transaction? =
+        transactionDao.getTransactionById(id)?.toDomain()
+
     override suspend fun insertTransaction(transaction: Transaction): Long =
         transactionDao.insertTransaction(transaction.toEntity())
 

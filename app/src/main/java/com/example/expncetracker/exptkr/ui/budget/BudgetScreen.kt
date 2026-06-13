@@ -36,6 +36,7 @@ import java.util.Locale
 @Composable
 fun BudgetScreen(viewModel: BudgetViewModel) {
     val budgetList by viewModel.budgetList.collectAsState()
+    val allCategories by viewModel.categories.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
@@ -146,10 +147,10 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                             )
                         }
                     } else {
-                        items(budgetList, key = { it.category }) { budget ->
+                        items(budgetList, key = { it.categoryName }) { budget ->
                             BudgetItem(
                                 budget = budget,
-                                onDeleteClick = { viewModel.deleteBudget(budget.category) }
+                                onDeleteClick = { viewModel.deleteBudgetByName(budget.categoryName) }
                             )
                         }
                     }
@@ -160,9 +161,11 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
 
     if (showAddDialog) {
         AddBudgetDialog(
+            allCategories = allCategories,
+            budgetedCategories = budgetList.map { it.categoryName },
             onDismiss = { viewModel.onDialogDismissed() },
-            onConfirm = { category, limit ->
-                viewModel.saveBudget(category, limit)
+            onConfirm = { categoryName, limit ->
+                viewModel.saveBudget(categoryName, limit)
                 viewModel.onDialogDismissed()
             }
         )
@@ -187,7 +190,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Delete Budget") },
-            text = { Text("Are you sure you want to delete the budget for ${budget.category.displayName}?") },
+            text = { Text("Are you sure you want to delete the budget for ${budget.displayName}?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -220,7 +223,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = budget.category.displayName,
+                    text = budget.displayName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -288,8 +291,15 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit) {
-    var selectedCategory by remember { mutableStateOf(Category.FOOD) }
+fun AddBudgetDialog(
+    allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
+    budgetedCategories: List<String>,
+    onDismiss: () -> Unit, 
+    onConfirm: (String, Double) -> Unit
+) {
+    var selectedCategory by remember { 
+        mutableStateOf(allCategories.firstOrNull { it.name !in budgetedCategories }) 
+    }
     var limit by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
 
@@ -298,33 +308,46 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
         title = { Text("Set Monthly Budget", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = selectedCategory.displayName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium
-                    )
-                    ExposedDropdownMenu(
+                if (selectedCategory != null) {
+                    ExposedDropdownMenuBox(
                         expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        onExpandedChange = { expanded = !expanded }
                     ) {
-                        Category.entries.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.displayName) },
-                                onClick = {
-                                    selectedCategory = category
-                                    expanded = false
-                                }
-                            )
+                        OutlinedTextField(
+                            value = selectedCategory!!.name,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            allCategories.forEach { category ->
+                                val isBudgeted = category.name in budgetedCategories
+                                DropdownMenuItem(
+                                    text = { 
+                                        Text(
+                                            text = if (isBudgeted) "${category.name} (Budgeted)" else category.name,
+                                            color = if (isBudgeted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface
+                                        ) 
+                                    },
+                                    onClick = {
+                                        if (!isBudgeted) {
+                                            selectedCategory = category
+                                            expanded = false
+                                        }
+                                    },
+                                    enabled = !isBudgeted
+                                )
+                            }
                         }
                     }
+                } else {
+                    Text("All categories already have a budget.", color = MaterialTheme.colorScheme.error)
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -344,9 +367,9 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
             Button(
                 onClick = {
                     val l = limit.toDoubleOrNull() ?: 0.0
-                    if (l > 0) onConfirm(selectedCategory, l)
+                    if (l > 0 && selectedCategory != null) onConfirm(selectedCategory!!.name, l)
                 },
-                enabled = limit.isNotEmpty(),
+                enabled = limit.isNotEmpty() && selectedCategory != null,
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text("Save")

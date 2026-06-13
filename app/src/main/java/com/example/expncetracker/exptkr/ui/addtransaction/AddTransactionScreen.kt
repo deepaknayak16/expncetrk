@@ -33,6 +33,8 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import com.example.expncetracker.exptkr.ui.theme.*
+import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
+import com.example.expncetracker.exptkr.ui.components.getIconByName
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -72,7 +74,7 @@ fun AddTransactionScreen(
             amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
             note = it.merchant
             selectedType = it.type
-            selectedCategoryName = it.category.displayName
+            selectedCategoryName = it.categoryName
             transactionDate = it.timestamp
         }
     }
@@ -406,8 +408,8 @@ fun AddTransactionScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(categoriesToShow) { category ->
-                    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
                     val color = Color(category.color)
+                    val icon = getIconByName(category.iconName)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.height(90.dp).clip(MaterialTheme.shapes.medium).clickable { 
@@ -416,7 +418,7 @@ fun AddTransactionScreen(
                         }.padding(4.dp)
                     ) {
                         Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                            Icon(imageVector = getCategoryIcon(categoryEnum), contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
+                            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(text = category.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -622,24 +624,6 @@ private fun evaluate(expression: String): Double {
         return result
     } catch (e: Exception) {
         return expression.toDoubleOrNull() ?: 0.0
-    }
-}
-
-private fun getCategoryIcon(category: Category): ImageVector {
-    return when (category) {
-        Category.FOOD -> Icons.Default.Restaurant
-        Category.CABS -> Icons.Default.DirectionsCar
-        Category.RENT -> Icons.Default.HomeWork
-        Category.BILLS -> Icons.Default.Bolt
-        Category.SHOPPING -> Icons.Default.LocalMall
-        Category.SALARY -> Icons.Default.Payments
-        Category.INVESTMENTS -> Icons.AutoMirrored.Filled.TrendingUp
-        Category.TRAVEL -> Icons.Default.LocalAirport
-        Category.ENTERTAINMENT -> Icons.Default.LiveTv
-        Category.HEALTHCARE -> Icons.Default.Favorite
-        Category.EDUCATION -> Icons.Default.School
-        Category.GROCERIES -> Icons.Default.ShoppingCart
-        Category.OTHERS -> Icons.Default.GridView
     }
 }
 

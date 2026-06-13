@@ -23,21 +23,26 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
+import com.example.expncetracker.exptkr.ui.components.getIconByName
 
-/**
- * Unified Transaction List Item used across Home and Transaction screens.
- */
 @Composable
 fun TransactionListItem(
     transaction: Transaction,
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    categoryIcon: ImageVector? = null,
+    categoryColor: Color? = null
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDarkTheme = MaterialTheme.isDark
-    val (icon, color) = getTransactionStyle(transaction.category, isDarkTheme)
-    val isExpense = transaction.type == TransactionType.DEBIT
+    
+    // Fallback if category name doesn't match enum
+    val categoryEnum = Category.entries.find { it.name == transaction.categoryName.uppercase() } ?: Category.OTHERS
+    val style = getTransactionStyle(categoryEnum, isDarkTheme)
+    
+    val icon = categoryIcon ?: style.first
+    val color = categoryColor ?: style.second
 
     if (showDeleteConfirm && onDelete != null) {
         AlertDialog(
@@ -78,7 +83,6 @@ fun TransactionListItem(
                     .padding(vertical = 12.dp, horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Fixed Icon Container
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -96,7 +100,6 @@ fun TransactionListItem(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Merchant & Category Info
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = transaction.merchant,
@@ -105,13 +108,12 @@ fun TransactionListItem(
                         maxLines = 1
                     )
                     Text(
-                        text = "${transaction.category.displayName} • ${transaction.timestamp.formatToDisplay()}",
+                        text = "${transaction.categoryName} • ${transaction.timestamp.formatToDisplay()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                // Amount
                 val prefix = when (transaction.type) {
                     TransactionType.CREDIT -> "+"
                     TransactionType.DEBIT -> "-"
@@ -154,25 +156,20 @@ fun TransactionListItem(
     }
 }
 
-@Composable
-fun TransactionItemImproved(transaction: Transaction) {
-    TransactionListItem(transaction = transaction)
-}
-
 private fun getTransactionStyle(category: Category, isDarkTheme: Boolean): Pair<ImageVector, Color> {
-    return when (category.name) {
-        "FOOD" -> Icons.Default.Restaurant to if (isDarkTheme) CategoryFoodDark else CategoryFood
-        "CABS" -> Icons.Default.DirectionsCar to if (isDarkTheme) CategoryCabsDark else CategoryCabs
-        "BILLS" -> Icons.Default.Bolt to if (isDarkTheme) CategoryBillsDark else CategoryBills
-        "SHOPPING" -> Icons.Default.LocalMall to if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        "SALARY" -> Icons.Default.Payments to if (isDarkTheme) CategorySalaryDark else CategorySalary
-        "RENT" -> Icons.Default.HomeWork to if (isDarkTheme) CategoryRentDark else CategoryRent
-        "INVESTMENTS" -> Icons.AutoMirrored.Filled.TrendingUp to if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
-        "TRAVEL" -> Icons.Default.LocalAirport to if (isDarkTheme) CategoryTravelDark else CategoryTravel
-        "ENTERTAINMENT" -> Icons.Default.LiveTv to if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        "HEALTHCARE" -> Icons.Default.Favorite to if (isDarkTheme) CategoryHealthDark else CategoryHealth
-        "EDUCATION" -> Icons.Default.School to if (isDarkTheme) CategoryEducationDark else CategoryEducation
-        "GROCERIES" -> Icons.Default.ShoppingCart to if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+    return when (category) {
+        Category.FOOD -> Icons.Default.Restaurant to if (isDarkTheme) CategoryFoodDark else CategoryFood
+        Category.CABS -> Icons.Default.DirectionsCar to if (isDarkTheme) CategoryCabsDark else CategoryCabs
+        Category.RENT -> Icons.Default.HomeWork to if (isDarkTheme) CategoryRentDark else CategoryRent
+        Category.BILLS -> Icons.Default.Bolt to if (isDarkTheme) CategoryBillsDark else CategoryBills
+        Category.SHOPPING -> Icons.Default.LocalMall to if (isDarkTheme) CategoryShoppingDark else CategoryShopping
+        Category.SALARY -> Icons.Default.Payments to if (isDarkTheme) CategorySalaryDark else CategorySalary
+        Category.INVESTMENTS -> Icons.AutoMirrored.Filled.TrendingUp to if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
+        Category.TRAVEL -> Icons.Default.LocalAirport to if (isDarkTheme) CategoryTravelDark else CategoryTravel
+        Category.ENTERTAINMENT -> Icons.Default.LiveTv to if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
+        Category.GROCERIES -> Icons.Default.ShoppingCart to if (isDarkTheme) CategoryGroceriesDark else CategoryGroceries
+        Category.HEALTHCARE -> Icons.Default.Favorite to if (isDarkTheme) CategoryHealthDark else CategoryHealth
+        Category.EDUCATION -> Icons.Default.School to if (isDarkTheme) CategoryEducationDark else CategoryEducation
         else -> Icons.Default.GridView to if (isDarkTheme) CategoryOthersDark else CategoryOthers
     }
 }

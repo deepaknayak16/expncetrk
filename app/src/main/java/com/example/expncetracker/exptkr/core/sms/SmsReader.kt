@@ -3,13 +3,14 @@ package com.example.expncetracker.exptkr.core.sms
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.example.expncetracker.BuildConfig
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.entity.RawSmsEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 // Helper to avoid production logging
-private const val DEBUG = true // In production, this should be false or use BuildConfig
+private val DEBUG = BuildConfig.DEBUG
 
 class SmsReader @Inject constructor(
     @ApplicationContext private val context: Context

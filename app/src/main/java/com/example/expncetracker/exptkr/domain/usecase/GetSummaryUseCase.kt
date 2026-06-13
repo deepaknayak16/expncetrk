@@ -29,14 +29,14 @@ class GetSummaryUseCase @Inject constructor(
         return repository.getTransactionsInRange(startMillis, endMillis).map { txList ->
             var income = 0.0
             var expense = 0.0
-            val map = mutableMapOf<Category, Double>()
+            val map = mutableMapOf<String, Double>()
 
             txList.forEach { tx ->
                 if (tx.type == TransactionType.CREDIT) {
                     income += tx.amount
                 } else {
                     expense += tx.amount
-                    map[tx.category] = (map[tx.category] ?: 0.0) + tx.amount
+                    map[tx.categoryName] = (map[tx.categoryName] ?: 0.0) + tx.amount
                 }
             }
             FinancialSummary(income, expense, income - expense, map)

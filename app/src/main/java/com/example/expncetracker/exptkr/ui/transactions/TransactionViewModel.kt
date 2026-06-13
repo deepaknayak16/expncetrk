@@ -21,9 +21,13 @@ import javax.inject.Inject
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
-    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
+    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
+    categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
     
+    val categories = categoryDao.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
@@ -39,28 +43,25 @@ class TransactionViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val transactions: StateFlow<List<Transaction>> = combine(
-        _selectedFilter.flatMapLatest { filter ->
-            _isLoading.value = true
-            val now = LocalDateTime.now()
-            val startDateTime = when (filter) {
-                DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
-                DateFilter.WEEK -> now.minusDays(7)
-                DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
-                DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
-            }
-            val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            repository.getTransactionsInRange(startMillis, endMillis).onEach { _isLoading.value = false }
-        },
+        _selectedFilter,
         _searchQuery.debounce(300L)
-    ) { list, query ->
-        if (query.isBlank()) list
-        else list.filter { 
-            it.merchant.contains(query, ignoreCase = true) || 
-            it.bankName.contains(query, ignoreCase = true) ||
-            it.category.displayName.contains(query, ignoreCase = true)
+    ) { filter, query ->
+        filter to query
+    }.flatMapLatest { (filter, query) ->
+        _isLoading.value = true
+        val now = LocalDateTime.now()
+        val startDateTime = when (filter) {
+            DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
+            DateFilter.WEEK -> now.minusDays(7)
+            DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
+            DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
         }
+        val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        
+        repository.searchTransactions(startMillis, endMillis, query).onEach { _isLoading.value = false }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun onSearchQueryChange(newQuery: String) {

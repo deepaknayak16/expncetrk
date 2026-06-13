@@ -19,7 +19,8 @@ import javax.inject.Inject
 class AnalyticsViewModel @Inject constructor(
     private val getSummaryUseCase: GetSummaryUseCase,
     private val getTrendsUseCase: GetTrendsUseCase,
-    private val getDailyTotalsUseCase: GetDailyTotalsUseCase
+    private val getDailyTotalsUseCase: GetDailyTotalsUseCase,
+    categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -27,6 +28,9 @@ class AnalyticsViewModel @Inject constructor(
 
     private val _weekRange = MutableStateFlow(Pair(LocalDate.now(), LocalDate.now()))
     
+    val categories = categoryDao.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val summary: StateFlow<FinancialSummary?> = _selectedFilter
         .flatMapLatest { getSummaryUseCase(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

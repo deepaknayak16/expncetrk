@@ -243,6 +243,16 @@ private fun AccountCard(
                     onDismissRequest = { showMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text("Edit Account") },
+                        onClick = { 
+                            // In a real app, this would trigger an edit state/dialog
+                            showMenu = false 
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = {
                             showDeleteConfirm = true

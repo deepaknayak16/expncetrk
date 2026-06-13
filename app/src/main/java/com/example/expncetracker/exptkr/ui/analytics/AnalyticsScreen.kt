@@ -45,11 +45,11 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val summary by viewModel.summary.collectAsState()
     val trends by viewModel.trends.collectAsState()
     val dailyTotals by viewModel.dailyTotals.collectAsState()
+    val allCategories by viewModel.categories.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isDark = MaterialTheme.isDark
     var showFilterSheet by remember { mutableStateOf(false) }
 
-    // FIX #6: Mutable state for week navigation instead of hardcoded Jan 3-9
     var currentWeekStart by remember {
         mutableStateOf(
             LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L)
@@ -91,7 +91,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // FIX #9: Wire prev week navigation
                 IconButton(onClick = { currentWeekStart = currentWeekStart.minusWeeks(1) }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -109,7 +108,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // FIX #9: Wire next week navigation
                     IconButton(onClick = { currentWeekStart = currentWeekStart.plusWeeks(1) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -164,7 +162,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         item {
@@ -205,58 +203,72 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             Spacer(Modifier.height(16.dp))
         }
 
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                Text(
-                    text = "Weekly Overview",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(12.dp))
+        if (selectedFilter == DateFilter.WEEK || selectedFilter == DateFilter.DAY) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = "Weekly Overview",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(12.dp))
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                // FIX #6: Derive actual week data dynamically
-                val locale = remember { Locale.getDefault() }
-                val weekDays = (0..6).map { currentWeekStart.plusDays(it.toLong()) }
-                val daySpending = weekDays.map { day ->
-                    val dayTotal = dailyTotals[day] ?: 0.0
-                    String.format("-%.2f", dayTotal)
-                }
-
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    weekDays.forEachIndexed { index, day ->
-                        CalendarDayItem(
-                            day = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale),
-                            date = day.dayOfMonth.toString(),
-                            value = daySpending[index],
-                            modifier = Modifier.weight(1f)
-                        )
+                    val locale = remember { Locale.getDefault() }
+                    val weekDays = (0..6).map { currentWeekStart.plusDays(it.toLong()) }
+                    val daySpending = weekDays.map { day ->
+                        val dayTotal = dailyTotals[day] ?: 0.0
+                        String.format(Locale.US, "-%.2f", dayTotal)
                     }
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        weekDays.forEachIndexed { index, day ->
+                            CalendarDayItem(
+                                day = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale),
+                                date = day.dayOfMonth.toString(),
+                                value = daySpending[index],
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(Modifier.height(32.dp))
             }
-            Spacer(Modifier.height(32.dp))
         }
 
         item {
             summary?.let {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(0.dp)) {
-                        Spacer(Modifier.height(0.dp))
-                        DistributionSection(distribution = it.categoryDistribution)
+                if (it.categoryDistribution.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(0.dp)) {
+                            DistributionSection(
+                                distribution = it.categoryDistribution,
+                                allCategories = allCategories
+                            )
+                        }
+                    }
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    ) {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("No spending data for this period", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }

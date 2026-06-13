@@ -70,6 +70,7 @@ val CategoryTravel = Color(0xFF3B82F6)
 val CategoryEntertainment = Color(0xFF8B5CF6)
 val CategoryHealth = Color(0xFFEF4444)
 val CategoryEducation = Color(0xFF14B8A6)
+val CategoryGroceries = Color(0xFF4ADE80)
 val CategoryOthers = Color(0xFF64748B)
 
 // ==================== Dark Theme Colors ====================
@@ -140,6 +141,7 @@ val CategoryTravelDark = Color(0xFF60A5FA)
 val CategoryEntertainmentDark = Color(0xFFA78BFA)
 val CategoryHealthDark = Color(0xFFF87171)
 val CategoryEducationDark = Color(0xFF5EEAD4)
+val CategoryGroceriesDark = Color(0xFF22C55E)
 val CategoryOthersDark = Color(0xFF94A3B8)
 
 // Gradient Colors

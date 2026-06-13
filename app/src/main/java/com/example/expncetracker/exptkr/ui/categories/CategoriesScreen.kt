@@ -1,9 +1,11 @@
 package com.example.expncetracker.exptkr.ui.categories
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.theme.*
+import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
+import com.example.expncetracker.exptkr.ui.components.availableIcons
+import com.example.expncetracker.exptkr.ui.components.presetColors
 
 @Composable
 fun CategoriesScreen(viewModel: CategoriesViewModel) {
@@ -92,11 +97,11 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
             item { CategoryHeader("Income Categories") }
             items(incomeCategories) { category ->
                 val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                val amount = summary?.categoryDistribution?.get(categoryEnum) ?: 0.0
+                val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
                 val total = summary?.totalIncome ?: 1.0
                 val percentage = if (total > 0) (amount / total * 100).toInt() else 0
                 
-                CategoryListItem(category.name, categoryEnum, isDark, amount, percentage)
+                CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -106,11 +111,11 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
             item { CategoryHeader("Expense Categories") }
             items(expenseCategories) { category ->
                 val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                val amount = summary?.categoryDistribution?.get(categoryEnum) ?: 0.0
+                val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
                 val total = summary?.totalExpense ?: 1.0
                 val percentage = if (total > 0) (amount / total * 100).toInt() else 0
                 
-                CategoryListItem(category.name, categoryEnum, isDark, amount, percentage)
+                CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -122,8 +127,8 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
     if (showAddDialog) {
         AddCategoryDialog(
             onDismiss = { viewModel.onDialogDismissed() },
-            onConfirm = { name, type ->
-                viewModel.addCategory(name, type)
+            onConfirm = { name, type, iconName, color ->
+                viewModel.addCategory(name, type, iconName, color)
                 viewModel.onDialogDismissed()
             }
         )
@@ -132,9 +137,11 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
+private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Int) -> Unit) {
     var name by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("EXPENSE") }
+    var selectedIconName by remember { mutableStateOf("OTHERS") }
+    var selectedColor by remember { mutableStateOf(presetColors[0]) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -149,6 +156,7 @@ private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String)
                     shape = MaterialTheme.shapes.medium
                 )
                 Spacer(Modifier.height(16.dp))
+                
                 Text("Category Type", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = type == "EXPENSE", onClick = { type = "EXPENSE" })
@@ -157,11 +165,50 @@ private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String)
                     RadioButton(selected = type == "INCOME", onClick = { type = "INCOME" })
                     Text("Income", modifier = Modifier.clickable { type = "INCOME" })
                 }
+                
+                Spacer(Modifier.height(16.dp))
+                Text("Select Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(availableIcons) { (iconName, icon) ->
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(if (selectedIconName == iconName) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { selectedIconName = iconName },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = if (selectedIconName == iconName) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Text("Select Color", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(presetColors) { colorValue ->
+                        val color = Color(colorValue)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .border(2.dp, if (selectedColor == colorValue) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape)
+                                .clickable { selectedColor = colorValue }
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { if (name.isNotBlank()) onConfirm(name, type) },
+                onClick = { if (name.isNotBlank()) onConfirm(name, type, selectedIconName, selectedColor.toInt()) },
                 enabled = name.isNotBlank(),
                 shape = MaterialTheme.shapes.medium
             ) {
@@ -175,7 +222,7 @@ private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String)
 }
 
 @Composable
-private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: Double, percentage: Int = 0) {
+private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: Double, percentage: Int = 0, color: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -186,13 +233,13 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
             modifier = Modifier
                 .size(44.dp)
                 .clip(MaterialTheme.shapes.medium)
-                .background(getCategoryColor(category, isDark)),
+                .background(color.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = getCategoryIcon(category),
                 contentDescription = null,
-                tint = Color.White,
+                tint = color,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -242,40 +289,4 @@ private fun CategoryHeader(title: String) {
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)
     )
-}
-
-private fun getCategoryIcon(category: Category): ImageVector {
-    return when (category) {
-        Category.FOOD -> Icons.Default.Restaurant
-        Category.CABS -> Icons.Default.DirectionsCar
-        Category.RENT -> Icons.Default.HomeWork
-        Category.BILLS -> Icons.Default.Bolt
-        Category.SHOPPING -> Icons.Default.LocalMall
-        Category.SALARY -> Icons.Default.Payments
-        Category.INVESTMENTS -> Icons.AutoMirrored.Filled.TrendingUp
-        Category.TRAVEL -> Icons.Default.LocalAirport
-        Category.ENTERTAINMENT -> Icons.Default.LiveTv
-        Category.HEALTHCARE -> Icons.Default.Favorite
-        Category.EDUCATION -> Icons.Default.School
-        Category.GROCERIES -> Icons.Default.ShoppingCart
-        Category.OTHERS -> Icons.Default.GridView
-    }
-}
-
-private fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
-    return when (category) {
-        Category.FOOD -> if (isDarkTheme) CategoryFoodDark else CategoryFood
-        Category.CABS -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
-        Category.RENT -> if (isDarkTheme) CategoryRentDark else CategoryRent
-        Category.BILLS -> if (isDarkTheme) CategoryBillsDark else CategoryBills
-        Category.SHOPPING -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        Category.SALARY -> if (isDarkTheme) CategorySalaryDark else CategorySalary
-        Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
-        Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
-        Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
-        Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
-        Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
-        Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
-    }
 }

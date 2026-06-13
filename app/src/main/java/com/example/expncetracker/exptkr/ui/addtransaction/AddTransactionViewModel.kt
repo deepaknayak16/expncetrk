@@ -45,9 +45,7 @@ class AddTransactionViewModel @Inject constructor(
 
     fun loadTransaction(id: Long) {
         viewModelScope.launch {
-            // Assuming repository has a way to get a single transaction
-            // For now, we search in all transactions
-            val tx = repository.getAllTransactions().first().find { it.id == id }
+            val tx = repository.getTransactionById(id)
             _transactionToEdit.value = tx
         }
     }
@@ -67,14 +65,12 @@ class AddTransactionViewModel @Inject constructor(
                 return@launch
             }
 
-            val categoryEnum = Category.entries.find { it.name == category.uppercase() } ?: Category.OTHERS
-            
             val transaction = Transaction(
                 id = id,
                 smsId = _transactionToEdit.value?.smsId, // Keep smsId if editing
                 amount = amount,
                 type = type,
-                category = categoryEnum,
+                categoryName = category,
                 merchant = description ?: "Manual Entry",
                 bankName = bankName,
                 timestamp = timestamp

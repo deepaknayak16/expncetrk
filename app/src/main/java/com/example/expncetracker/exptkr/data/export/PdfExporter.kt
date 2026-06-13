@@ -129,7 +129,7 @@ class PdfExporter @Inject constructor(
                     // Table data
                     transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
                         table.addCell(transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                        table.addCell(transaction.category.name.lowercase().replaceFirstChar { it.uppercase() })
+                        table.addCell(transaction.categoryName.lowercase().replaceFirstChar { it.uppercase() })
                         table.addCell(when(transaction.type) {
                             TransactionType.CREDIT -> "Income"
                             TransactionType.DEBIT -> "Expense"

@@ -33,6 +33,7 @@ fun TransactionScreen(
     onNavigateToEdit: (Long) -> Unit = {}
 ) {
     val list by viewModel.transactions.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -188,9 +189,12 @@ fun TransactionScreen(
                                 }
                                 
                                 items(transactions, key = { it.id }) { tx ->
+                                    val categoryEntity = categories.find { it.name == tx.categoryName }
                                     TransactionListItem(
                                         transaction = tx,
-                                        onClick = { selectedTransaction = tx }
+                                        onClick = { selectedTransaction = tx },
+                                        categoryIcon = categoryEntity?.let { com.example.expncetracker.exptkr.ui.components.getIconByName(it.iconName) },
+                                        categoryColor = categoryEntity?.let { Color(it.color) }
                                     )
                                 }
                             }
@@ -256,10 +260,11 @@ fun TransactionDetailContent(
         Spacer(Modifier.height(24.dp))
         
         DetailItem("Merchant", transaction.merchant)
-        DetailItem("Category", transaction.category.displayName)
+        DetailItem("Category", transaction.categoryName)
         DetailItem("Bank/Account", transaction.bankName)
         DetailItem("Date & Time", transaction.timestamp.formatToDisplay())
-        DetailItem("Source", if (transaction.smsId != null) "SMS Import" else "Manual Entry")
+        DetailItem("Source", if (transaction.smsId != null) "SMS Import (ID: ${transaction.smsId})" else "Manual Entry")
+        DetailItem("Type", if (transaction.type == TransactionType.CREDIT) "Income" else "Expense")
         
         Spacer(Modifier.height(32.dp))
         

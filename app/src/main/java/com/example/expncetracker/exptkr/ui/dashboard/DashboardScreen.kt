@@ -44,6 +44,7 @@ import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
 import com.example.expncetracker.exptkr.ui.components.SectionHeader
 import com.example.expncetracker.exptkr.ui.components.EmptyState
+import com.example.expncetracker.exptkr.ui.components.getIconByName
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
@@ -98,27 +99,19 @@ fun DashboardScreen(
                     state = pullRefreshState,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    Column {
-                        if (isSyncing) {
-                            LinearProgressIndicator(
-                                modifier = Modifier.fillMaxWidth().height(3.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
+                    DashboardContent(
+                        summary = state.summary,
+                        recent = state.recentTransactions,
+                        categories = state.categories,
+                        trends = trends,
+                        currentFilter = currentFilter,
+                        onNavigateToAddTransaction = onNavigateToAddTransaction,
+                        onSeeAllClick = onNavigateToStatementLedger,
+                        onFilterChange = { viewModel.setFilter(it) },
+                        onSyncClick = {
+                            permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
                         }
-                        DashboardContent(
-                            summary = state.summary,
-                            recent = state.recentTransactions,
-                            trends = trends,
-                            currentFilter = currentFilter,
-                            onNavigateToAddTransaction = onNavigateToAddTransaction,
-                            onSeeAllClick = onNavigateToStatementLedger,
-                            onFilterChange = { viewModel.setFilter(it) },
-                            onSyncClick = {
-                                permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
-                            }
-                        )
-                    }
+                    )
                 }
             }
         }
@@ -129,6 +122,7 @@ fun DashboardScreen(
 fun DashboardContent(
     summary: FinancialSummary,
     recent: List<Transaction>,
+    categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
     trends: List<com.example.expncetracker.exptkr.domain.model.SpendingTrend>,
     currentFilter: DateFilter,
     onNavigateToAddTransaction: () -> Unit,
@@ -138,72 +132,51 @@ fun DashboardContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        contentPadding = PaddingValues(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
             val calendar = Calendar.getInstance()
-            val greetingRes = when (calendar.get(Calendar.HOUR_OF_DAY)) {
-                in 5..11 -> R.string.greeting_morning
-                in 12..16 -> R.string.greeting_afternoon
-                in 17..20 -> R.string.greeting_evening
-                else -> R.string.greeting_night
+            val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
+                in 0..11 -> "Good Morning"
+                in 12..15 -> "Good Afternoon"
+                else -> "Good Evening"
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "${stringResource(greetingRes)}!",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Welcome back to ${stringResource(R.string.app_name)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                IconButton(
-                    onClick = onSyncClick,
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Sync,
-                        contentDescription = "Sync SMS",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp)) {
+                Text(
+                    text = "$greeting!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Welcome back to MoneyWise",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
         item {
-            CompactSummaryHeader(
-                summary = summary,
-                currentFilter = currentFilter,
-                onFilterChange = onFilterChange
-            )
+            CompactSummaryHeader(summary = summary, currentFilter = currentFilter, onFilterChange = onFilterChange)
         }
 
         item {
-            Box(modifier = Modifier.padding(horizontal = 10.dp)) {
-                DistributionSection(summary.categoryDistribution)
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                DistributionSection(
+                    distribution = summary.categoryDistribution,
+                    allCategories = categories
+                )
             }
         }
 
         item {
-            Column(modifier = Modifier.padding(horizontal = 10.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(
                     text = "Spending Trend",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 10.dp)
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
                 val modelProducer = remember { CartesianChartModelProducer() }
                 LaunchedEffect(trends) {
@@ -224,7 +197,7 @@ fun DashboardContent(
                     CartesianChartHost(
                         chart = rememberCartesianChart(rememberLineCartesianLayer()),
                         modelProducer = modelProducer,
-                        modifier = Modifier.padding(10.dp)
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
@@ -235,7 +208,7 @@ fun DashboardContent(
                 title = "Recent Activity",
                 actionLabel = "See All Ledger",
                 onActionClick = onSeeAllClick,
-                modifier = Modifier.padding(horizontal = 10.dp)
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
 
@@ -247,23 +220,13 @@ fun DashboardContent(
                         title = "No transactions yet",
                         description = "Start by adding a transaction manually or syncing your SMS",
                         action = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = onNavigateToAddTransaction,
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Add Manual")
-                                }
-                                OutlinedButton(
-                                    onClick = onSyncClick,
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Icon(Icons.Default.Sync, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Sync SMS")
-                                }
+                            Button(
+                                onClick = onNavigateToAddTransaction,
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Add First Transaction")
                             }
                         }
                     )
@@ -271,7 +234,7 @@ fun DashboardContent(
             }
         } else {
             val grouped = recent.groupBy { 
-                it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, EEEE", Locale.getDefault()))
+                it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()))
             }
             
             grouped.forEach { (date, transactions) ->
@@ -285,8 +248,13 @@ fun DashboardContent(
                     )
                 }
                 
-                items(transactions, key = { it.id }) { transaction ->
-                    TransactionListItem(transaction)
+                items(transactions.take(10), key = { it.id }) { transaction ->
+                    val categoryEntity = categories.find { it.name == transaction.categoryName }
+                    TransactionListItem(
+                        transaction = transaction,
+                        categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
+                        categoryColor = categoryEntity?.let { Color(it.color) }
+                    )
                 }
             }
         }
@@ -318,12 +286,11 @@ fun CompactSummaryHeader(
                 currentFilter = currentFilter,
                 onFilterSelected = { onFilterChange(it); showFilterSheet = false }
             )
-            Spacer(Modifier.height(24.dp))
         }
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -341,7 +308,7 @@ fun CompactSummaryHeader(
             ) {
                 IconButton(onClick = {
                     calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                    onFilterChange(DateFilter.MONTH)
+                    if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
                 }) {
                     Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
                 }
@@ -356,7 +323,7 @@ fun CompactSummaryHeader(
                 Row {
                     IconButton(onClick = {
                         calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                        onFilterChange(DateFilter.MONTH)
+                        if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
                     }) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = MaterialTheme.colorScheme.primary)
                     }
@@ -396,10 +363,10 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            style = if (value.length > 10) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+            style = if (value.length > 12) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = valueColor,
             textAlign = TextAlign.Center,
@@ -409,15 +376,28 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
     }
 }
 
+private data class DistributionItem(
+    val name: String,
+    val amount: Double,
+    val category: Category,
+    val color: Color
+)
+
 @Composable
-fun DistributionSection(distribution: Map<Category, Double>) {
+fun DistributionSection(
+    distribution: Map<String, Double>,
+    allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>
+) {
     val isDarkTheme = MaterialTheme.isDark
-    val sortedDistribution = distribution.entries
-        .filter { it.value > 0 }
-        .sortedByDescending { it.value }
-        .take(6) // Cap to top 6 to prevent clipping
     
-    val maxVal = sortedDistribution.maxOfOrNull { it.value }?.coerceAtLeast(1.0) ?: 1.0
+    val items = allCategories.map { entity ->
+        val amount = distribution[entity.name] ?: 0.0
+        val categoryEnum = Category.entries.find { it.name == entity.iconName } ?: Category.OTHERS
+        DistributionItem(entity.name, amount, categoryEnum, Color(entity.color))
+    }.filter { it.amount > 0 || (it.category != Category.OTHERS && distribution.size < 8) }
+    .sortedByDescending { it.amount }
+    
+    val maxVal = items.maxOfOrNull { it.amount }?.coerceAtLeast(1.0) ?: 1.0
 
     Column {
         Text(
@@ -431,62 +411,78 @@ fun DistributionSection(distribution: Map<Category, Double>) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .height(130.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-            sortedDistribution.forEach { (category, amount) ->
-                val barHeightFraction = (amount / maxVal).toFloat().coerceIn(0.01f, 1f)
-                val categoryColor = getCategoryColor(category, isDarkTheme)
+            items.forEach { item ->
+                val barHeightFraction = (item.amount / maxVal).toFloat().coerceIn(0.01f, 1f)
                 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = if (amount >= 1000) String.format(Locale.US, "%.1fK", amount/1000) else amount.toInt().toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                            .background(categoryColor.copy(alpha = 0.2f)),
+                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                            .background(item.color.copy(alpha = 0.15f))
+                            .border(
+                                width = 1.dp,
+                                color = item.color.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                            ),
                         contentAlignment = Alignment.BottomCenter
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(barHeightFraction)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(categoryColor, categoryColor.copy(alpha = 0.7f))
+                                .background(item.color)
+                        )
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
+                            modifier = Modifier
+                                .padding(bottom = 12.dp)
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(
+                                        constraints.copy(
+                                            minWidth = 0,
+                                            maxWidth = constraints.maxHeight,
+                                            minHeight = 0,
+                                            maxHeight = constraints.maxWidth
+                                        )
                                     )
-                                )
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // Rotated Label
-                    Box(
-                        modifier = Modifier.height(60.dp),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Text(
-                            text = category.displayName,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.graphicsLayer {
-                                rotationZ = -45f
-                                translationY = 8.dp.toPx()
-                            },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                                    layout(placeable.height, placeable.width) {
+                                        placeable.placeWithLayer(
+                                            x = (placeable.height - placeable.width) / 2,
+                                            y = (placeable.width - placeable.height) / 2
+                                        ) {
+                                            rotationZ = -90f
+                                        }
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = if (item.amount >= 1000) String.format(Locale.US, "%.1fK", item.amount/1000) else item.amount.toInt().toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = item.name.uppercase(),
+                                color = Color.White,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Visible
+                            )
+                        }
                     }
                 }
             }
@@ -505,7 +501,7 @@ fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
         Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
         Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
         Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
+        Category.GROCERIES -> if (isDarkTheme) CategoryGroceriesDark else CategoryGroceries
         Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
         Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
         Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
