@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -16,7 +17,7 @@ import androidx.core.view.WindowCompat
 val MaterialTheme.isDark: Boolean
     @Composable
     @ReadOnlyComposable
-    get() = isSystemInDarkTheme()
+    get() = colorScheme.surface.luminance() < 0.5f
 
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,

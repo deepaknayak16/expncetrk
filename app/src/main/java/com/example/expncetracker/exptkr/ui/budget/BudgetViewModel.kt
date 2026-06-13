@@ -10,6 +10,11 @@ import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.YearMonth
+import java.time.ZoneId
 import javax.inject.Inject
 
 data class BudgetUiModel(
@@ -23,16 +28,30 @@ data class BudgetUiModel(
 @HiltViewModel
 class BudgetViewModel @Inject constructor(
     private val budgetDao: BudgetDao,
-    private val getSummaryUseCase: GetSummaryUseCase
+    private val getSummaryUseCase: GetSummaryUseCase,
+    private val repository: com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 ) : ViewModel() {
 
-    private val _budgets = budgetDao.getAllBudgets()
-    private val _summary = getSummaryUseCase(DateFilter.MONTH)
+    private val _selectedMonth = MutableStateFlow(YearMonth.now())
+    val selectedMonth = _selectedMonth.asStateFlow()
 
-    val budgetList: StateFlow<List<BudgetUiModel>> = combine(_budgets, _summary) { budgets, summary ->
+    private val _budgets = budgetDao.getAllBudgets()
+    
+    val budgetList: StateFlow<List<BudgetUiModel>> = combine(_budgets, _selectedMonth) { budgets, month ->
+        // Fetch summary for the specific month
+        val startMillis = month.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = month.atEndOfMonth().atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        
+        // This is a bit heavy for a combine, but better for now than hardcoded month
+        // In a real app, this should be a dedicated usecase or flow
+        val txList = repository.getTransactionsInRange(startMillis, endMillis).first()
+        val categorySpent = txList.filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
+            .groupBy { it.category }
+            .mapValues { entry -> entry.value.sumOf { it.amount } }
+
         budgets.map { budget ->
             val category = Category.entries.find { it.name == budget.category } ?: Category.OTHERS
-            val spent = summary.categoryDistribution[category] ?: 0.0
+            val spent = categorySpent[category] ?: 0.0
             val remaining = (budget.limitAmount - spent).coerceAtLeast(0.0)
             val progress = if (budget.limitAmount > 0) (spent / budget.limitAmount).toFloat().coerceIn(0f, 1f) else 0f
             
@@ -40,6 +59,10 @@ class BudgetViewModel @Inject constructor(
         }
     }.catch { emptyList<BudgetUiModel>() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setMonth(month: YearMonth) {
+        _selectedMonth.value = month
+    }
 
     fun saveBudget(category: Category, limit: Double) {
         viewModelScope.launch {

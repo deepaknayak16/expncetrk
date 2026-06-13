@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.dao.RawSmsDao
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
@@ -38,4 +39,5 @@ object DatabaseModule {
     @Provides fun provideTransactionDao(db: AppDatabase): TransactionDao = db.transactionDao()
     @Provides fun provideRawSmsDao(db: AppDatabase): RawSmsDao = db.rawSmsDao()
     @Provides fun provideBudgetDao(db: AppDatabase): BudgetDao = db.budgetDao()
+    @Provides fun provideAccountDao(db: AppDatabase): AccountDao = db.accountDao()
 }

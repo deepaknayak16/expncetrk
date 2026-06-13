@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +28,7 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.components.EmptyState
 import com.example.expncetracker.exptkr.ui.theme.*
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -33,12 +36,14 @@ import java.util.Locale
 @Composable
 fun BudgetScreen(viewModel: BudgetViewModel) {
     val budgetList by viewModel.budgetList.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
 
-    // FIX #9: Track displayed month with mutable state
-    var displayedMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", Locale.getDefault()) }
+
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullRefreshState = rememberPullToRefreshState()
 
     val totalBudget = budgetList.sumOf { it.limit }
     val totalSpent = budgetList.sumOf { it.spent }
@@ -55,99 +60,108 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                isRefreshing = false
+            },
+            state = pullRefreshState,
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    IconButton(onClick = { displayedMonth = displayedMonth.minusMonths(1) }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Previous",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { viewModel.setMonth(selectedMonth.minusMonths(1)) }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                contentDescription = "Previous",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            text = selectedMonth.format(monthFormatter),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
                         )
+                        Spacer(Modifier.width(16.dp))
+                        IconButton(onClick = { viewModel.setMonth(selectedMonth.plusMonths(1)) }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = "Next",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
                     }
-                    Spacer(Modifier.width(16.dp))
-                    Text(
-                        text = displayedMonth.format(monthFormatter),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    IconButton(onClick = { displayedMonth = displayedMonth.plusMonths(1) }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        BudgetStatItem("TOTAL BUDGET", "₹${totalBudget.formatAsCurrency()}", MaterialTheme.colorScheme.primary)
+                        BudgetStatItem("TOTAL SPENT", "₹${totalSpent.formatAsCurrency()}", if (isDark) DarkExpense else LightExpense)
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    BudgetStatItem("TOTAL BUDGET", "₹${totalBudget.formatAsCurrency()}", MaterialTheme.colorScheme.primary)
-                    BudgetStatItem("TOTAL SPENT", "₹${totalSpent.formatAsCurrency()}", if (isDark) DarkExpense else LightExpense)
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    Text(
-                        text = "Budgeted categories",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
-                if (budgetList.isEmpty()) {
                     item {
-                        EmptyState(
-                            icon = Icons.Default.AccountBalance,
-                            title = "No budgets set",
-                            description = "Add a monthly limit for categories to track your spending",
-                            action = {
-                                Button(
-                                    onClick = { showAddDialog = true },
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Text("Set Your First Budget")
-                                }
-                            }
+                        Text(
+                            text = "Budgeted categories",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                } else {
-                    items(budgetList, key = { it.category }) { budget ->
-                        BudgetItem(
-                            budget = budget,
-                            onDeleteClick = { viewModel.deleteBudget(budget.category) }
-                        )
+
+                    if (budgetList.isEmpty()) {
+                        item {
+                            EmptyState(
+                                icon = Icons.Default.AccountBalance,
+                                title = "No budgets set",
+                                description = "Add a monthly limit for categories to track your spending",
+                                action = {
+                                    Button(
+                                        onClick = { showAddDialog = true },
+                                        shape = MaterialTheme.shapes.medium
+                                    ) {
+                                        Text("Set Your First Budget")
+                                    }
+                                }
+                            )
+                        }
+                    } else {
+                        items(budgetList, key = { it.category }) { budget ->
+                            BudgetItem(
+                                budget = budget,
+                                onDeleteClick = { viewModel.deleteBudget(budget.category) }
+                            )
+                        }
                     }
                 }
             }
@@ -176,7 +190,32 @@ private fun BudgetStatItem(label: String, value: String, color: Color) {
 @Composable
 fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Budget") },
+            text = { Text("Are you sure you want to delete the budget for ${budget.category.displayName}?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteClick()
+                        showDeleteConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -206,7 +245,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = {
-                            onDeleteClick()
+                            showDeleteConfirm = true
                             showMenu = false
                         },
                         leadingIcon = {
@@ -219,9 +258,9 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
             Spacer(Modifier.height(12.dp))
 
             val progressColor = when {
-                budget.progress < 0.7f -> if (isDark) DarkIncome else LightIncome
+                budget.progress < 0.7f -> MaterialTheme.colorScheme.primary
                 budget.progress < 0.9f -> MaterialTheme.colorScheme.tertiary
-                else -> if (isDark) DarkExpense else LightExpense
+                else -> MaterialTheme.colorScheme.error
             }
 
             LinearProgressIndicator(

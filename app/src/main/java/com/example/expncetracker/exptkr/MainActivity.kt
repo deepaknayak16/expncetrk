@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -12,13 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
+import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
 import com.example.expncetracker.exptkr.security.BiometricResult
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
 import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,12 +35,17 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         lifecycleScope.launch {
-            val preferences = dataStore.data.first()
-            val biometricEnabled = preferences[BIOMETRIC_ENABLED_KEY] ?: false
+            val preferencesFlow = dataStore.data
+            val biometricEnabled = preferencesFlow.map { it[BIOMETRIC_ENABLED_KEY] ?: false }
+            val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] ?: false }
+            
             val biometricStatus = biometricAuthManager.checkBiometricAvailability()
 
-            if (biometricEnabled && biometricStatus.isAvailable) {
-                setContent {
+            setContent {
+                val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
+                val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
+                
+                if (isBiometricEnabled && biometricStatus.isAvailable) {
                     var authenticated by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) {
                         biometricAuthManager.authenticate(this@MainActivity)
@@ -50,16 +57,14 @@ class MainActivity : FragmentActivity() {
                             }
                     }
                     if (authenticated) {
-                        ExpncetrackerTheme {
+                        ExpncetrackerTheme(darkTheme = isDarkMode) {
                             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                                 AppNavGraph()
                             }
                         }
                     }
-                }
-            } else {
-                setContent {
-                    ExpncetrackerTheme {
+                } else {
+                    ExpncetrackerTheme(darkTheme = isDarkMode) {
                         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                             AppNavGraph()
                         }

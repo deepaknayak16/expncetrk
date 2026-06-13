@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,6 +62,7 @@ fun DashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val trends by viewModel.trends.collectAsState()
+    val currentFilter by viewModel.selectedFilter.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -67,11 +70,6 @@ fun DashboardScreen(
         if (permissions[android.Manifest.permission.READ_SMS] == true) {
             viewModel.syncTransactions()
         }
-    }
-
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
-        viewModel.syncTransactions()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -90,22 +88,35 @@ fun DashboardScreen(
                 )
             }
             is DashboardUiState.Success -> {
-                Column {
-                    if (isSyncing) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth().height(3.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.primaryContainer
+                val pullRefreshState = rememberPullToRefreshState()
+                
+                PullToRefreshBox(
+                    isRefreshing = isSyncing,
+                    onRefresh = { viewModel.syncTransactions() },
+                    state = pullRefreshState,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Column {
+                        if (isSyncing) {
+                            LinearProgressIndicator(
+                                modifier = Modifier.fillMaxWidth().height(3.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        }
+                        DashboardContent(
+                            summary = state.summary,
+                            recent = state.recentTransactions,
+                            trends = trends,
+                            currentFilter = currentFilter,
+                            onNavigateToAddTransaction = onNavigateToAddTransaction,
+                            onSeeAllClick = onNavigateToStatementLedger,
+                            onFilterChange = { viewModel.setFilter(it) },
+                            onSyncClick = {
+                                permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
+                            }
                         )
                     }
-                    DashboardContent(
-                        summary = state.summary,
-                        recent = state.recentTransactions,
-                        trends = trends,
-                        onNavigateToAddTransaction = onNavigateToAddTransaction,
-                        onSeeAllClick = onNavigateToStatementLedger,
-                        onFilterChange = { viewModel.setFilter(it) }
-                    )
                 }
             }
         }
@@ -117,9 +128,11 @@ fun DashboardContent(
     summary: FinancialSummary,
     recent: List<Transaction>,
     trends: List<com.example.expncetracker.exptkr.domain.model.SpendingTrend>,
+    currentFilter: DateFilter,
     onNavigateToAddTransaction: () -> Unit,
     onSeeAllClick: () -> Unit,
     onFilterChange: (DateFilter) -> Unit,
+    onSyncClick: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -129,27 +142,51 @@ fun DashboardContent(
         item {
             val calendar = Calendar.getInstance()
             val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
-                in 0..11 -> "Good Morning"
-                in 12..15 -> "Good Afternoon"
-                else -> "Good Evening"
+                in 5..11 -> "Good Morning"
+                in 12..16 -> "Good Afternoon"
+                in 17..20 -> "Good Evening"
+                else -> "Good Night"
             }
-            Column(modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp)) {
-                Text(
-                    text = "$greeting!",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Welcome back to MoneyWise",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "$greeting!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Welcome back to MoneyWise",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                IconButton(
+                    onClick = onSyncClick,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = "Sync SMS",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
         item {
-            CompactSummaryHeader(summary = summary, onFilterChange = onFilterChange)
+            CompactSummaryHeader(
+                summary = summary,
+                currentFilter = currentFilter,
+                onFilterChange = onFilterChange
+            )
         }
 
         item {
@@ -208,13 +245,23 @@ fun DashboardContent(
                         title = "No transactions yet",
                         description = "Start by adding a transaction manually or syncing your SMS",
                         action = {
-                            Button(
-                                onClick = onNavigateToAddTransaction,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Add First Transaction")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = onNavigateToAddTransaction,
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Add Manual")
+                                }
+                                OutlinedButton(
+                                    onClick = onSyncClick,
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Icon(Icons.Default.Sync, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Sync SMS")
+                                }
                             }
                         }
                     )
@@ -252,9 +299,10 @@ fun DashboardContent(
 @Composable
 fun CompactSummaryHeader(
     summary: FinancialSummary,
+    currentFilter: DateFilter,
     onFilterChange: (DateFilter) -> Unit
 ) {
-    val calendar = remember { Calendar.getInstance() }
+    var calendar by remember { mutableStateOf(Calendar.getInstance()) }
     val monthYearFormat = remember<SimpleDateFormat> { SimpleDateFormat("MMMM, yyyy", Locale.getDefault()) }
     var showFilterSheet by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
@@ -265,7 +313,7 @@ fun CompactSummaryHeader(
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             TimeFilterRow(
-                currentFilter = DateFilter.MONTH,
+                currentFilter = currentFilter,
                 onFilterSelected = { onFilterChange(it); showFilterSheet = false }
             )
             Spacer(Modifier.height(24.dp))
@@ -290,9 +338,7 @@ fun CompactSummaryHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = {
-                    val newCal = calendar.clone() as Calendar
-                    newCal.add(Calendar.MONTH, -1)
-                    calendar.time = newCal.time
+                    calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
                     onFilterChange(DateFilter.MONTH)
                 }) {
                     Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
@@ -307,9 +353,7 @@ fun CompactSummaryHeader(
 
                 Row {
                     IconButton(onClick = {
-                        val newCal = calendar.clone() as Calendar
-                        newCal.add(Calendar.MONTH, 1)
-                        calendar.time = newCal.time
+                        calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
                         onFilterChange(DateFilter.MONTH)
                     }) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = MaterialTheme.colorScheme.primary)

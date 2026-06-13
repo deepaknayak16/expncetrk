@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
+import com.example.expncetracker.BuildConfig
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
@@ -215,7 +217,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SettingsPreferenceItem(
                     label = "Version",
-                    subtitle = "1.0.0",
+                    subtitle = BuildConfig.VERSION_NAME,
                     icon = Icons.Default.Info,
                     trailingContent = {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -228,7 +230,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     trailingContent = {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     },
-                    onClick = { }
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, "https://github.com/expncetracker/privacy-policy".toUri())
+                        ctx.startActivity(intent)
+                    }
                 )
             }
         }

@@ -33,9 +33,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
@@ -51,41 +53,20 @@ fun AddTransactionScreen(
     var selectedCategory by remember { mutableStateOf(Category.SHOPPING) }
     var selectedAccount by remember { mutableStateOf("Card") }
     var transactionDate by remember { mutableStateOf(LocalDateTime.now()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = transactionDate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
+    val timePickerState = rememberTimePickerState(
+        initialHour = transactionDate.hour,
+        initialMinute = transactionDate.minute
+    )
 
     val context = LocalContext.current
-    val locale = Locale.getDefault()
-    val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("MMM dd, yyyy", locale) }
-    val timeFormatter = remember(locale) { DateTimeFormatter.ofPattern("h:mm a", locale) }
-
-    val datePickerDialog = remember {
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth ->
-                transactionDate = LocalDateTime.of(
-                    LocalDate.of(year, month + 1, dayOfMonth),
-                    transactionDate.toLocalTime()
-                )
-            },
-            transactionDate.year,
-            transactionDate.monthValue - 1,
-            transactionDate.dayOfMonth
-        )
-    }
-
-    val timePickerDialog = remember {
-        TimePickerDialog(
-            context,
-            { _, hourOfDay, minute ->
-                transactionDate = LocalDateTime.of(
-                    transactionDate.toLocalDate(),
-                    LocalTime.of(hourOfDay, minute)
-                )
-            },
-            transactionDate.hour,
-            transactionDate.minute,
-            false
-        )
-    }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
+    val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
 
     var showCategorySheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -159,9 +140,13 @@ fun AddTransactionScreen(
                 SelectorItem(
                     label = "Account",
                     value = selectedAccount,
-                    icon = Icons.Default.CreditCard,
+                    icon = Icons.Default.AccountBalanceWallet,
                     modifier = Modifier.weight(1f)
-                ) { /* Show Account Picker */ }
+                ) { /* For simplicity in this fix, we toggle between a few options */
+                    val accounts = listOf("Cash", "Bank Card", "Savings", "Credit")
+                    val nextIndex = (accounts.indexOf(selectedAccount) + 1) % accounts.size
+                    selectedAccount = accounts[nextIndex]
+                }
                 
                 SelectorItem(
                     label = "Category",
@@ -290,19 +275,62 @@ fun AddTransactionScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { datePickerDialog.show() }) {
+                TextButton(onClick = { showDatePicker = true }) {
                     Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(transactionDate.format(dateFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 }
                 Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
-                TextButton(onClick = { timePickerDialog.show() }) {
+                TextButton(onClick = { showTimePicker = true }) {
                     Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(transactionDate.format(timeFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 }
             }
         }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        val newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        transactionDate = LocalDateTime.of(newDate, transactionDate.toLocalTime())
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    transactionDate = LocalDateTime.of(
+                        transactionDate.toLocalDate(),
+                        LocalTime.of(timePickerState.hour, timePickerState.minute)
+                    )
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            }
+        )
     }
 
     if (showCategorySheet) {
@@ -443,20 +471,51 @@ fun RowScope.KeyButton(
 }
 
 private fun evaluate(expression: String): Double {
+    if (expression.isEmpty()) return 0.0
+    
+    // Simple improvement: evaluate left to right for multiple operators
     val operators = listOf('+', '-', '*', '/')
-    val opIndex = expression.indexOfAny(operators.toCharArray())
-    if (opIndex <= 0) return expression.toDoubleOrNull() ?: 0.0
+    var currentExpression = expression.replace("÷", "/").replace("×", "*")
     
-    val op = expression[opIndex]
-    val left = expression.substring(0, opIndex).toDoubleOrNull() ?: 0.0
-    val right = expression.substring(opIndex + 1).toDoubleOrNull() ?: 0.0
-    
-    return when (op) {
-        '+' -> left + right
-        '-' -> left - right
-        '*' -> left * right
-        '/' -> if (right != 0.0) left / right else 0.0
-        else -> left
+    // Handle the case where it starts with an operator
+    if (operators.contains(currentExpression.first())) {
+        currentExpression = "0$currentExpression"
+    }
+
+    try {
+        // Regex to split by operators while keeping them
+        val tokens = mutableListOf<String>()
+        var currentToken = ""
+        for (char in currentExpression) {
+            if (operators.contains(char)) {
+                if (currentToken.isNotEmpty()) tokens.add(currentToken)
+                tokens.add(char.toString())
+                currentToken = ""
+            } else {
+                currentToken += char
+            }
+        }
+        if (currentToken.isNotEmpty()) tokens.add(currentToken)
+
+        if (tokens.isEmpty()) return 0.0
+        
+        var result = tokens[0].toDoubleOrNull() ?: 0.0
+        var i = 1
+        while (i < tokens.size) {
+            val op = tokens[i]
+            val nextVal = if (i + 1 < tokens.size) tokens[i+1].toDoubleOrNull() ?: 0.0 else 0.0
+            result = when (op) {
+                "+" -> result + nextVal
+                "-" -> result - nextVal
+                "*" -> result * nextVal
+                "/" -> if (nextVal != 0.0) result / nextVal else result
+                else -> result
+            }
+            i += 2
+        }
+        return result
+    } catch (e: Exception) {
+        return expression.toDoubleOrNull() ?: 0.0
     }
 }
 

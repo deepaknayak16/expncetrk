@@ -5,7 +5,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -56,17 +58,70 @@ fun AppNavGraph() {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary
+                        ) {
+                            Icon(
+                                Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                modifier = Modifier.padding(16.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "MoneyWise",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                
                 Spacer(Modifier.height(12.dp))
-                NavigationDrawerItem(
-                    label = { Text("Settings", style = MaterialTheme.typography.labelLarge) },
-                    selected = currentRoute == "settings",
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate("settings")
-                    },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                
+                val drawerItems = listOf(
+                    Triple("Home", Icons.Default.Home, "dashboard"),
+                    Triple("Transactions", Icons.AutoMirrored.Filled.ReceiptLong, "transactions"),
+                    Triple("Analytics", Icons.Default.BarChart, "analytics"),
+                    Triple("Budgets", Icons.Default.AccountBalance, "budget"),
+                    Triple("Settings", Icons.Default.Settings, "settings")
                 )
+                
+                drawerItems.forEach { (label, icon, route) ->
+                    NavigationDrawerItem(
+                        label = { Text(label, style = MaterialTheme.typography.labelLarge) },
+                        selected = currentRoute == route,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(icon, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
             }
         }
     ) {
@@ -89,13 +144,11 @@ fun AppNavGraph() {
                             "accounts" -> "My Accounts"
                             else -> "MoneyWise"
                         },
-                        showSearch = true,
+                        showSearch = currentRoute == "transactions",
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onBackClick = { navController.popBackStack() },
                         onSearchClick = {
-                            if (currentRoute != "transactions") {
-                                navController.navigate("transactions")
-                            }
+                            // Already on transactions screen, handle search logic here if needed
                         },
                         onAddClick = { navController.navigate("add_transaction") }
                     )

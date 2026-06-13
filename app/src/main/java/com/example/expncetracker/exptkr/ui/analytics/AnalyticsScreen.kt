@@ -17,6 +17,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
+import com.example.expncetracker.exptkr.ui.dashboard.TimeFilterRow
 import com.example.expncetracker.exptkr.ui.dashboard.DistributionSection
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -36,11 +38,13 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val summary by viewModel.summary.collectAsState()
     val trends by viewModel.trends.collectAsState()
     val isDark = MaterialTheme.isDark
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     // FIX #6: Mutable state for week navigation instead of hardcoded Jan 3-9
     var currentWeekStart by remember {
@@ -108,7 +112,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = { /* TODO: open filter dialog */ }) {
+                    IconButton(onClick = { showFilterSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,
                             contentDescription = "Filter",
@@ -116,6 +120,19 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             modifier = Modifier.size(28.dp)
                         )
                     }
+                }
+            }
+
+            if (showFilterSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showFilterSheet = false },
+                    containerColor = MaterialTheme.colorScheme.surface
+                ) {
+                    TimeFilterRow(
+                        currentFilter = DateFilter.MONTH, // Defaulting to month for now
+                        onFilterSelected = { showFilterSheet = false }
+                    )
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }
@@ -135,22 +152,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 48.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.medium)
-                    .clickable { }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                    Spacer(Modifier.width(8.dp))
-                    Text("EXPENSE FLOW", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                }
-            }
             Spacer(Modifier.height(16.dp))
         }
 
@@ -159,7 +160,8 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(250.dp)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
             ) {
                 if (trends.isNotEmpty()) {
                     CartesianChartHost(
@@ -182,6 +184,8 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         modelProducer = lineModelProducer,
                         modifier = Modifier.fillMaxSize()
                     )
+                } else {
+                    Text("No trend data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -210,7 +214,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 // In production, replace with a usecase that returns Map<LocalDate, Double>
                 val daySpending = weekDays.map { day ->
                     summary?.let { s ->
-                        val dayTotal = (s.totalExpense / 1.0).let { if (it.isNaN()) 0.0 else it }
+                        val dayTotal = (s.totalExpense / 7.0).let { if (it.isNaN()) 0.0 else it }
                         String.format("-%.2f", dayTotal)
                     } ?: "-0.0"
                 }

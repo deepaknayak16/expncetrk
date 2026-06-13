@@ -91,7 +91,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
         ) {
             item { CategoryHeader("Income Categories") }
             items(incomeCategories) { category ->
-                CategoryListItem(category, isDark)
+                CategoryListItem(category, isDark, summary?.categoryDistribution?.get(category) ?: 0.0)
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -100,7 +100,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
 
             item { CategoryHeader("Expense Categories") }
             items(expenseCategories) { category ->
-                CategoryListItem(category, isDark)
+                CategoryListItem(category, isDark, summary?.categoryDistribution?.get(category) ?: 0.0)
                 HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -130,7 +130,7 @@ private fun CategoryHeader(title: String) {
 }
 
 @Composable
-private fun CategoryListItem(category: Category, isDark: Boolean) {
+private fun CategoryListItem(category: Category, isDark: Boolean, amount: Double) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -154,13 +154,21 @@ private fun CategoryListItem(category: Category, isDark: Boolean) {
 
         Spacer(Modifier.width(16.dp))
 
-        Text(
-            text = category.displayName,
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = category.displayName,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+            if (amount > 0) {
+                Text(
+                    text = "₹${amount.formatAsCurrency()}",
+                    color = if (isDark) DarkExpense else LightExpense,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
 
         IconButton(onClick = { }) {
             Icon(

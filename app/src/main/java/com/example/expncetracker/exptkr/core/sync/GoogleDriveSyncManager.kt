@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.core.sync
 
 import android.content.Context
+import com.example.expncetracker.BuildConfig
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -77,7 +78,7 @@ class GoogleDriveSyncManager(private val context: Context) {
 
             fileId
         } catch (e: Exception) {
-            android.util.Log.e("GDriveSync", "Upload failed: ${e.message}")
+            if (BuildConfig.DEBUG) android.util.Log.e("GDriveSync", "Upload failed: ${e.message}")
             null
         }
     }
@@ -101,7 +102,7 @@ class GoogleDriveSyncManager(private val context: Context) {
 
             true
         } catch (e: Exception) {
-            android.util.Log.e("GDriveSync", "Download failed: ${e.message}")
+            if (BuildConfig.DEBUG) android.util.Log.e("GDriveSync", "Download failed: ${e.message}")
             false
         }
     }
