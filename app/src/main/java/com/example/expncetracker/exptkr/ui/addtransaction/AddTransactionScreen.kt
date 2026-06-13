@@ -2,6 +2,7 @@ package com.example.expncetracker.exptkr.ui.addtransaction
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -87,34 +89,31 @@ fun AddTransactionScreen(
 
     var showCategorySheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
-    val isDark = MaterialTheme.isDark
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(top = 16.dp)
     ) {
-        // Top Bar
+        // Standardized Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.clickable { onNavigateBack() },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("CANCEL", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurface)
             }
-
-            Row(
-                modifier = Modifier.clickable {
+            Text(
+                "Add Transaction",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            IconButton(
+                onClick = {
                     val amount = amountText.toDoubleOrNull() ?: 0.0
                     if (amount > 0) {
                         viewModel.addTransaction(
@@ -126,163 +125,138 @@ fun AddTransactionScreen(
                         )
                         onNavigateBack()
                     }
-                },
+                }
+            ) {
+                Icon(Icons.Default.Check, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp)
+        ) {
+            // Transaction Type Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Check, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("SAVE", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                TypeTab("INCOME", selectedType == TransactionType.CREDIT) { selectedType = TransactionType.CREDIT }
+                Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { selectedType = TransactionType.DEBIT }
+                Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { selectedType = TransactionType.TRANSFER }
             }
-        }
 
-        Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
 
-        // Transaction Type Selector
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TypeTab("INCOME", selectedType == TransactionType.CREDIT) { selectedType = TransactionType.CREDIT }
-            Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 8.dp))
-            TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { selectedType = TransactionType.DEBIT }
-            Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 8.dp))
-            TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { selectedType = TransactionType.TRANSFER }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Account and Category Selectors
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SelectorItem(
-                label = "Account",
-                value = selectedAccount,
-                icon = Icons.Default.CreditCard,
-                modifier = Modifier.weight(1f)
-            ) { /* Show Account Picker */ }
-            
-            SelectorItem(
-                label = "Category",
-                value = selectedCategory.displayName,
-                icon = getCategoryIcon(selectedCategory),
-                modifier = Modifier.weight(1f)
-            ) { showCategorySheet = true }
-        }
-
-        if (showCategorySheet) {
-            ModalBottomSheet(
-                onDismissRequest = { showCategorySheet = false },
-                sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.surface
+            // Account and Category Selectors
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                CategoryGrid(
-                    isDark = isDark,
-                    onCategorySelected = {
-                        selectedCategory = it
-                        showCategorySheet = false
+                SelectorItem(
+                    label = "Account",
+                    value = selectedAccount,
+                    icon = Icons.Default.CreditCard,
+                    modifier = Modifier.weight(1f)
+                ) { /* Show Account Picker */ }
+                
+                SelectorItem(
+                    label = "Category",
+                    value = selectedCategory.displayName,
+                    icon = getCategoryIcon(selectedCategory),
+                    modifier = Modifier.weight(1f)
+                ) { showCategorySheet = true }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Amount Display
+            val formattedAmount = remember(amountText) {
+                if (amountText.isEmpty()) "0"
+                else if (amountText.any { it in "+-*/" }) amountText
+                else {
+                    try {
+                        val parts = amountText.split(".")
+                        val intPart = parts[0].toLongOrNull() ?: 0L
+                        val formattedInt = java.text.NumberFormat.getNumberInstance(Locale.US).format(intPart)
+                        if (parts.size > 1) "$formattedInt.${parts[1]}" else formattedInt
+                    } catch (e: Exception) {
+                        amountText
                     }
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // Amount Display
-        val formattedAmount = remember(amountText) {
-            if (amountText.isEmpty()) "0"
-            else if (amountText.any { it in "+-*/" }) amountText // Don't format expressions yet
-            else {
-                try {
-                    val parts = amountText.split(".")
-                    val intPart = parts[0].toLongOrNull() ?: 0L
-                    val formattedInt = java.text.NumberFormat.getNumberInstance(Locale.US).format(intPart)
-                    if (parts.size > 1) "$formattedInt.${parts[1]}" else formattedInt
-                } catch (e: Exception) {
-                    amountText
                 }
             }
-        }
 
-        val dynamicFontSize = when {
-            formattedAmount.length <= 8 -> 48.sp
-            formattedAmount.length <= 11 -> 36.sp
-            formattedAmount.length <= 14 -> 28.sp
-            else -> 22.sp
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(Modifier.width(48.dp))
-            Text(
-                text = formattedAmount,
-                style = TextStyle(
-                    fontSize = dynamicFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
-                ),
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = {
-                if (amountText.length > 1) {
-                    amountText = amountText.dropLast(1)
-                } else {
-                    amountText = "0"
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "₹",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = formattedAmount,
+                        style = when {
+                            formattedAmount.length <= 8 -> MaterialTheme.typography.displayMedium
+                            formattedAmount.length <= 11 -> MaterialTheme.typography.headlineLarge
+                            else -> MaterialTheme.typography.headlineMedium
+                        },
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                    )
+                    IconButton(onClick = {
+                        if (amountText.length > 1) {
+                            amountText = amountText.dropLast(1)
+                        } else {
+                            amountText = "0"
+                        }
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-            }) {
-                Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Backspace", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             }
-        }
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // Note Field
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.4f)
-                .padding(horizontal = 12.dp)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-                .padding(8.dp)
-        ) {
-            BasicTextField(
+            // Note Field
+            OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                modifier = Modifier.fillMaxSize(),
-                decorationBox = { innerTextField ->
-                    if (note.isEmpty()) {
-                        Text("note...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), style = MaterialTheme.typography.bodyLarge)
-                    }
-                    innerTextField()
-                }
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                placeholder = { Text("Add a note...") },
+                textStyle = MaterialTheme.typography.bodyLarge,
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                )
             )
-        }
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-        // Calculator Keypad
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            // Calculator Keypad
             CalculatorKeypad(
+                modifier = Modifier.weight(1f),
                 onDigitClick = { digit ->
-                    if (amountText == "0") {
-                        amountText = digit
-                    } else if (amountText.length < 12) {
-                        amountText += digit
-                    }
+                    if (amountText == "0") amountText = digit
+                    else if (amountText.length < 12) amountText += digit
                 },
                 onOperatorClick = { op ->
                     if (!amountText.endsWith("+") && !amountText.endsWith("-") && 
@@ -291,45 +265,57 @@ fun AddTransactionScreen(
                     }
                 },
                 onDecimalClick = {
-                    if (!amountText.contains(".")) {
-                        amountText += "."
-                    }
+                    if (!amountText.contains(".")) amountText += "."
                 },
                 onEqualsClick = {
                     try {
                         val result = evaluate(amountText)
                         amountText = if (result % 1.0 == 0.0) result.toInt().toString() else "%.2f".format(result)
-                    } catch (_: Exception) {
-                    }
+                    } catch (_: Exception) { }
                 }
             )
         }
 
         // Bottom Date/Time bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                .navigationBarsPadding()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 2.dp,
+            shadowElevation = 8.dp
         ) {
-            Text(
-                text = transactionDate.format(dateFormatter),
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { datePickerDialog.show() }
-            )
-            Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
-            Text(
-                text = transactionDate.format(timeFormatter),
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { timePickerDialog.show() }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { datePickerDialog.show() }) {
+                    Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(transactionDate.format(dateFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                }
+                Box(modifier = Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                TextButton(onClick = { timePickerDialog.show() }) {
+                    Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(transactionDate.format(timeFormatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    if (showCategorySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCategorySheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            CategoryGrid(
+                onCategorySelected = {
+                    selectedCategory = it
+                    showCategorySheet = false
+                }
             )
         }
     }
@@ -337,29 +323,13 @@ fun AddTransactionScreen(
 
 @Composable
 fun TypeTab(label: String, isSelected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.clickable { onClick() },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (isSelected) {
-            Box(
-                modifier = Modifier
-                    .size(18.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(12.dp))
-            }
-            Spacer(Modifier.width(4.dp))
-        }
-        Text(
-            text = label,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold
-        )
-    }
+    Text(
+        text = label,
+        modifier = Modifier.clickable { onClick() }.padding(vertical = 8.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
+    )
 }
 
 @Composable
@@ -370,72 +340,68 @@ fun SelectorItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = modifier) {
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
         )
-        Spacer(Modifier.height(4.dp))
-        Row(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-                .clickable { onClick() }
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .height(56.dp)
+                .clickable { onClick() },
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(Modifier.width(8.dp))
-            Text(value, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
 fun CalculatorKeypad(
+    modifier: Modifier = Modifier,
     onDigitClick: (String) -> Unit,
     onOperatorClick: (String) -> Unit,
     onDecimalClick: () -> Unit,
     onEqualsClick: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth()) {
         val rowModifier = Modifier.fillMaxWidth().weight(1f)
         
         Row(modifier = rowModifier) {
-            KeyButton("+", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("+") }
             KeyButton("7", modifier = Modifier.weight(1f)) { onDigitClick("7") }
             KeyButton("8", modifier = Modifier.weight(1f)) { onDigitClick("8") }
             KeyButton("9", modifier = Modifier.weight(1f)) { onDigitClick("9") }
+            KeyButton("÷", modifier = Modifier.weight(1f), isOperator = true) { onOperatorClick("/") }
         }
         Row(modifier = rowModifier) {
-            KeyButton("-", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("-") }
             KeyButton("4", modifier = Modifier.weight(1f)) { onDigitClick("4") }
             KeyButton("5", modifier = Modifier.weight(1f)) { onDigitClick("5") }
             KeyButton("6", modifier = Modifier.weight(1f)) { onDigitClick("6") }
+            KeyButton("×", modifier = Modifier.weight(1f), isOperator = true) { onOperatorClick("*") }
         }
         Row(modifier = rowModifier) {
-            KeyButton("×", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("*") }
             KeyButton("1", modifier = Modifier.weight(1f)) { onDigitClick("1") }
             KeyButton("2", modifier = Modifier.weight(1f)) { onDigitClick("2") }
             KeyButton("3", modifier = Modifier.weight(1f)) { onDigitClick("3") }
+            KeyButton("-", modifier = Modifier.weight(1f), isOperator = true) { onOperatorClick("-") }
         }
         Row(modifier = rowModifier) {
-            KeyButton("÷", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primaryContainer), textColor = MaterialTheme.colorScheme.onPrimaryContainer) { onOperatorClick("/") }
-            KeyButton("0", modifier = Modifier.weight(1f)) { onDigitClick("0") }
             KeyButton(".", modifier = Modifier.weight(1f)) { onDecimalClick() }
-            KeyButton("=", modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.primary), textColor = MaterialTheme.colorScheme.onPrimary) { onEqualsClick() }
+            KeyButton("0", modifier = Modifier.weight(1f)) { onDigitClick("0") }
+            KeyButton("=", modifier = Modifier.weight(1f), isAction = true) { onEqualsClick() }
+            KeyButton("+", modifier = Modifier.weight(1f), isOperator = true) { onOperatorClick("+") }
         }
     }
 }
@@ -444,23 +410,34 @@ fun CalculatorKeypad(
 fun RowScope.KeyButton(
     text: String,
     modifier: Modifier = Modifier,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    isOperator: Boolean = false,
+    isAction: Boolean = false,
     onClick: () -> Unit
 ) {
+    val backgroundColor = when {
+        isAction -> MaterialTheme.colorScheme.primary
+        isOperator -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        else -> Color.Transparent
+    }
+    val contentColor = when {
+        isAction -> MaterialTheme.colorScheme.onPrimary
+        isOperator -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+            .background(backgroundColor)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor
-            )
+            style = MaterialTheme.typography.headlineMedium,
+            color = contentColor,
+            fontWeight = if (isOperator || isAction) FontWeight.Bold else FontWeight.Normal
         )
     }
 }
@@ -468,7 +445,7 @@ fun RowScope.KeyButton(
 private fun evaluate(expression: String): Double {
     val operators = listOf('+', '-', '*', '/')
     val opIndex = expression.indexOfAny(operators.toCharArray())
-    if (opIndex == -1) return expression.toDoubleOrNull() ?: 0.0
+    if (opIndex <= 0) return expression.toDoubleOrNull() ?: 0.0
     
     val op = expression[opIndex]
     val left = expression.substring(0, opIndex).toDoubleOrNull() ?: 0.0
@@ -484,43 +461,47 @@ private fun evaluate(expression: String): Double {
 }
 
 @Composable
-fun CategoryGrid(isDark: Boolean, onCategorySelected: (Category) -> Unit) {
+fun CategoryGrid(onCategorySelected: (Category) -> Unit) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Fixed(4),
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(Category.entries) { category ->
+            val color = getCategoryColor(category)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
+                    .height(90.dp)
                     .clip(MaterialTheme.shapes.medium)
                     .clickable { onCategorySelected(category) }
-                    .padding(8.dp)
+                    .padding(4.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
-                        .background(getCategoryColor(category, isDark)),
+                        .background(color.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = getCategoryIcon(category),
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        tint = color,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = category.displayName,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -545,20 +526,22 @@ private fun getCategoryIcon(category: Category): ImageVector {
     }
 }
 
-private fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
+@Composable
+private fun getCategoryColor(category: Category): Color {
+    val isDark = MaterialTheme.isDark
     return when (category) {
-        Category.FOOD -> if (isDarkTheme) CategoryFoodDark else CategoryFood
-        Category.CABS -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
-        Category.RENT -> if (isDarkTheme) CategoryRentDark else CategoryRent
-        Category.BILLS -> if (isDarkTheme) CategoryBillsDark else CategoryBills
-        Category.SHOPPING -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        Category.SALARY -> if (isDarkTheme) CategorySalaryDark else CategorySalary
-        Category.INVESTMENTS -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
-        Category.TRAVEL -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
-        Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        Category.HEALTHCARE -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
-        Category.EDUCATION -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
-        Category.OTHERS -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
+        Category.FOOD -> if (isDark) CategoryFoodDark else CategoryFood
+        Category.CABS -> if (isDark) CategoryCabsDark else CategoryCabs
+        Category.RENT -> if (isDark) CategoryRentDark else CategoryRent
+        Category.BILLS -> if (isDark) CategoryBillsDark else CategoryBills
+        Category.SHOPPING -> if (isDark) CategoryShoppingDark else CategoryShopping
+        Category.SALARY -> if (isDark) CategorySalaryDark else CategorySalary
+        Category.INVESTMENTS -> if (isDark) CategoryInvestmentsDark else CategoryInvestments
+        Category.TRAVEL -> if (isDark) CategoryTravelDark else CategoryTravel
+        Category.ENTERTAINMENT -> if (isDark) CategoryEntertainmentDark else CategoryEntertainment
+        Category.GROCERIES -> if (isDark) CategoryShoppingDark else CategoryShopping
+        Category.HEALTHCARE -> if (isDark) CategoryHealthDark else CategoryHealth
+        Category.EDUCATION -> if (isDark) CategoryEducationDark else CategoryEducation
+        Category.OTHERS -> if (isDark) CategoryOthersDark else CategoryOthers
     }
 }

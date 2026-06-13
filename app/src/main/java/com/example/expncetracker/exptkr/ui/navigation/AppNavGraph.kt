@@ -179,8 +179,8 @@ private fun ModernTopAppBar(
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 20.dp),
+                .height(54.dp)
+                .padding(horizontal = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -260,7 +260,7 @@ private fun ModernNavigationBar(
     NavigationBar(
         modifier = Modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp
+        tonalElevation = 6.dp
     ) {
         items.forEach { item ->
             val isSelected = currentRoute == item.route

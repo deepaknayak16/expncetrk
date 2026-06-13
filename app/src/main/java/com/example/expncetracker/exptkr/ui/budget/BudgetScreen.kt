@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -221,7 +223,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
             
             val progressColor = when {
                 budget.progress < 0.7f -> if (isDark) DarkIncome else LightIncome
-                budget.progress < 0.9f -> Color(0xFFFFA500) // Orange (maybe add to theme later)
+                budget.progress < 0.9f -> MaterialTheme.colorScheme.tertiary
                 else -> if (isDark) DarkExpense else LightExpense
             }
 
@@ -229,10 +231,11 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 progress = { budget.progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(MaterialTheme.shapes.extraSmall),
+                    .height(10.dp)
+                    .clip(CircleShape),
                 color = progressColor,
-                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
             
             Spacer(Modifier.height(8.dp))

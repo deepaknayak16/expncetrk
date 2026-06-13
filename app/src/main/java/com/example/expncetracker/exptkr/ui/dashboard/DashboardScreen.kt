@@ -112,8 +112,8 @@ fun DashboardContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = PaddingValues(bottom = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         item {
             val calendar = Calendar.getInstance()
@@ -122,10 +122,10 @@ fun DashboardContent(
                 in 12..15 -> "Good Afternoon"
                 else -> "Good Evening"
             }
-            Column {
+            Column(modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp)) {
                 Text(
                     text = "$greeting!",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -142,36 +142,41 @@ fun DashboardContent(
         }
 
         item {
-            DistributionSection(summary.categoryDistribution)
+            Box(modifier = Modifier.padding(horizontal = 10.dp)) {
+                DistributionSection(summary.categoryDistribution)
+            }
         }
 
         item {
-            Text(
-                text = "Spending Trend",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            val modelProducer = remember { CartesianChartModelProducer() }
-            LaunchedEffect(trends) {
-                if (trends.isNotEmpty()) {
-                    modelProducer.runTransaction {
-                        lineSeries {
-                            series(trends.map { it.amount.toFloat() })
+            Column(modifier = Modifier.padding(horizontal = 10.dp)) {
+                Text(
+                    text = "Spending Trend",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                val modelProducer = remember { CartesianChartModelProducer() }
+                LaunchedEffect(trends) {
+                    if (trends.isNotEmpty()) {
+                        modelProducer.runTransaction {
+                            lineSeries {
+                                series(trends.map { it.amount.toFloat() })
+                            }
                         }
                     }
                 }
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth().height(120.dp),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                CartesianChartHost(
-                    chart = rememberCartesianChart(rememberLineCartesianLayer()),
-                    modelProducer = modelProducer,
-                    modifier = Modifier.padding(8.dp)
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    CartesianChartHost(
+                        chart = rememberCartesianChart(rememberLineCartesianLayer()),
+                        modelProducer = modelProducer,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
             }
         }
 
@@ -179,27 +184,30 @@ fun DashboardContent(
             SectionHeader(
                 title = "Recent Activity",
                 actionLabel = "See All Ledger",
-                onActionClick = onSeeAllClick
+                onActionClick = onSeeAllClick,
+                modifier = Modifier.padding(horizontal = 10.dp)
             )
         }
 
         if (recent.isEmpty()) {
             item {
-                EmptyState(
-                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                    title = "No transactions yet",
-                    description = "Start by adding a transaction manually or syncing your SMS",
-                    action = {
-                        Button(
-                            onClick = onNavigateToAddTransaction,
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Add First Transaction")
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    EmptyState(
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                        title = "No transactions yet",
+                        description = "Start by adding a transaction manually or syncing your SMS",
+                        action = {
+                            Button(
+                                onClick = onNavigateToAddTransaction,
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Add First Transaction")
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         } else {
             val grouped = recent.groupBy { 
@@ -213,25 +221,18 @@ fun DashboardContent(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 }
                 
                 items(transactions, key = { it.id }) { transaction ->
                     TransactionListItem(transaction)
-                    if (transaction != transactions.last()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 64.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-                    }
                 }
             }
         }
 
         item {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }
@@ -246,7 +247,7 @@ fun CompactSummaryHeader(
     val isDark = MaterialTheme.isDark
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -254,7 +255,7 @@ fun CompactSummaryHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -293,37 +294,45 @@ fun CompactSummaryHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), if (isDark) DarkExpense else LightExpense)
-                SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), if (isDark) DarkIncome else LightIncome)
+                SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), if (isDark) DarkExpense else LightExpense, Modifier.weight(1f))
+                SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), if (isDark) DarkIncome else LightIncome, Modifier.weight(1f))
                 SummaryColumn("TOTAL", summary.balance.formatAsCurrency(),
                     if (summary.balance >=0) (if (isDark) DarkIncome else LightIncome) else
-                        (if (isDark) DarkExpense else LightExpense))
+                        (if (isDark) DarkExpense else LightExpense), Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun SummaryColumn(label: String, value: String, valueColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun SummaryColumn(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.height(IntrinsicSize.Min)
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.titleLarge,
+            style = if (value.length > 12) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
-            color = valueColor
+            color = valueColor,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Visible
         )
     }
 }
@@ -343,7 +352,7 @@ fun DistributionSection(distribution: Map<Category, Double>) {
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         
         Row(
             modifier = Modifier
@@ -426,11 +435,12 @@ fun DistributionSection(distribution: Map<Category, Double>) {
             }
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Categories",
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
     }
