@@ -6,7 +6,7 @@ import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 
 abstract class BaseBankParser(private val bankName: String) : BankParser {
-    
+
     abstract val amountRegex: Regex
     abstract val debitRegex: Regex
     abstract val creditRegex: Regex
@@ -25,17 +25,17 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             val amountMatch = amountRegex.find(cleanBody) ?: return null
             val amountStr = amountMatch.groupValues.getOrNull(1)?.replace(",", "") ?: return null
             val amount = amountStr.toDoubleOrNull() ?: return null
-            
+
             if (amount <= 0) return null
 
             val type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT
-            
-            val merchant = merchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim() 
+
+            val merchant = merchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
                 ?: if (isDebit) "$bankName Debit" else "$bankName Credit"
 
             ParsedSms(amount, type, merchant, bankName, time)
         } catch (e: Exception) {
-            android.util.Log.e("BaseBankParser", "Error parsing SMS for $bankName: ${e.message}")
+            // FIX #13: Removed android.util.Log call. Use Timber in debug if needed.
             null
         }
     }

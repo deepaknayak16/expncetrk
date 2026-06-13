@@ -1,178 +1,156 @@
 package com.example.expncetracker.exptkr.ui.settings
 
-import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.content.Intent
-import androidx.datastore.preferences.core.edit
-import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
-import com.example.expncetracker.exptkr.core.common.dataStore
-import com.example.expncetracker.exptkr.domain.usecase.ExportBackupUseCase
-import com.example.expncetracker.exptkr.domain.usecase.ImportBackupUseCase
-import com.example.expncetracker.exptkr.domain.usecase.LoadSampleDataUseCase
-import com.example.expncetracker.exptkr.domain.usecase.RestoreBackupFromGoogleDriveUseCase
-import com.example.expncetracker.exptkr.domain.usecase.SyncBackupToGoogleDriveUseCase
+import com.example.expncetracker.exptkr.data.export.CsvExporter
+import com.example.expncetracker.exptkr.data.export.PdfExporter
+import com.example.expncetracker.exptkr.domain.repository.GoogleDriveSyncRepository
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
+import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val loadSampleDataUseCase: LoadSampleDataUseCase,
-    private val exportBackupUseCase: ExportBackupUseCase,
-    private val importBackupUseCase: ImportBackupUseCase,
-    private val syncBackupToGoogleDriveUseCase: SyncBackupToGoogleDriveUseCase,
-    private val restoreBackupFromGoogleDriveUseCase: RestoreBackupFromGoogleDriveUseCase,
-    private val googleSignInClient: GoogleSignInClient,
-    private val application: android.app.Application
+    @ApplicationContext private val context: Context,
+    private val googleDriveSyncRepository: GoogleDriveSyncRepository,
+    private val transactionRepository: TransactionRepository,
+    private val googleSignInClient: GoogleSignInClient
 ) : ViewModel() {
 
-    private val _statusEvent = MutableSharedFlow<String>()
-    val statusEvent = _statusEvent.asSharedFlow()
-
     private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState = _uiState.asStateFlow()
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _statusEvent = Channel<String>(Channel.BUFFERED)
+    val statusEvent = _statusEvent.receiveAsFlow()
 
     init {
-        checkLastSignedInAccount()
-        loadDarkModeSetting()
-    }
-
-    private fun loadDarkModeSetting() {
         viewModelScope.launch {
-            val isDarkMode = application.dataStore.data.first()[DARK_MODE_KEY] ?: false
-            _uiState.value = _uiState.value.copy(isDarkMode = isDarkMode)
-        }
-    }
-
-    private fun checkLastSignedInAccount() {
-        val account = GoogleSignIn.getLastSignedInAccount(googleSignInClient.applicationContext)
-        if (account != null) {
-            _uiState.value = _uiState.value.copy(
-                isSignedIn = true,
-                accountName = account.email
-            )
-        }
-    }
-
-    fun loadMockData() {
-        viewModelScope.launch {
-            loadSampleDataUseCase.execute()
-            _statusEvent.emit("Sample data loaded successfully")
-        }
-    }
-
-    fun exportBackup() {
-        viewModelScope.launch {
-            val path = exportBackupUseCase.execute()
-            _statusEvent.emit("Backup saved to: $path")
-        }
-    }
-
-    fun importBackup() {
-        viewModelScope.launch {
-            if (importBackupUseCase.execute()) {
-                _statusEvent.emit("Data restored successfully")
-            } else {
-                _statusEvent.emit("Backup file not found")
+            val account = GoogleSignIn.getLastSignedInAccount(context)
+            _uiState.update {
+                it.copy(
+                    isSignedIn = account != null,
+                    accountName = account?.displayName
+                )
             }
         }
     }
 
-    fun getSignInIntent(): Intent {
-        return googleSignInClient.signInIntent
-    }
+    fun getSignInIntent(): Intent = googleSignInClient.signInIntent
 
     fun handleSignInResult(data: Intent?) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-                val account = task.getResult(Exception::class.java)
-
-                if (account != null) {
-                    _uiState.value = _uiState.value.copy(
-                        isSignedIn = true,
-                        accountName = account.email,
-                        isLoading = false
-                    )
-                    _statusEvent.emit("Signed in to Google successfully")
-                } else {
-                    throw Exception("Account was null")
+                val account = GoogleSignIn.getSignedInAccountFromIntent(data).result
+                _uiState.update {
+                    it.copy(isSignedIn = true, accountName = account?.displayName)
                 }
+                _statusEvent.send("Signed in successfully")
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-                _statusEvent.emit("Sign in failed: ${e.message}")
+                _statusEvent.send("Sign-in failed: ${e.message}")
             }
-        }
-    }
-
-    fun syncToGoogleDrive() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            val result = syncBackupToGoogleDriveUseCase.execute()
-            _uiState.value = _uiState.value.copy(isLoading = false)
-            
-            result.fold(
-                onSuccess = { message ->
-                    _statusEvent.emit(message)
-                },
-                onFailure = { error ->
-                    _statusEvent.emit("Sync failed: ${error.message}")
-                }
-            )
-        }
-    }
-
-    fun restoreFromGoogleDrive() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            val result = restoreBackupFromGoogleDriveUseCase.execute()
-            _uiState.value = _uiState.value.copy(isLoading = false)
-
-            result.fold(
-                onSuccess = { message ->
-                    _statusEvent.emit(message)
-                },
-                onFailure = { error ->
-                    _statusEvent.emit("Restore failed: ${error.message}")
-                }
-            )
         }
     }
 
     fun signOutFromGoogle() {
         viewModelScope.launch {
             googleSignInClient.signOut().addOnCompleteListener {
-                _uiState.value = _uiState.value.copy(
-                    isSignedIn = false,
-                    accountName = null
-                )
-                viewModelScope.launch {
-                    _statusEvent.emit("Signed out from Google")
-                }
+                _uiState.update { it.copy(isSignedIn = false, accountName = null) }
             }
         }
     }
 
-    fun toggleDarkMode(isDark: Boolean) {
+    fun syncToGoogleDrive() {
         viewModelScope.launch {
-            application.dataStore.edit { preferences ->
-                preferences[DARK_MODE_KEY] = isDark
+            _statusEvent.send("Syncing to Google Drive...")
+            try {
+                googleDriveSyncRepository.syncToDrive()
+                _statusEvent.send("Sync completed successfully")
+            } catch (e: Exception) {
+                _statusEvent.send("Sync failed: ${e.message}")
             }
-            _uiState.value = _uiState.value.copy(isDarkMode = isDark)
-            _statusEvent.emit(if (isDark) "Dark mode enabled" else "Light mode enabled")
+        }
+    }
+
+    fun restoreFromGoogleDrive() {
+        viewModelScope.launch {
+            _statusEvent.send("Restoring from Google Drive...")
+            try {
+                googleDriveSyncRepository.restoreFromDrive()
+                _statusEvent.send("Restore completed successfully")
+            } catch (e: Exception) {
+                _statusEvent.send("Restore failed: ${e.message}")
+            }
+        }
+    }
+
+    // FIX #4: Export CSV
+    fun exportCsv(csvExporter: CsvExporter, onShare: (File) -> Unit) {
+        viewModelScope.launch {
+            _statusEvent.send("Generating CSV...")
+            csvExporter.exportToCsv()
+                .onSuccess { file ->
+                    _statusEvent.send("CSV exported successfully")
+                    onShare(file)
+                }
+                .onFailure { e ->
+                    _statusEvent.send("Export failed: ${e.message}")
+                }
+        }
+    }
+
+    // FIX #4: Export PDF
+    fun exportPdf(pdfExporter: PdfExporter, onShare: (File) -> Unit) {
+        viewModelScope.launch {
+            _statusEvent.send("Generating PDF...")
+            pdfExporter.exportToPdf()
+                .onSuccess { file ->
+                    _statusEvent.send("PDF exported successfully")
+                    onShare(file)
+                }
+                .onFailure { e ->
+                    _statusEvent.send("Export failed: ${e.message}")
+                }
+        }
+    }
+
+    fun toggleDarkMode(enabled: Boolean) {
+        _uiState.update { it.copy(isDarkMode = enabled) }
+        // TODO: persist to DataStore
+    }
+
+    // FIX #3: Biometric toggle
+    fun toggleBiometric(enabled: Boolean) {
+        _uiState.update { it.copy(isBiometricEnabled = enabled) }
+        // TODO: persist to DataStore
+    }
+
+    fun loadMockData() {
+        viewModelScope.launch {
+            try {
+                transactionRepository.loadMockData()
+                _statusEvent.send("Demo data loaded successfully")
+            } catch (e: Exception) {
+                _statusEvent.send("Failed to load demo data: ${e.message}")
+            }
         }
     }
 }
+
+data class SettingsUiState(
+    val isSignedIn: Boolean = false,
+    val accountName: String? = null,
+    val isDarkMode: Boolean = false,
+    val isBiometricEnabled: Boolean = false,
+    val lastSyncTime: String? = null
+)

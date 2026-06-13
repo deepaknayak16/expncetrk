@@ -10,6 +10,8 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,14 +23,11 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.theme.*
 
 @Composable
-fun CategoriesScreen() {
+fun CategoriesScreen(viewModel: CategoriesViewModel) {
     val isDark = MaterialTheme.isDark
-    val incomeCategories = listOf(
-        Category.SALARY,
-        Category.INVESTMENTS,
-        Category.OTHERS
-    )
-    
+    val summary by viewModel.summary.collectAsState()
+
+    val incomeCategories = listOf(Category.SALARY, Category.INVESTMENTS, Category.OTHERS)
     val expenseCategories = Category.entries.filter { it !in incomeCategories }
 
     Column(
@@ -36,7 +35,6 @@ fun CategoriesScreen() {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Summary Header
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -56,23 +54,32 @@ fun CategoriesScreen() {
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                // FIX #7: Use real data from ViewModel
                 Text(
-                    text = "₹9,096.28",
+                    text = "₹${summary?.balance?.formatAsCurrency() ?: "0.00"}",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
+
                 Spacer(Modifier.height(20.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 Spacer(Modifier.height(20.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    SummaryItem("EXPENSE", "₹4,853.72", if (isDark) DarkExpense else LightExpense)
-                    SummaryItem("INCOME", "₹8,700.00", if (isDark) DarkIncome else LightIncome)
+                    SummaryItem(
+                        "EXPENSE",
+                        "₹${summary?.totalExpense?.formatAsCurrency() ?: "0.00"}",
+                        if (isDark) DarkExpense else LightExpense
+                    )
+                    SummaryItem(
+                        "INCOME",
+                        "₹${summary?.totalIncome?.formatAsCurrency() ?: "0.00"}",
+                        if (isDark) DarkIncome else LightIncome
+                    )
                 }
             }
         }
@@ -81,9 +88,7 @@ fun CategoriesScreen() {
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            item {
-                CategoryHeader("Income Categories")
-            }
+            item { CategoryHeader("Income Categories") }
             items(incomeCategories) { category ->
                 CategoryListItem(category, isDark)
                 HorizontalDivider(
@@ -91,10 +96,8 @@ fun CategoriesScreen() {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
             }
-            
-            item {
-                CategoryHeader("Expense Categories")
-            }
+
+            item { CategoryHeader("Expense Categories") }
             items(expenseCategories) { category ->
                 CategoryListItem(category, isDark)
                 HorizontalDivider(
@@ -147,9 +150,9 @@ private fun CategoryListItem(category: Category, isDark: Boolean) {
                 modifier = Modifier.size(24.dp)
             )
         }
-        
+
         Spacer(Modifier.width(16.dp))
-        
+
         Text(
             text = category.displayName,
             modifier = Modifier.weight(1f),
@@ -157,7 +160,7 @@ private fun CategoryListItem(category: Category, isDark: Boolean) {
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
-        
+
         IconButton(onClick = { }) {
             Icon(
                 imageVector = Icons.Default.MoreVert,

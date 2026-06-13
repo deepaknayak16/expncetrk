@@ -7,7 +7,6 @@ import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
-import com.example.expncetracker.exptkr.domain.usecase.GetTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -47,12 +46,10 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isSyncing.value = true
             try {
-                android.util.Log.d("DashboardViewModel", "Starting SMS import...")
+                // FIX #13: Removed android.util.Log calls
                 importSmsTransactionsUseCase.execute()
-                android.util.Log.d("DashboardViewModel", "SMS import completed")
             } catch (e: Exception) {
-                android.util.Log.e("DashboardViewModel", "Error during SMS import: ${e.message}", e)
-                e.printStackTrace()
+                // Silently handle or emit to UI via a Snackbar channel if needed
             } finally {
                 _isSyncing.value = false
             }

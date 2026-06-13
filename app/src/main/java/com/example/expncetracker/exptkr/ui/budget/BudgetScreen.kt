@@ -35,7 +35,11 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
     val budgetList by viewModel.budgetList.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
-    
+
+    // FIX #9: Track displayed month with mutable state
+    var displayedMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
+    val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", Locale.getDefault()) }
+
     val totalBudget = budgetList.sumOf { it.limit }
     val totalSpent = budgetList.sumOf { it.spent }
 
@@ -57,22 +61,18 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // New Top Header
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Month Selector
-                val locale = remember { Locale.getDefault() }
-                val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", locale) }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { /* Handle prev */ }) {
+                    IconButton(onClick = { displayedMonth = displayedMonth.minusMonths(1) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Previous",
@@ -82,13 +82,13 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(
-                        text = LocalDate.now().format(monthFormatter),
+                        text = displayedMonth.format(monthFormatter),
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.width(16.dp))
-                    IconButton(onClick = { /* Handle next */ }) {
+                    IconButton(onClick = { displayedMonth = displayedMonth.plusMonths(1) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Next",
@@ -100,7 +100,6 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
 
                 Spacer(Modifier.height(16.dp))
 
-                // Stats Summary
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -147,7 +146,7 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                     items(budgetList, key = { it.category }) { budget ->
                         BudgetItem(
                             budget = budget,
-                            onDeleteClick = { viewModel.deleteBudget(budget.category)}
+                            onDeleteClick = { viewModel.deleteBudget(budget.category) }
                         )
                     }
                 }
@@ -178,13 +177,11 @@ private fun BudgetStatItem(label: String, value: String, color: Color) {
 fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -218,9 +215,9 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                     )
                 }
             }
-            
+
             Spacer(Modifier.height(12.dp))
-            
+
             val progressColor = when {
                 budget.progress < 0.7f -> if (isDark) DarkIncome else LightIncome
                 budget.progress < 0.9f -> MaterialTheme.colorScheme.tertiary
@@ -237,9 +234,9 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
-            
+
             Spacer(Modifier.height(8.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -300,9 +297,9 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
                         }
                     }
                 }
-                
+
                 Spacer(Modifier.height(16.dp))
-                
+
                 OutlinedTextField(
                     value = limit,
                     onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) limit = it },
@@ -316,9 +313,9 @@ fun AddBudgetDialog(onDismiss: () -> Unit, onConfirm: (Category, Double) -> Unit
         },
         confirmButton = {
             Button(
-                onClick = { 
+                onClick = {
                     val l = limit.toDoubleOrNull() ?: 0.0
-                    if (l > 0) onConfirm(selectedCategory, l) 
+                    if (l > 0) onConfirm(selectedCategory, l)
                 },
                 enabled = limit.isNotEmpty(),
                 shape = MaterialTheme.shapes.medium

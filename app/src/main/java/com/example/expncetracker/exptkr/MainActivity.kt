@@ -1,66 +1,65 @@
 package com.example.expncetracker.exptkr
 
-import android.content.Context
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
-import com.example.expncetracker.exptkr.core.common.dataStore
-import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
+import com.example.expncetracker.exptkr.security.BiometricAuthManager
+import com.example.expncetracker.exptkr.security.BiometricResult
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
-import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
+import com.example.expncetracker.exptkr.ui.theme.ExpnceTrkTheme
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        val granted = result.entries.all { it.value }
-        if (granted) {
-            Toast.makeText(this, "SMS permissions granted", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "SMS permissions denied. SMS sync will not work.", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private val _uiStateFlow = MutableStateFlow(false)
-    val uiStateFlow: StateFlow<Boolean> = _uiStateFlow
+    @Inject
+    lateinit var biometricAuthManager: BiometricAuthManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
-        if (!SmsPermissionManager.hasPermissions(this)) {
-            permissionLauncher.launch(SmsPermissionManager.permissions)
-        }
+        // FIX #3: Biometric launch gate
+        // In production, read this from DataStore / SharedPreferences
+        val biometricEnabled = false // TODO: read from preference store
+        val biometricStatus = biometricAuthManager.checkBiometricAvailability()
 
-        // Observe dark mode setting
-        lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                dataStore.data.collect { preferences ->
-                    _uiStateFlow.value = preferences[DARK_MODE_KEY] ?: false
+        if (biometricEnabled && biometricStatus.isAvailable) {
+            setContent {
+                var authenticated by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    biometricAuthManager.authenticate(this@MainActivity)
+                        .collect { result ->
+                            when (result) {
+                                is BiometricResult.Success -> authenticated = true
+                                else -> { /* keep showing auth or finish() */ }
+                            }
+                        }
+                }
+                if (authenticated) {
+                    ExpnceTrkTheme {
+                        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                            AppNavGraph()
+                        }
+                    }
                 }
             }
-        }
-
-        setContent {
-            val isDarkMode by uiStateFlow.collectAsState()
-            ExpncetrackerTheme(darkTheme = isDarkMode) {
-                Surface(color = MaterialTheme.colorScheme.background) {
-                    AppNavGraph()
+        } else {
+            setContent {
+                ExpnceTrkTheme {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        AppNavGraph()
+                    }
                 }
             }
         }

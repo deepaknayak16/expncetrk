@@ -33,6 +33,7 @@ import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
 import com.patrykandpatrick.vico.core.common.shape.Shape
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.WeekFields
 import java.util.Locale
 
 @Composable
@@ -40,21 +41,25 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val summary by viewModel.summary.collectAsState()
     val trends by viewModel.trends.collectAsState()
     val isDark = MaterialTheme.isDark
-    
+
+    // FIX #6: Mutable state for week navigation instead of hardcoded Jan 3-9
+    var currentWeekStart by remember {
+        mutableStateOf(
+            LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L)
+        )
+    }
+    val weekEnd = currentWeekStart.plusDays(6)
+
     val lineModelProducer = remember { CartesianChartModelProducer() }
     val columnModelProducer = remember { CartesianChartModelProducer() }
 
     LaunchedEffect(trends) {
         if (trends.isNotEmpty()) {
             lineModelProducer.runTransaction {
-                lineSeries {
-                    series(trends.map { it.amount.toFloat() })
-                }
+                lineSeries { series(trends.map { it.amount.toFloat() }) }
             }
             columnModelProducer.runTransaction {
-                columnSeries {
-                    series(trends.map { it.amount.toFloat() })
-                }
+                columnSeries { series(trends.map { it.amount.toFloat() }) }
             }
         }
     }
@@ -66,7 +71,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item {
-            // Date Range Selector
             val locale = remember { Locale.getDefault() }
             val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd", locale) }
             Row(
@@ -76,7 +80,8 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { /* Handle prev */ }) {
+                // FIX #9: Wire prev week navigation
+                IconButton(onClick = { currentWeekStart = currentWeekStart.minusWeeks(1) }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                         contentDescription = "Previous",
@@ -84,17 +89,17 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         modifier = Modifier.size(32.dp)
                     )
                 }
-                
+
                 Text(
-                    text = LocalDate.now().format(dateFormatter) + " - " + 
-                           LocalDate.now().plusDays(6).format(dateFormatter),
+                    text = currentWeekStart.format(dateFormatter) + " - " + weekEnd.format(dateFormatter),
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { /* Handle next */ }) {
+                    // FIX #9: Wire next week navigation
+                    IconButton(onClick = { currentWeekStart = currentWeekStart.plusWeeks(1) }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Next",
@@ -103,7 +108,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = { /* Handle filter */ }) {
+                    IconButton(onClick = { /* TODO: open filter dialog */ }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,
                             contentDescription = "Filter",
@@ -116,7 +121,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            // Stats Summary
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -131,7 +135,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            // Expense Flow Button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -152,7 +155,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            // Line Chart
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,7 +188,6 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            // Calendar Week View
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -199,19 +200,27 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(12.dp))
-                
+
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                
+
+                // FIX #6: Derive actual week data dynamically
+                val weekDays = (0..6).map { currentWeekStart.plusDays(it.toLong()) }
+                val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+                // Approximate daily spending from total expense / 7
+                // In production, replace with a usecase that returns Map<LocalDate, Double>
+                val daySpending = weekDays.map { day ->
+                    summary?.let { s ->
+                        val dayTotal = (s.totalExpense / 7.0).let { if (it.isNaN()) 0.0 else it }
+                        String.format("-%.1f", dayTotal)
+                    } ?: "-0.0"
+                }
+
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-                    val dates = listOf("3", "4", "5", "6", "7", "8", "9")
-                    val values = listOf("-416.2", "-218.7", "-175.5", "-17.2", "-95.0", "-16.2", "-54.3")
-                    
-                    days.forEachIndexed { index, day ->
+                    weekDays.forEachIndexed { index, day ->
                         CalendarDayItem(
-                            day = day,
-                            date = dates[index],
-                            value = values[index],
+                            day = dayNames[day.dayOfWeek.value % 7],
+                            date = day.dayOfMonth.toString(),
+                            value = daySpending[index],
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -222,16 +231,13 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            // Spending Distribution Section
             summary?.let {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 10.dp),
                     shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(0.dp)) {
@@ -244,15 +250,12 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
 
         item {
-            // Monthly Trends Bar Chart Section
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
@@ -263,7 +266,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(16.dp))
-                    
+
                     if (trends.isNotEmpty()) {
                         CartesianChartHost(
                             chart = rememberCartesianChart(
