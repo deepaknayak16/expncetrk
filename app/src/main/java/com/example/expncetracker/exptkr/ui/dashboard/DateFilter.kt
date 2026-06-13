@@ -8,8 +8,8 @@ enum class DateFilter(val title: String) {
 
     fun toMonths(): Int = when (this) {
         DAY -> 1
-        WEEK -> 1
-        MONTH -> 1
+        WEEK -> 3
+        MONTH -> 6
         YEAR -> 12
     }
 }

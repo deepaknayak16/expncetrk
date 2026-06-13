@@ -50,7 +50,9 @@ class CsvExporter @Inject constructor(
                 }
 
             // Create output directory
-            val outputDir = File(context.getExternalFilesDir(null), "reports")
+            val externalDir = context.getExternalFilesDir(null)
+                ?: context.filesDir  // fall back to internal storage
+            val outputDir = File(externalDir, "reports")
             if (!outputDir.exists()) {
                 outputDir.mkdirs()
             }

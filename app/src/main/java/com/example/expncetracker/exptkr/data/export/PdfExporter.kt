@@ -60,92 +60,93 @@ class PdfExporter @Inject constructor(
                 }
 
             // Create output directory
-            val outputDir = File(context.getExternalFilesDir(null), "reports")
+            val externalDir = context.getExternalFilesDir(null)
+                ?: context.filesDir  // fall back to internal storage
+            val outputDir = File(externalDir, "reports")
             if (!outputDir.exists()) {
                 outputDir.mkdirs()
             }
 
             val outputFile = File(outputDir, fileName)
 
-            // Create PDF document
-            val writer = PdfWriter(FileOutputStream(outputFile))
-            val pdf = PdfDocument(writer)
-            val document = Document(pdf, PageSize.A4)
+            // Create PDF document with proper resource management
+            FileOutputStream(outputFile).use { fos ->
+                val document = Document(PdfDocument(PdfWriter(fos)), PageSize.A4)
+                document.use { doc ->
+                    // Add title
+                    val title = Paragraph("Expense Report")
+                        .setFontSize(20f)
+                        .setBold()
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setMarginBottom(20f)
+                    doc.add(title)
 
-            // Add title
-            val title = Paragraph("Expense Report")
-                .setFontSize(20f)
-                .setBold()
-                .setTextAlignment(TextAlignment.CENTER)
-                .setMarginBottom(20f)
-            document.add(title)
+                    // Add date range
+                    val dateRangeText = buildString {
+                        append("Period: ")
+                        append(startDate?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Beginning")
+                        append(" to ")
+                        append(endDate?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Present")
+                    }
+                    doc.add(Paragraph(dateRangeText)
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setFontSize(12f)
+                        .setMarginBottom(20f))
 
-            // Add date range
-            val dateRangeText = buildString {
-                append("Period: ")
-                append(startDate?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Beginning")
-                append(" to ")
-                append(endDate?.format(DateTimeFormatter.ISO_LOCAL_DATE) ?: "Present")
-            }
-            document.add(Paragraph(dateRangeText)
-                .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(12f)
-                .setMarginBottom(20f))
+                    // Add summary
+                    val totalIncome = transactions.filter { it.type == TransactionType.CREDIT }.sumOf { it.amount }
+                    val totalExpense = transactions.filter { it.type == TransactionType.DEBIT }.sumOf { it.amount }
+                    val balance = totalIncome - totalExpense
 
-            // Add summary
-            val totalIncome = transactions.filter { it.type.name == "INCOME" }.sumOf { it.amount }
-            val totalExpense = transactions.filter { it.type.name == "EXPENSE" }.sumOf { it.amount }
-            val balance = totalIncome - totalExpense
+                    doc.add(Paragraph("Summary")
+                        .setFontSize(16f)
+                        .setBold()
+                        .setMarginTop(20f)
+                        .setMarginBottom(10f))
 
-            document.add(Paragraph("Summary")
-                .setFontSize(16f)
-                .setBold()
-                .setMarginTop(20f)
-                .setMarginBottom(10f))
+                    doc.add(Paragraph("Total Income: ₹${String.format("%.2f", totalIncome)}"))
+                    doc.add(Paragraph("Total Expense: ₹${String.format("%.2f", totalExpense)}"))
+                    doc.add(Paragraph("Balance: ₹${String.format("%.2f", balance)}")
+                        .setBold()
+                        .setMarginBottom(20f))
 
-            document.add(Paragraph("Total Income: ₹${String.format("%.2f", totalIncome)}"))
-            document.add(Paragraph("Total Expense: ₹${String.format("%.2f", totalExpense)}"))
-            document.add(Paragraph("Balance: ₹${String.format("%.2f", balance)}")
-                .setBold()
-                .setMarginBottom(20f))
+                    // Add transactions table
+                    doc.add(Paragraph("Transaction Details")
+                        .setFontSize(16f)
+                        .setBold()
+                        .setMarginTop(20f)
+                        .setMarginBottom(10f))
 
-            // Add transactions table
-            document.add(Paragraph("Transaction Details")
-                .setFontSize(16f)
-                .setBold()
-                .setMarginTop(20f)
-                .setMarginBottom(10f))
+                    val table = Table(floatArrayOf(3f, 4f, 3f, 3f, 3f))
 
-            val table = Table(floatArrayOf(3f, 4f, 3f, 3f, 3f))
+                    // Table header
+                    listOf("Date", "Category", "Type", "Description", "Amount").forEach { header ->
+                        table.addHeaderCell(header)
+                    }
 
-            // Table header
-            listOf("Date", "Category", "Type", "Description", "Amount").forEach { header ->
-                table.addHeaderCell(header)
-            }
+                    // Table data
+                    transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
+                        table.addCell(transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                        table.addCell(transaction.category.name)
+                        table.addCell(transaction.type.name)
+                        table.addCell(transaction.merchant.take(20))
+                        val amountText = if (transaction.type == TransactionType.DEBIT) {
+                            "-₹${String.format("%.2f", transaction.amount)}"
+                        } else {
+                            "+₹${String.format("%.2f", transaction.amount)}"
+                        }
+                        table.addCell(amountText)
+                    }
 
-            // Table data
-            transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
-                table.addCell(transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                table.addCell(transaction.category.name)
-                table.addCell(transaction.type.name)
-                table.addCell(transaction.merchant.take(20))
-                val amountText = if (transaction.type.name == "EXPENSE") {
-                    "-₹${String.format("%.2f", transaction.amount)}"
-                } else {
-                    "+₹${String.format("%.2f", transaction.amount)}"
+                    doc.add(table)
+
+                    // Add footer
+                    doc.add(Paragraph("Generated on ${LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)}")
+                        .setTextAlignment(TextAlignment.CENTER)
+                        .setFontSize(10f)
+                        .setMarginTop(30f))
                 }
-                table.addCell(amountText)
             }
-
-            document.add(table)
-
-            // Add footer
-            document.add(Paragraph("Generated on ${LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)}")
-                .setTextAlignment(TextAlignment.CENTER)
-                .setFontSize(10f)
-                .setMarginTop(30f))
-
-            document.close()
 
             Result.success(outputFile)
         } catch (e: Exception) {

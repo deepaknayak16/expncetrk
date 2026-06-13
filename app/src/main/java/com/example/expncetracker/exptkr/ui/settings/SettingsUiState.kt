@@ -8,6 +8,8 @@ data class SettingsUiState(
     val accountName: String? = null,
     val lastSyncTime: String? = null,
     val isDarkMode: Boolean = false,
+    val isBiometricEnabled: Boolean = false,
+    val isBiometricAvailable: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )

@@ -237,6 +237,7 @@ fun DashboardContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompactSummaryHeader(
     summary: FinancialSummary,
@@ -244,7 +245,21 @@ fun CompactSummaryHeader(
 ) {
     val calendar = remember { Calendar.getInstance() }
     val monthYearFormat = remember<SimpleDateFormat> { SimpleDateFormat("MMMM, yyyy", Locale.getDefault()) }
+    var showFilterSheet by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
+
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            TimeFilterRow(
+                currentFilter = DateFilter.MONTH,
+                onFilterSelected = { onFilterChange(it); showFilterSheet = false }
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
@@ -288,7 +303,7 @@ fun CompactSummaryHeader(
                     }) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = MaterialTheme.colorScheme.primary)
                     }
-                    IconButton(onClick = { /* filter dialog can be added later */}) {
+                    IconButton(onClick = { showFilterSheet = true }) {
                         Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -327,7 +342,7 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
         Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = value,
-            style = if (value.length > 12) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleSmall,
+            style = if (value.length > 10) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = valueColor,
             textAlign = TextAlign.Center,
@@ -341,6 +356,7 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
 fun DistributionSection(distribution: Map<Category, Double>) {
     val isDarkTheme = MaterialTheme.isDark
     val sortedDistribution = Category.entries.map { it to (distribution[it] ?: 0.0) }
+        .filter { it.second > 0 }  // Remove zero-spend categories
         .sortedByDescending { it.second }
     
     val maxVal = distribution.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
