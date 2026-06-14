@@ -25,6 +25,7 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
     val summary by viewModel.summary.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
+    var accountToEdit by remember { mutableStateOf<AccountUiModel?>(null) }
 
     Scaffold(
         /* FAB removed as requested - Add icon in top bar handles this */
@@ -55,7 +56,7 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "₹${summary?.balance?.formatAsCurrency() ?: "0.00"}",
+                        text = summary?.balance?.formatAsCurrency() ?: "₹0.00",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
@@ -123,6 +124,7 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
                         AccountCard(
                             account = account,
                             isDark = isDark,
+                            onEditClick = { accountToEdit = account },
                             onDeleteClick = { viewModel.deleteAccount(account.id) }
                         )
                     }
@@ -132,11 +134,26 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
     }
 
     if (showAddDialog) {
-        AddAccountDialog(
+        AccountDialog(
+            title = "Add Account",
             onDismiss = { viewModel.onDialogDismissed() },
             onConfirm = { name, balance, type ->
                 viewModel.addAccount(name, balance, type)
                 viewModel.onDialogDismissed()
+            }
+        )
+    }
+
+    if (accountToEdit != null) {
+        AccountDialog(
+            title = "Edit Account",
+            initialName = accountToEdit!!.name,
+            initialBalance = accountToEdit!!.balance.toString(),
+            initialType = accountToEdit!!.type,
+            onDismiss = { accountToEdit = null },
+            onConfirm = { name, balance, type ->
+                viewModel.updateAccount(accountToEdit!!.id, name, balance, type)
+                accountToEdit = null
             }
         )
     }
@@ -146,6 +163,7 @@ fun AccountsScreen(viewModel: AccountsViewModel) {
 private fun AccountCard(
     account: AccountUiModel,
     isDark: Boolean,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -245,7 +263,7 @@ private fun AccountCard(
                     DropdownMenuItem(
                         text = { Text("Edit Account") },
                         onClick = { 
-                            // In a real app, this would trigger an edit state/dialog
+                            onEditClick()
                             showMenu = false 
                         },
                         leadingIcon = {
@@ -270,19 +288,23 @@ private fun AccountCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddAccountDialog(
+private fun AccountDialog(
+    title: String,
+    initialName: String = "",
+    initialBalance: String = "",
+    initialType: String = "Bank Account",
     onDismiss: () -> Unit,
     onConfirm: (String, Double, String) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var balance by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("Bank Account") }
+    var name by remember { mutableStateOf(initialName) }
+    var balance by remember { mutableStateOf(initialBalance) }
+    var type by remember { mutableStateOf(initialType) }
     var expanded by remember { mutableStateOf(false) }
     val accountTypes = listOf("Bank Account", "Cash", "Wallet", "Investment", "Credit Card")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Account", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -338,7 +360,7 @@ private fun AddAccountDialog(
                 enabled = name.isNotBlank(),
                 shape = MaterialTheme.shapes.medium
             ) {
-                Text("Add")
+                Text("Save")
             }
         },
         dismissButton = {

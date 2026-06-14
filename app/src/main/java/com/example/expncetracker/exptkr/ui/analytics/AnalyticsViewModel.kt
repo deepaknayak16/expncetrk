@@ -11,6 +11,7 @@ import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -20,11 +21,15 @@ class AnalyticsViewModel @Inject constructor(
     private val getSummaryUseCase: GetSummaryUseCase,
     private val getTrendsUseCase: GetTrendsUseCase,
     private val getDailyTotalsUseCase: GetDailyTotalsUseCase,
+    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
     categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
     val selectedFilter: StateFlow<DateFilter> = _selectedFilter.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
     private val _weekRange = MutableStateFlow(Pair(LocalDate.now(), LocalDate.now()))
     
@@ -49,5 +54,18 @@ class AnalyticsViewModel @Inject constructor(
 
     fun setWeekRange(start: LocalDate, end: LocalDate) {
         _weekRange.value = Pair(start, end)
+    }
+
+    fun refreshData() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                importSmsTransactionsUseCase.execute()
+            } catch (e: Exception) {
+                // Ignore
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
     }
 }

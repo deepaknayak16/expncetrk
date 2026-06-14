@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -36,9 +37,11 @@ fun TransactionScreen(
     val categories by viewModel.categories.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
     val pullRefreshState = rememberPullToRefreshState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -73,7 +76,7 @@ fun TransactionScreen(
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refreshTransactions() },
+            onRefresh = { viewModel.syncSmsTransactions() },
             state = pullRefreshState,
             modifier = Modifier.fillMaxSize().padding(innerPadding)
         ) {
@@ -122,16 +125,60 @@ fun TransactionScreen(
                     )
 
                     IconButton(
-                        onClick = { showFilterSheet = true },
+                        onClick = { showSortMenu = true },
                         modifier = Modifier
                             .size(56.dp)
                             .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.large)
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
                     ) {
                         Icon(
+                            Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = "Sort",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            SortOrder.entries.forEach { order ->
+                                DropdownMenuItem(
+                                    text = { Text(order.title) },
+                                    onClick = {
+                                        viewModel.setSortOrder(order)
+                                        showSortMenu = false
+                                    },
+                                    leadingIcon = {
+                                        if (sortOrder == order) {
+                                            Icon(Icons.Default.Check, contentDescription = null)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    val isFilterActive = selectedFilter != DateFilter.MONTH
+                    IconButton(
+                        onClick = { showFilterSheet = true },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(
+                                if (isFilterActive) MaterialTheme.colorScheme.primaryContainer 
+                                else MaterialTheme.colorScheme.surface, 
+                                MaterialTheme.shapes.large
+                            )
+                            .border(
+                                1.dp, 
+                                if (isFilterActive) MaterialTheme.colorScheme.primary 
+                                else MaterialTheme.colorScheme.outlineVariant, 
+                                MaterialTheme.shapes.large
+                            )
+                    ) {
+                        Icon(
                             Icons.Default.FilterList,
                             contentDescription = "Filter",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = if (isFilterActive) MaterialTheme.colorScheme.primary 
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -169,7 +216,11 @@ fun TransactionScreen(
                     ) {
                         if (list.isEmpty()) {
                             item {
-                                EmptySearchState(searchQuery)
+                                com.example.expncetracker.exptkr.ui.components.EmptyState(
+                                    icon = Icons.Default.Search,
+                                    title = if (searchQuery.isNotEmpty()) "No matches for \"$searchQuery\"" else "No transactions found",
+                                    description = "Try adjusting your filters or search terms"
+                                )
                             }
                         } else {
                             val grouped = list.groupBy { 
@@ -263,7 +314,7 @@ fun TransactionDetailContent(
         DetailItem("Category", transaction.categoryName)
         DetailItem("Bank/Account", transaction.bankName)
         DetailItem("Date & Time", transaction.timestamp.formatToDisplay())
-        DetailItem("Source", if (transaction.smsId != null) "SMS Import (ID: ${transaction.smsId})" else "Manual Entry")
+        DetailItem("Source", if (transaction.smsId != null) "SMS Import" else "Manual Entry")
         DetailItem("Type", if (transaction.type == TransactionType.CREDIT) "Income" else "Expense")
         
         Spacer(Modifier.height(32.dp))
@@ -318,52 +369,24 @@ private fun DetailItem(label: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-        Text(value, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun EmptySearchState(query: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 80.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Surface(
-                modifier = Modifier.size(80.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = if (query.isNotEmpty()) "No matches for \"$query\"" else "No transactions found",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Try adjusting your filters or search terms",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
+        Text(
+            label, 
+            color = MaterialTheme.colorScheme.onSurfaceVariant, 
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(0.4f)
+        )
+        Text(
+            value, 
+            color = MaterialTheme.colorScheme.onSurface, 
+            style = MaterialTheme.typography.bodyLarge, 
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(0.6f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
     }
 }

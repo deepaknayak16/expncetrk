@@ -40,7 +40,7 @@ class LoadSampleDataUseCase @Inject constructor(
                     item.type == "INCOME" || item.category == "INCOME_GEM" || item.category == "INCOME_SALARY" -> TransactionType.CREDIT
                     else -> TransactionType.DEBIT
                 },
-                categoryName = mapCategory(item.category).name,
+                categoryName = mapCategory(item.category).displayName, // Consistent with DB
                 merchant = item.description,
                 bankName = item.bankName,
                 timestamp = LocalDateTime.ofInstant(

@@ -16,6 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(
     private val categoryDao: CategoryDao,
+    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
     getSummaryUseCase: GetSummaryUseCase
 ) : ViewModel() {
 
@@ -24,6 +25,9 @@ class CategoriesViewModel @Inject constructor(
 
     private val _showAddDialog = MutableStateFlow(false)
     val showAddDialog = _showAddDialog.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -69,6 +73,19 @@ class CategoriesViewModel @Inject constructor(
 
     fun onDialogDismissed() {
         _showAddDialog.value = false
+    }
+
+    fun refreshData() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                importSmsTransactionsUseCase.execute()
+            } catch (e: Exception) {
+                // Ignore
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
     }
 
     fun addCategory(name: String, type: String, iconName: String, color: Int) {

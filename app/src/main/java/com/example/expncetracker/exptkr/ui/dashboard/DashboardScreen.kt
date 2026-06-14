@@ -3,9 +3,7 @@ package com.example.expncetracker.exptkr.ui.dashboard
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -138,9 +136,10 @@ fun DashboardContent(
         item {
             val calendar = Calendar.getInstance()
             val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
-                in 0..11 -> "Good Morning"
-                in 12..15 -> "Good Afternoon"
-                else -> "Good Evening"
+                in 0..11 -> stringResource(R.string.greeting_morning)
+                in 12..15 -> stringResource(R.string.greeting_afternoon)
+                in 16..20 -> stringResource(R.string.greeting_evening)
+                else -> stringResource(R.string.greeting_night)
             }
             Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp)) {
                 Text(
@@ -321,11 +320,22 @@ fun CompactSummaryHeader(
                 )
 
                 Row {
-                    IconButton(onClick = {
-                        calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                        if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
-                    }) {
-                        Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = MaterialTheme.colorScheme.primary)
+                    val isNextMonthInFuture = remember(calendar) {
+                        val next = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                        next.timeInMillis > System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000 * 3) // 3 month buffer
+                    }
+                    IconButton(
+                        onClick = {
+                            calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                            if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
+                        },
+                        enabled = !isNextMonthInFuture
+                    ) {
+                        Icon(
+                            Icons.Default.ChevronRight, 
+                            contentDescription = "Next", 
+                            tint = if (isNextMonthInFuture) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary
+                        )
                     }
                     IconButton(onClick = { showFilterSheet = true }) {
                         Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
@@ -388,14 +398,11 @@ fun DistributionSection(
     distribution: Map<String, Double>,
     allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>
 ) {
-    val isDarkTheme = MaterialTheme.isDark
-    
     val items = allCategories.map { entity ->
         val amount = distribution[entity.name] ?: 0.0
-        val categoryEnum = Category.entries.find { it.name == entity.iconName } ?: Category.OTHERS
+        val categoryEnum = Category.entries.find { it.displayName == entity.name } ?: Category.OTHERS
         DistributionItem(entity.name, amount, categoryEnum, Color(entity.color))
-    }.filter { it.amount > 0 || (it.category != Category.OTHERS && distribution.size < 8) }
-    .sortedByDescending { it.amount }
+    }.sortedByDescending { it.amount }
     
     val maxVal = items.maxOfOrNull { it.amount }?.coerceAtLeast(1.0) ?: 1.0
 
@@ -411,7 +418,8 @@ fun DistributionSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(130.dp),
+                .height(170.dp)
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom
         ) {
@@ -420,7 +428,7 @@ fun DistributionSection(
                 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.width(if (items.size > 6) 60.dp else 0.dp).then(if (items.size <= 6) Modifier.weight(1f) else Modifier)
                 ) {
                     Box(
                         modifier = Modifier

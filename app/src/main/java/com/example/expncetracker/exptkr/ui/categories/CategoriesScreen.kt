@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,99 +29,109 @@ import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
 import com.example.expncetracker.exptkr.ui.components.availableIcons
 import com.example.expncetracker.exptkr.ui.components.presetColors
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(viewModel: CategoriesViewModel) {
     val isDark = MaterialTheme.isDark
     val summary by viewModel.summary.collectAsState()
     val allCategories by viewModel.categories.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val pullRefreshState = rememberPullToRefreshState()
 
     val incomeCategories = allCategories.filter { it.type == "INCOME" }
     val expenseCategories = allCategories.filter { it.type == "EXPENSE" }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refreshData() },
+        state = pullRefreshState,
+        modifier = Modifier.fillMaxSize()
     ) {
-        Card(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            Column(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(16.dp),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Text(
-                    text = "Total Financial Health",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = summary?.balance?.formatAsCurrency() ?: "₹0.00",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Spacer(Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Spacer(Modifier.height(20.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    SummaryItem(
-                        "EXPENSE",
-                        summary?.totalExpense?.formatAsCurrency() ?: "₹0.00",
-                        if (isDark) DarkExpense else LightExpense
+                    Text(
+                        text = "Total Financial Health",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    SummaryItem(
-                        "INCOME",
-                        summary?.totalIncome?.formatAsCurrency() ?: "₹0.00",
-                        if (isDark) DarkIncome else LightIncome
+                    Text(
+                        text = summary?.balance?.formatAsCurrency() ?: "₹0.00",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
                     )
+
+                    Spacer(Modifier.height(20.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(Modifier.height(20.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        SummaryItem(
+                            "EXPENSE",
+                            summary?.totalExpense?.formatAsCurrency() ?: "₹0.00",
+                            if (isDark) DarkExpense else LightExpense
+                        )
+                        SummaryItem(
+                            "INCOME",
+                            summary?.totalIncome?.formatAsCurrency() ?: "₹0.00",
+                            if (isDark) DarkIncome else LightIncome
+                        )
+                    }
                 }
             }
-        }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
-        ) {
-            item { CategoryHeader("Income Categories") }
-            items(incomeCategories) { category ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                item { CategoryHeader("Income Categories") }
+                items(incomeCategories) { category ->
                 val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
                 val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                val total = summary?.totalIncome ?: 1.0
-                val percentage = if (total > 0) (amount / total * 100).toInt() else 0
+                val total = summary?.totalIncome ?: 0.0
+                val percentage = if (total > 0) (amount / total * 100).toInt() else -1
                 
                 CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-            }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+                }
 
-            item { CategoryHeader("Expense Categories") }
-            items(expenseCategories) { category ->
+                item { CategoryHeader("Expense Categories") }
+                items(expenseCategories) { category ->
                 val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
                 val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                val total = summary?.totalExpense ?: 1.0
-                val percentage = if (total > 0) (amount / total * 100).toInt() else 0
+                val total = summary?.totalExpense ?: 0.0
+                val percentage = if (total > 0) (amount / total * 100).toInt() else -1
                 
                 CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+                }
             }
         }
     }
@@ -253,7 +265,7 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold
             )
-            if (amount > 0) {
+            if (amount > 0 && percentage >= 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = amount.formatAsCurrency(),
@@ -267,6 +279,12 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
+            } else if (amount > 0) {
+                Text(
+                    text = amount.formatAsCurrency(),
+                    color = if (isDark) DarkExpense else LightExpense,
+                    style = MaterialTheme.typography.labelMedium
+                )
             }
         }
     }

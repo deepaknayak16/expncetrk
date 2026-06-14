@@ -5,6 +5,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,10 +16,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -203,13 +208,43 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
+        }
 
+        // Danger Zone
+        item {
+            var showConfirmDialog by remember { mutableStateOf(false) }
+            
+            if (showConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showConfirmDialog = false },
+                    title = { Text("Load Demo Data?") },
+                    text = { Text("This will replace all your current transactions with mock sample data for testing. This action cannot be undone easily.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.loadMockData()
+                                showConfirmDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Confirm")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showConfirmDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            SectionHeader(title = "Danger Zone", color = MaterialTheme.colorScheme.error)
             Button(
-                onClick = { viewModel.loadMockData() },
+                onClick = { showConfirmDialog = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f), contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
             ) {
                 Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(12.dp))
@@ -263,11 +298,11 @@ private fun shareFile(context: android.content.Context, file: File, mimeType: St
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun SectionHeader(title: String, color: Color = MaterialTheme.colorScheme.primary) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        color = color,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
     )

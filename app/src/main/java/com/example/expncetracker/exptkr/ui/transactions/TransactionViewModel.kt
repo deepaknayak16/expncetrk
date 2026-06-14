@@ -17,6 +17,13 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
 
+enum class SortOrder(val title: String) {
+    DATE_DESC("Newest First"),
+    DATE_ASC("Oldest First"),
+    AMOUNT_DESC("Highest Amount"),
+    AMOUNT_ASC("Lowest Amount")
+}
+
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
@@ -34,6 +41,9 @@ class TransactionViewModel @Inject constructor(
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
     val selectedFilter = _selectedFilter.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow(SortOrder.DATE_DESC)
+    val sortOrder = _sortOrder.asStateFlow()
+
     private val _statusEvent = Channel<String>()
     val statusEvent = _statusEvent.receiveAsFlow()
 
@@ -46,10 +56,11 @@ class TransactionViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val transactions: StateFlow<List<Transaction>> = combine(
         _selectedFilter,
-        _searchQuery.debounce(300L)
-    ) { filter, query ->
-        filter to query
-    }.flatMapLatest { (filter, query) ->
+        _searchQuery.debounce(300L),
+        _sortOrder
+    ) { filter, query, sort ->
+        Triple(filter, query, sort)
+    }.flatMapLatest { (filter, query, sort) ->
         _isLoading.value = true
         val now = LocalDateTime.now()
         val startDateTime = when (filter) {
@@ -61,7 +72,14 @@ class TransactionViewModel @Inject constructor(
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         
-        repository.searchTransactions(startMillis, endMillis, query).onEach { _isLoading.value = false }
+        repository.searchTransactions(startMillis, endMillis, query).map { list ->
+            when (sort) {
+                SortOrder.DATE_DESC -> list.sortedByDescending { it.timestamp }
+                SortOrder.DATE_ASC -> list.sortedBy { it.timestamp }
+                SortOrder.AMOUNT_DESC -> list.sortedByDescending { it.amount }
+                SortOrder.AMOUNT_ASC -> list.sortedBy { it.amount }
+            }
+        }.onEach { _isLoading.value = false }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun onSearchQueryChange(newQuery: String) {
@@ -72,7 +90,11 @@ class TransactionViewModel @Inject constructor(
         _selectedFilter.value = filter
     }
 
-    fun refreshTransactions() {
+    fun setSortOrder(order: SortOrder) {
+        _sortOrder.value = order
+    }
+
+    fun syncSmsTransactions() {
         viewModelScope.launch {
             _isRefreshing.value = true
             try {

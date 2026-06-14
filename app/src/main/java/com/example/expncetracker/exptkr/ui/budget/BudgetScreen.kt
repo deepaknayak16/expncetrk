@@ -256,16 +256,29 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 else -> BudgetOver
             }
 
-            LinearProgressIndicator(
-                progress = { budget.progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(CircleShape),
-                color = progressColor,
-                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LinearProgressIndicator(
+                    progress = { budget.progress },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(10.dp)
+                        .clip(CircleShape),
+                    color = progressColor,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "${(budget.progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = progressColor
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
 

@@ -1,5 +1,6 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,6 +56,7 @@ fun AddTransactionScreen(
     val allCategories by viewModel.categories.collectAsState()
 
     var amountText by remember { mutableStateOf("0") }
+    var merchantName by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
     var selectedCategoryName by remember { mutableStateOf("") }
@@ -72,7 +74,7 @@ fun AddTransactionScreen(
     LaunchedEffect(transactionToEdit) {
         transactionToEdit?.let {
             amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
-            note = it.merchant
+            merchantName = it.merchant
             selectedType = it.type
             selectedCategoryName = it.categoryName
             transactionDate = it.timestamp
@@ -121,20 +123,35 @@ fun AddTransactionScreen(
                     }
                 },
                 actions = {
+                    val context = LocalContext.current
                     IconButton(
                         onClick = {
-                            val amount = try { evaluate(amountText) } catch (e: Exception) { 0.0 }
-                            if (amount > 0) {
-                                viewModel.addTransaction(
-                                    id = transactionId ?: 0L,
-                                    amount = amount,
-                                    type = selectedType,
-                                    category = selectedCategoryName,
-                                    description = note.ifBlank { null },
-                                    bankName = selectedAccount?.name ?: "Manual",
-                                    timestamp = transactionDate
-                                )
-                                onNavigateBack()
+                            val amount = try { evaluate(amountText) } catch (e: Exception) { -1.0 }
+                            when {
+                                amount < 0 -> {
+                                    Toast.makeText(context, "Invalid expression or division by zero", Toast.LENGTH_SHORT).show()
+                                }
+                                amount == 0.0 -> {
+                                    Toast.makeText(context, "Amount must be greater than zero", Toast.LENGTH_SHORT).show()
+                                }
+                                merchantName.isBlank() -> {
+                                    Toast.makeText(context, "Please enter a merchant or payee", Toast.LENGTH_SHORT).show()
+                                }
+                                selectedCategoryName.isEmpty() -> {
+                                    Toast.makeText(context, "Please select a category", Toast.LENGTH_SHORT).show()
+                                }
+                                else -> {
+                                    viewModel.addTransaction(
+                                        id = transactionId ?: 0L,
+                                        amount = amount,
+                                        type = selectedType,
+                                        category = selectedCategoryName,
+                                        description = merchantName.trim(),
+                                        bankName = selectedAccount?.name ?: "Manual",
+                                        timestamp = transactionDate
+                                    )
+                                    onNavigateBack()
+                                }
                             }
                         }
                     ) {
@@ -163,7 +180,6 @@ fun AddTransactionScreen(
                 ) {
                     TypeTab("INCOME", selectedType == TransactionType.CREDIT) { 
                         selectedType = TransactionType.CREDIT 
-                        // Filter category if current is not valid for income
                         val incomeCats = allCategories.filter { it.type == "INCOME" }
                         if (incomeCats.none { it.name == selectedCategoryName }) {
                             selectedCategoryName = incomeCats.firstOrNull()?.name ?: ""
@@ -172,6 +188,10 @@ fun AddTransactionScreen(
                     Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
                     TypeTab("EXPENSE", selectedType == TransactionType.DEBIT) { 
                         selectedType = TransactionType.DEBIT 
+                        val expenseCats = allCategories.filter { it.type == "EXPENSE" }
+                        if (expenseCats.none { it.name == selectedCategoryName }) {
+                            selectedCategoryName = expenseCats.firstOrNull()?.name ?: ""
+                        }
                     }
                     Text("|", color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
                     TypeTab("TRANSFER", selectedType == TransactionType.TRANSFER) { 
@@ -266,18 +286,37 @@ fun AddTransactionScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Note Field
+                // Merchant Field
                 OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
+                    value = merchantName,
+                    onValueChange = { merchantName = it },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    placeholder = { Text("Add a note...") },
+                    placeholder = { Text("Where did you spend?") },
+                    label = { Text("Merchant / Payee") },
                     textStyle = MaterialTheme.typography.bodyLarge,
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    ),
+                    leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // Note Field (Optional)
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    placeholder = { Text("Add a note... (Optional)") },
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(20.dp)) }
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -293,7 +332,6 @@ fun AddTransactionScreen(
                     onOperatorClick = { op ->
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (amountText.isNotEmpty() && !amountText.last().isDigit() && amountText.last() != '.') {
-                            // Replace last operator
                             amountText = amountText.dropLast(1) + op
                         } else if (amountText.isNotEmpty() && amountText.last() != '.') {
                             amountText += op
@@ -395,10 +433,10 @@ fun AddTransactionScreen(
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            val categoriesToShow = if (selectedType == TransactionType.CREDIT) {
-                allCategories.filter { it.type == "INCOME" }
-            } else {
-                allCategories.filter { it.type == "EXPENSE" }
+            val categoriesToShow = when (selectedType) {
+                TransactionType.CREDIT -> allCategories.filter { it.type == "INCOME" }
+                TransactionType.DEBIT -> allCategories.filter { it.type == "EXPENSE" }
+                TransactionType.TRANSFER -> allCategories
             }
 
             LazyVerticalGrid(
@@ -587,43 +625,63 @@ fun RowScope.KeyButton(
 }
 
 private fun evaluate(expression: String): Double {
-    if (expression.isEmpty()) return 0.0
-    val operators = listOf('+', '-', '*', '/')
-    var currentExpression = expression.replace("÷", "/").replace("×", "*")
-    if (operators.contains(currentExpression.first())) currentExpression = "0$currentExpression"
+    val cleanExpr = expression.trim().replace("÷", "/").replace("×", "*")
+    if (cleanExpr.isEmpty()) return 0.0
 
     try {
+        // Step 1: Tokenize
         val tokens = mutableListOf<String>()
-        var currentToken = ""
-        for (char in currentExpression) {
-            if (operators.contains(char)) {
-                if (currentToken.isNotEmpty()) tokens.add(currentToken)
+        var current = ""
+        val operators = setOf('+', '-', '*', '/')
+        
+        for (char in cleanExpr) {
+            if (char in operators) {
+                if (current.isNotEmpty()) tokens.add(current)
                 tokens.add(char.toString())
-                currentToken = ""
-            } else {
-                currentToken += char
+                current = ""
+            } else if (char.isDigit() || char == '.') {
+                current += char
             }
         }
-        if (currentToken.isNotEmpty()) tokens.add(currentToken)
+        if (current.isNotEmpty()) tokens.add(current)
 
         if (tokens.isEmpty()) return 0.0
-        var result = tokens[0].toDoubleOrNull() ?: 0.0
-        var i = 1
-        while (i < tokens.size - 1) {
-            val op = tokens[i]
-            val nextVal = tokens[i+1].toDoubleOrNull() ?: 0.0
-            result = when (op) {
-                "+" -> result + nextVal
-                "-" -> result - nextVal
-                "*" -> result * nextVal
-                "/" -> if (nextVal != 0.0) result / nextVal else result
-                else -> result
+
+        // Handle trailing operator: If last token is an operator, ignore it for calculation
+        val processedTokens = if (tokens.last() in setOf("+", "-", "*", "/")) {
+            tokens.dropLast(1)
+        } else tokens
+
+        if (processedTokens.isEmpty()) return 0.0
+
+        // Step 2: Multiplication and Division (MD)
+        val afterMD = mutableListOf<String>()
+        var i = 0
+        while (i < processedTokens.size) {
+            val token = processedTokens[i]
+            if (token == "*" || token == "/") {
+                val left = afterMD.removeAt(afterMD.size - 1).toDouble()
+                val right = processedTokens[++i].toDouble()
+                if (token == "/" && right == 0.0) throw ArithmeticException("Div by zero")
+                afterMD.add((if (token == "*") left * right else left / right).toString())
+            } else {
+                afterMD.add(token)
             }
-            i += 2
+            i++
+        }
+
+        // Step 3: Addition and Subtraction (AS)
+        var result = afterMD[0].toDouble()
+        var j = 1
+        while (j < afterMD.size) {
+            val op = afterMD[j]
+            val next = afterMD[++j].toDouble()
+            result = if (op == "+") result + next else result - next
+            j++
         }
         return result
     } catch (e: Exception) {
-        return expression.toDoubleOrNull() ?: 0.0
+        throw e
     }
 }
 
@@ -640,7 +698,7 @@ private fun getCategoryColor(category: Category): Color {
         Category.INVESTMENTS -> if (isDark) CategoryInvestmentsDark else CategoryInvestments
         Category.TRAVEL -> if (isDark) CategoryTravelDark else CategoryTravel
         Category.ENTERTAINMENT -> if (isDark) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> if (isDark) CategoryEducationDark else CategoryEducation
+        Category.GROCERIES -> if (isDark) CategoryGroceriesDark else CategoryGroceries
         Category.HEALTHCARE -> if (isDark) CategoryHealthDark else CategoryHealth
         Category.EDUCATION -> if (isDark) CategoryEducationDark else CategoryEducation
         Category.OTHERS -> if (isDark) CategoryOthersDark else CategoryOthers

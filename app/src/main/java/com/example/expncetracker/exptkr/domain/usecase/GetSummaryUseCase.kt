@@ -32,11 +32,13 @@ class GetSummaryUseCase @Inject constructor(
             val map = mutableMapOf<String, Double>()
 
             txList.forEach { tx ->
-                if (tx.type == TransactionType.CREDIT) {
-                    income += tx.amount
-                } else {
-                    expense += tx.amount
-                    map[tx.categoryName] = (map[tx.categoryName] ?: 0.0) + tx.amount
+                when (tx.type) {
+                    TransactionType.CREDIT -> income += tx.amount
+                    TransactionType.DEBIT -> {
+                        expense += tx.amount
+                        map[tx.categoryName] = (map[tx.categoryName] ?: 0.0) + tx.amount
+                    }
+                    TransactionType.TRANSFER -> { /* Transfers don't affect income/expense balance */ }
                 }
             }
             FinancialSummary(income, expense, income - expense, map)

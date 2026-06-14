@@ -73,6 +73,28 @@ class AccountsViewModel @Inject constructor(
         }
     }
 
+    fun updateAccount(id: Long, name: String, balance: Double, type: String) {
+        viewModelScope.launch {
+            val color = when (type) {
+                "Bank Account" -> Color(0xFF3B82F6) // Blue
+                "Cash" -> Color(0xFF10B981) // Green
+                "Wallet" -> Color(0xFF8B5CF6) // Purple
+                "Investment" -> Color(0xFF06B6D4) // Cyan
+                "Credit Card" -> Color(0xFFEF4444) // Red
+                else -> Color(0xFF64748B) // Slate
+            }
+            accountDao.insertAccount(
+                AccountEntity(
+                    id = id,
+                    name = name,
+                    balance = balance,
+                    type = type,
+                    color = color.toArgb()
+                )
+            )
+        }
+    }
+
     fun deleteAccount(id: Long) {
         viewModelScope.launch {
             accountDao.deleteAccountById(id)
