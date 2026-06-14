@@ -16,5 +16,13 @@ data class TransactionEntity(
     val category: String,
     val merchant: String,
     val bankName: String,
-    val timestamp: Long
+    val note: String?,
+    val timestamp: Long,
+    val isRecurring: Boolean = false,
+    val frequency: String? = null,
+    val nextDueDate: Long? = null,
+    val recurrenceEndDate: Long? = null,
+    val parentTransactionId: Long? = null,
+    val counterparty: String? = null,
+    val isSettled: Boolean = false
 )

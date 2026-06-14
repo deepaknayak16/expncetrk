@@ -62,6 +62,14 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     }
     val weekEnd = currentWeekStart.plusDays(6)
 
+    LaunchedEffect(selectedFilter) {
+        when (selectedFilter) {
+            DateFilter.WEEK -> currentWeekStart = LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L)
+            DateFilter.DAY -> currentWeekStart = LocalDate.now()
+            else -> { /* Keep current */ }
+        }
+    }
+
     LaunchedEffect(currentWeekStart) {
         viewModel.setWeekRange(currentWeekStart, weekEnd)
     }
@@ -250,7 +258,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 weekDays.forEachIndexed { index, day ->
                                     CalendarDayItem(
-                                        day = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale),
+                                        day = day.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, locale),
                                         date = day.dayOfMonth.toString(),
                                         value = daySpending[index],
                                         modifier = Modifier.weight(1f)

@@ -2,29 +2,72 @@ package com.example.expncetracker.exptkr.core.parser
 
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import kotlinx.coroutines.flow.first
 import java.util.Locale
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object CategoryDetector {
-    fun detect(merchant: String, type: TransactionType): Category {
-        val upper = merchant.uppercase(Locale.ROOT)
+@Singleton
+class CategoryDetector @Inject constructor(
+    private val repository: TransactionRepository
+) {
+    /**
+     * Smartly detects the category for a given merchant.
+     * Uses a multi-stage approach:
+     * 1. Exact History Match (Learning from user)
+     * 2. Fuzzy History Match (Keyword patterns in history)
+     * 3. Rule-based Fallback (Hardcoded patterns)
+     */
+    suspend fun detect(merchant: String, type: TransactionType): String {
+        val cleanMerchant = merchant.trim()
+        val upperMerchant = cleanMerchant.uppercase(Locale.ROOT)
         
-        if (type == TransactionType.CREDIT) {
-            if (upper.contains("SALARY") || upper.contains("WIPRO") || upper.contains("INFOSYS") || upper.contains("PAYROLL") || upper.contains("HCL") || upper.contains("TCS")) return Category.SALARY
+        // Fetch history once for analysis
+        val history = repository.getAllTransactions().first()
+
+        // 1. SMART LEARNING: Check user's history for EXACT merchant match
+        val exactMatch = history.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
+        if (exactMatch != null) {
+            return exactMatch.categoryName
         }
 
-        return when {
-            upper.contains("SWIGGY") || upper.contains("ZOMATO") || upper.contains("RESTAU") || upper.contains("FOOD") || upper.contains("CAFE") || upper.contains("HOTEL") || upper.contains("EATS") -> Category.FOOD
-            upper.contains("UBER") || upper.contains("OLA") || upper.contains("RAPIDO") || upper.contains("NAMA") || upper.contains("METRO") || upper.contains("TAXI") -> Category.CABS
-            upper.contains("RENT") || upper.contains("NOBROKER") || upper.contains("HOUSING") -> Category.RENT
-            upper.contains("BESCOM") || upper.contains("AIRTEL") || upper.contains("JIO") || upper.contains("RECHARGE") || upper.contains("BILL") || upper.contains("ELECTRICITY") || upper.contains("WATER") || upper.contains("GAS") -> Category.BILLS
-            upper.contains("AMAZON") || upper.contains("FLIPKART") || upper.contains("DMART") || upper.contains("BLINKIT") || upper.contains("INSTAMART") || upper.contains("SHOP") || upper.contains("STORE") || upper.contains("MYNTRA") || upper.contains("AJIO") || upper.contains("MALL") -> Category.SHOPPING
-            upper.contains("ZERODHA") || upper.contains("GROWW") || upper.contains("MUTUAL") || upper.contains("INVEST") || upper.contains("STOCK") || upper.contains("BROKER") || upper.contains("COIN") -> Category.INVESTMENTS
-            upper.contains("AIRLINES") || upper.contains("FLIGHT") || upper.contains("INDIGO") || upper.contains("RAILWAY") || upper.contains("IRCTC") || upper.contains("TRAVEL") || upper.contains("MAKEMYTRIP") || upper.contains("GOIBIBO") -> Category.TRAVEL
-            upper.contains("NETFLIX") || upper.contains("PRIME") || upper.contains("HOTSTAR") || upper.contains("CINEMA") || upper.contains("MOVIE") || upper.contains("BOOKMYSHOW") || upper.contains("PVR") || upper.contains("INOX") -> Category.ENTERTAINMENT
-            upper.contains("BIGBASKET") || upper.contains("ZEPTO") || upper.contains("GROCERY") || upper.contains("MILK") || upper.contains("RETAIL") || upper.contains("SUPERMARKET") -> Category.GROCERIES
-            upper.contains("HOSPITAL") || upper.contains("PHARMACY") || upper.contains("DR ") || upper.contains("CLINIC") || upper.contains("MEDPLUS") || upper.contains("APOLLO") || upper.contains("HEALTH") -> Category.HEALTHCARE
-            upper.contains("SCHOOL") || upper.contains("COLLEGE") || upper.contains("FEE") || upper.contains("UNIVERSITY") || upper.contains("UDEMY") || upper.contains("COURSERA") || upper.contains("EDUCATION") -> Category.EDUCATION
+        // 2. SMART LEARNING: Check if the merchant name exists as a substring in previous transactions
+        // e.g. If "SWIGGY*123" was categorized as "Food", then "SWIGGY*456" will also be "Food"
+        val fuzzyMatch = history.find { 
+            val histUpper = it.merchant.uppercase(Locale.ROOT)
+            upperMerchant.contains(histUpper) || histUpper.contains(upperMerchant)
+        }
+        if (fuzzyMatch != null) {
+            return fuzzyMatch.categoryName
+        }
+
+        // 3. FALLBACK: Static Rule-based detection
+        if (type == TransactionType.CREDIT) {
+            if (upperMerchant.contains("SALARY") || upperMerchant.contains("WIPRO") || 
+                upperMerchant.contains("INFOSYS") || upperMerchant.contains("PAYROLL") || 
+                upperMerchant.contains("HCL") || upperMerchant.contains("TCS")) return Category.SALARY.displayName
+        }
+
+        val detectedCategory = when {
+            containsAny(upperMerchant, "SWIGGY", "ZOMATO", "RESTAU", "FOOD", "CAFE", "HOTEL", "EATS") -> Category.FOOD
+            containsAny(upperMerchant, "UBER", "OLA", "RAPIDO", "NAMA", "METRO", "TAXI") -> Category.CABS
+            containsAny(upperMerchant, "RENT", "NOBROKER", "HOUSING") -> Category.RENT
+            containsAny(upperMerchant, "BESCOM", "AIRTEL", "JIO", "RECHARGE", "BILL", "ELECTRICITY", "WATER", "GAS") -> Category.BILLS
+            containsAny(upperMerchant, "AMAZON", "FLIPKART", "DMART", "BLINKIT", "INSTAMART", "SHOP", "STORE", "MYNTRA", "AJIO", "MALL") -> Category.SHOPPING
+            containsAny(upperMerchant, "ZERODHA", "GROWW", "MUTUAL", "INVEST", "STOCK", "BROKER", "COIN") -> Category.INVESTMENTS
+            containsAny(upperMerchant, "AIRLINES", "FLIGHT", "INDIGO", "RAILWAY", "IRCTC", "TRAVEL", "MAKEMYTRIP", "GOIBIBO") -> Category.TRAVEL
+            containsAny(upperMerchant, "NETFLIX", "PRIME", "HOTSTAR", "CINEMA", "MOVIE", "BOOKMYSHOW", "PVR", "INOX") -> Category.ENTERTAINMENT
+            containsAny(upperMerchant, "BIGBASKET", "ZEPTO", "GROCERY", "MILK", "RETAIL", "SUPERMARKET") -> Category.GROCERIES
+            containsAny(upperMerchant, "HOSPITAL", "PHARMACY", "DR ", "CLINIC", "MEDPLUS", "APOLLO", "HEALTH") -> Category.HEALTHCARE
+            containsAny(upperMerchant, "SCHOOL", "COLLEGE", "FEE", "UNIVERSITY", "UDEMY", "COURSERA", "EDUCATION") -> Category.EDUCATION
             else -> Category.OTHERS
         }
+        
+        return detectedCategory.displayName
+    }
+
+    private fun containsAny(text: String, vararg keywords: String): Boolean {
+        return keywords.any { text.contains(it) }
     }
 }

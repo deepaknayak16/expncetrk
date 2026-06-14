@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
@@ -43,6 +45,7 @@ fun TransactionScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var showSplitDialog by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -66,9 +69,29 @@ fun TransactionScreen(
                 onDelete = { 
                     viewModel.deleteTransaction(selectedTransaction!!)
                     selectedTransaction = null 
+                },
+                onSplit = {
+                    showSplitDialog = true
+                },
+                onSettle = {
+                    viewModel.settleTransaction(selectedTransaction!!)
+                    selectedTransaction = null
                 }
             )
         }
+    }
+
+    if (showSplitDialog && selectedTransaction != null) {
+        SplitTransactionDialog(
+            transaction = selectedTransaction!!,
+            categories = categories,
+            onDismiss = { showSplitDialog = false; selectedTransaction = null },
+            onConfirm = { splits ->
+                viewModel.splitTransaction(selectedTransaction!!, splits)
+                showSplitDialog = false
+                selectedTransaction = null
+            }
+        )
     }
 
     Scaffold(
@@ -76,7 +99,7 @@ fun TransactionScreen(
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { viewModel.syncSmsTransactions() },
+            onRefresh = { viewModel.refreshTransactions() },
             state = pullRefreshState,
             modifier = Modifier.fillMaxSize().padding(innerPadding)
         ) {
@@ -88,7 +111,6 @@ fun TransactionScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Search & Filter Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -208,7 +230,6 @@ fun TransactionScreen(
                         CircularProgressIndicator()
                     }
                 } else {
-                    // Transaction List
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 32.dp),
@@ -223,30 +244,45 @@ fun TransactionScreen(
                                 )
                             }
                         } else {
-                            val grouped = list.groupBy { 
-                                it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()))
-                            }
-                            
-                            grouped.forEach { (date, transactions) ->
-                                item {
-                                    Text(
-                                        text = date,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 8.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                            val grouped = list.groupBy { it.timestamp.year }
+                            grouped.forEach { (year, yearTransactions) ->
+                                if (grouped.size > 1) {
+                                    item {
+                                        Text(
+                                            text = year.toString(),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                                        )
+                                    }
                                 }
-                                
-                                items(transactions, key = { it.id }) { tx ->
-                                    val categoryEntity = categories.find { it.name == tx.categoryName }
-                                    TransactionListItem(
-                                        transaction = tx,
-                                        onClick = { selectedTransaction = tx },
-                                        categoryIcon = categoryEntity?.let { com.example.expncetracker.exptkr.ui.components.getIconByName(it.iconName) },
-                                        categoryColor = categoryEntity?.let { Color(it.color) }
-                                    )
+
+                                val dateGrouped = yearTransactions.groupBy {
+                                    it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd", Locale.getDefault()))
+                                }
+
+                                dateGrouped.forEach { (date, transactions) ->
+                                    item {
+                                        Text(
+                                            text = date,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 8.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+                                    
+                                    items(transactions, key = { it.id }) { tx ->
+                                        val categoryEntity = categories.find { it.name == tx.categoryName }
+                                        TransactionListItem(
+                                            transaction = tx,
+                                            onClick = { selectedTransaction = tx },
+                                            categoryIcon = categoryEntity?.let { com.example.expncetracker.exptkr.ui.components.getIconByName(it.iconName) },
+                                            categoryColor = categoryEntity?.let { Color(it.color) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -261,37 +297,26 @@ fun TransactionScreen(
 fun TransactionDetailContent(
     transaction: Transaction,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSplit: () -> Unit,
+    onSettle: () -> Unit
 ) {
     val isDark = MaterialTheme.isDark
     val canDelete = transaction.smsId == null && java.time.Duration.between(transaction.timestamp, java.time.LocalDateTime.now()).toMinutes() <= 60
     val canEdit = transaction.smsId == null
+    val canSplit = transaction.type == TransactionType.DEBIT
+    val isDebt = transaction.type == TransactionType.LEND || transaction.type == TransactionType.BORROW
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            "Transaction Details",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
+        Text("Transaction Details", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(24.dp))
         
-        Surface(
-            modifier = Modifier.size(80.dp),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-        ) {
+        Surface(modifier = Modifier.size(80.dp), shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Default.ReceiptLong,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
         
@@ -302,8 +327,8 @@ fun TransactionDetailContent(
             style = MaterialTheme.typography.displayMedium,
             fontWeight = FontWeight.Black,
             color = when(transaction.type) {
-                TransactionType.CREDIT -> if (isDark) DarkIncome else LightIncome
-                TransactionType.DEBIT -> if (isDark) DarkExpense else LightExpense
+                TransactionType.CREDIT, TransactionType.BORROW -> if (isDark) DarkIncome else LightIncome
+                TransactionType.DEBIT, TransactionType.LEND -> if (isDark) DarkExpense else LightExpense
                 else -> MaterialTheme.colorScheme.primary
             }
         )
@@ -312,12 +337,46 @@ fun TransactionDetailContent(
         
         DetailItem("Merchant", transaction.merchant)
         DetailItem("Category", transaction.categoryName)
+        if (transaction.counterparty != null) {
+            DetailItem(if (transaction.type == TransactionType.LEND) "Lent To" else "Borrowed From", transaction.counterparty!!)
+        }
+        DetailItem("Note", transaction.note ?: "No note")
         DetailItem("Bank/Account", transaction.bankName)
         DetailItem("Date & Time", transaction.timestamp.formatToDisplay())
         DetailItem("Source", if (transaction.smsId != null) "SMS Import" else "Manual Entry")
-        DetailItem("Type", if (transaction.type == TransactionType.CREDIT) "Income" else "Expense")
+        DetailItem("Type", transaction.type.name)
         
-        Spacer(Modifier.height(32.dp))
+        if (transaction.isSettled) {
+            DetailItem("Status", "SETTLED")
+        }
+
+        Spacer(Modifier.height(24.dp))
+        
+        if (isDebt && !transaction.isSettled) {
+            Button(
+                onClick = onSettle,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer)
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Mark as Settled")
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Button(
+            onClick = onSplit,
+            enabled = canSplit,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+        ) {
+            Icon(Icons.Default.CallSplit, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Split Transaction")
+        }
+
+        Spacer(Modifier.height(16.dp))
         
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             OutlinedButton(
@@ -332,11 +391,7 @@ fun TransactionDetailContent(
                 Text("Delete")
             }
             
-            Button(
-                onClick = onEdit,
-                enabled = canEdit,
-                modifier = Modifier.weight(1f)
-            ) {
+            Button(onClick = onEdit, enabled = canEdit, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.Edit, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Edit")
@@ -344,23 +399,129 @@ fun TransactionDetailContent(
         }
         
         if (transaction.smsId != null) {
-            Text(
-                "SMS transactions are immutable and cannot be edited or deleted.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 12.dp)
-            )
-        } else if (!canDelete) {
-            Text(
-                "Manual entries older than 1 hour can only be edited.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 12.dp)
-            )
+            Text("SMS transactions are immutable.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
         }
 
         Spacer(Modifier.height(24.dp))
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SplitTransactionDialog(
+    transaction: Transaction,
+    categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<Pair<String, Double>>) -> Unit
+) {
+    var splitList by remember { 
+        mutableStateOf(mutableListOf(
+            transaction.categoryName to (transaction.amount / 2),
+            categories.firstOrNull { it.name != transaction.categoryName }?.name.orEmpty() to (transaction.amount / 2)
+        )) 
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Split Transaction (Total: ₹${transaction.amount})") },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                splitList.forEachIndexed { index, split ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        var expanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            OutlinedTextField(
+                                value = split.first,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Category") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier.menuAnchor(),
+                                shape = MaterialTheme.shapes.medium,
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                categories.forEach { cat ->
+                                    DropdownMenuItem(
+                                        text = { Text(cat.name) },
+                                        onClick = {
+                                            val newList = splitList.toMutableList()
+                                            newList[index] = cat.name to split.second
+                                            splitList = newList
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        OutlinedTextField(
+                            value = if (split.second == 0.0) "" else split.second.toString(),
+                            onValueChange = { val amt = it.toDoubleOrNull() ?: 0.0
+                                val newList = splitList.toMutableList()
+                                newList[index] = split.first to amt
+                                splitList = newList
+                            },
+                            label = { Text("Amount") },
+                            modifier = Modifier.weight(0.7f),
+                            shape = MaterialTheme.shapes.medium,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                        )
+
+                        if (splitList.size > 2) {
+                            IconButton(onClick = { 
+                                val newList = splitList.toMutableList()
+                                newList.removeAt(index)
+                                splitList = newList
+                            }) {
+                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+                
+                TextButton(
+                    onClick = {
+                        val newList = splitList.toMutableList()
+                        newList.add("" to 0.0)
+                        splitList = newList
+                    },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text("Add Split")
+                }
+
+                val currentTotal = splitList.sumOf { it.second }
+                val remaining = transaction.amount - currentTotal
+                Text(
+                    text = "Total Split: ₹$currentTotal | Remaining: ₹$remaining",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (remaining == 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(splitList) },
+                enabled = splitList.sumOf { it.second } == transaction.amount && splitList.all { it.first.isNotEmpty() }
+            ) {
+                Text("Confirm Split")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable

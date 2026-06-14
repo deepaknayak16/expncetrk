@@ -8,6 +8,7 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -70,7 +71,7 @@ class BudgetViewModel @Inject constructor(
                     progress = progress
                 )
             }
-        }
+        }.flowOn(Dispatchers.Default)
     }.catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -92,9 +93,8 @@ class BudgetViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                // Triggering a refresh should probably call SMS sync or similar
-                // For now, since Room Flows are reactive, we just ensure it's not a no-op if possible
-                // butRoom flows handle local data changes automatically.
+                // Force re-trigger by emitting current value
+                _selectedMonth.value = _selectedMonth.value
                 delay(300) 
             } finally {
                 _isRefreshing.value = false

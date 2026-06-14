@@ -1,6 +1,8 @@
 package com.example.expncetracker.exptkr.di
 
+import com.example.expncetracker.exptkr.data.repository.GoalRepositoryImpl
 import com.example.expncetracker.exptkr.data.repository.TransactionRepositoryImpl
+import com.example.expncetracker.exptkr.domain.repository.GoalRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -12,4 +14,5 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindRepository(impl: TransactionRepositoryImpl): TransactionRepository
+    @Binds @Singleton abstract fun bindGoalRepository(impl: GoalRepositoryImpl): GoalRepository
 }

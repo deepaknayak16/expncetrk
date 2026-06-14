@@ -57,11 +57,17 @@ class MainActivity : FragmentActivity() {
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result ->
                 val granted = result.values.all { it }
-                if (granted) {
+                if (result[android.Manifest.permission.READ_SMS] == true) {
                     Toast.makeText(this@MainActivity, "SMS permission granted", Toast.LENGTH_SHORT).show()
+                    scope.launch {
+                        dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
+                    }
                 }
-                scope.launch {
-                    dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
+            }
+
+            LaunchedEffect(Unit) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    permissionLauncher.launch(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS))
                 }
             }
 
@@ -96,19 +102,42 @@ class MainActivity : FragmentActivity() {
 
             if (isBiometricEnabled && biometricStatus.isAvailable) {
                 var authenticated by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    biometricAuthManager.authenticate(this@MainActivity)
-                        .collect { result ->
-                            when (result) {
-                                is BiometricResult.Success -> authenticated = true
-                                is BiometricResult.Error -> {
-                                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
-                                    finish()
+                var authError by remember { mutableStateOf<String?>(null) }
+                var retryCount by remember { mutableIntStateOf(0) }
+
+                LaunchedEffect(retryCount) {
+                    if (!authenticated) {
+                        biometricAuthManager.authenticate(this@MainActivity)
+                            .collect { result ->
+                                when (result) {
+                                    is BiometricResult.Success -> {
+                                        authenticated = true
+                                        authError = null
+                                    }
+                                    is BiometricResult.Error -> authError = result.message
+                                    else -> { }
                                 }
-                                else -> { }
                             }
-                        }
+                    }
                 }
+
+                if (authError != null) {
+                    AlertDialog(
+                        onDismissRequest = { finish() },
+                        title = { Text("Authentication Required") },
+                        text = { Text(authError ?: "Biometric authentication failed. Please try again.") },
+                        confirmButton = {
+                            Button(onClick = {
+                                authError = null
+                                retryCount++
+                            }) { Text("Retry") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { finish() }) { Text("Exit App") }
+                        }
+                    )
+                }
+
                 if (authenticated) {
                     ExpncetrackerTheme(darkTheme = isDarkMode) {
                         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

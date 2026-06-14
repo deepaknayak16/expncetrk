@@ -4,5 +4,5 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class TransactionType {
-    DEBIT, CREDIT, TRANSFER
+    DEBIT, CREDIT, TRANSFER, LEND, BORROW
 }

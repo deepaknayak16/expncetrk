@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.datastore.preferences.core.edit
 import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
+import com.example.expncetracker.exptkr.core.common.BUDGET_ALERTS_ENABLED_KEY
+import com.example.expncetracker.exptkr.core.common.BUDGET_THRESHOLD_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.data.export.CsvExporter
@@ -51,6 +53,8 @@ class SettingsViewModel @Inject constructor(
             val preferences = context.dataStore.data.first()
             val isDark = preferences[DARK_MODE_KEY] ?: false
             val isBiometric = preferences[BIOMETRIC_ENABLED_KEY] ?: false
+            val isBudgetAlerts = preferences[BUDGET_ALERTS_ENABLED_KEY] ?: true
+            val budgetThreshold = preferences[BUDGET_THRESHOLD_KEY] ?: 0.9f
             val biometricStatus = biometricAuthManager.checkBiometricAvailability()
 
             _uiState.update {
@@ -59,7 +63,9 @@ class SettingsViewModel @Inject constructor(
                     accountName = account?.displayName,
                     isDarkMode = isDark,
                     isBiometricEnabled = isBiometric,
-                    isBiometricAvailable = biometricStatus is BiometricStatus.Available
+                    isBiometricAvailable = biometricStatus is BiometricStatus.Available,
+                    isBudgetAlertsEnabled = isBudgetAlerts,
+                    budgetThreshold = budgetThreshold
                 )
             }
         }
@@ -160,6 +166,24 @@ class SettingsViewModel @Inject constructor(
             }
             _uiState.update { it.copy(isBiometricEnabled = enabled) }
             _statusEvent.send(if (enabled) "Biometric lock enabled" else "Biometric lock disabled")
+        }
+    }
+
+    fun toggleBudgetAlerts(enabled: Boolean) {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[BUDGET_ALERTS_ENABLED_KEY] = enabled
+            }
+            _uiState.update { it.copy(isBudgetAlertsEnabled = enabled) }
+        }
+    }
+
+    fun updateBudgetThreshold(threshold: Float) {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[BUDGET_THRESHOLD_KEY] = threshold
+            }
+            _uiState.update { it.copy(budgetThreshold = threshold) }
         }
     }
 

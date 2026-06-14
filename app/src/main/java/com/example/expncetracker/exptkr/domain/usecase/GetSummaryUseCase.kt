@@ -29,6 +29,8 @@ class GetSummaryUseCase @Inject constructor(
         return repository.getTransactionsInRange(startMillis, endMillis).map { txList ->
             var income = 0.0
             var expense = 0.0
+            var lent = 0.0
+            var borrowed = 0.0
             val map = mutableMapOf<String, Double>()
 
             txList.forEach { tx ->
@@ -38,10 +40,20 @@ class GetSummaryUseCase @Inject constructor(
                         expense += tx.amount
                         map[tx.categoryName] = (map[tx.categoryName] ?: 0.0) + tx.amount
                     }
-                    TransactionType.TRANSFER -> { /* Transfers don't affect income/expense balance */ }
+                    TransactionType.LEND -> {
+                        if (!tx.isSettled) lent += tx.amount
+                        // LENDING is money going out, so it affects balance like an expense
+                        expense += tx.amount 
+                    }
+                    TransactionType.BORROW -> {
+                        if (!tx.isSettled) borrowed += tx.amount
+                        // BORROWING is money coming in, so it affects balance like income
+                        income += tx.amount
+                    }
+                    TransactionType.TRANSFER -> { }
                 }
             }
-            FinancialSummary(income, expense, income - expense, map)
+            FinancialSummary(income, expense, income - expense, lent, borrowed, map)
         }
     }
 }

@@ -13,6 +13,7 @@ data class TransactionDto(
     val category: String,
     val merchant: String,
     val bankName: String,
+    val note: String? = null,
     val timestamp: Long
 )
 
@@ -22,6 +23,7 @@ fun TransactionDto.toDomain() = Transaction(
     categoryName = category,
     merchant = merchant,
     bankName = bankName,
+    note = note,
     timestamp = timestamp.toLocalDateTime()
 )
 
@@ -31,5 +33,6 @@ fun Transaction.toDto() = TransactionDto(
     category = categoryName,
     merchant = merchant,
     bankName = bankName,
+    note = note,
     timestamp = timestamp.toEpochMilli()
 )

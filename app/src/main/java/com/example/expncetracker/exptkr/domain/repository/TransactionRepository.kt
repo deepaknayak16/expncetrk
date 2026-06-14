@@ -15,5 +15,7 @@ interface TransactionRepository {
     suspend fun deleteTransactionById(id: Long)
     suspend fun getLatestTransactionTimestamp(): Long
     suspend fun getLatestSmsTimestamp(): Long
+    fun getAllRecurringTransactions(): Flow<List<Transaction>>
+    suspend fun getDueRecurringTransactions(timestamp: Long): List<Transaction>
     suspend fun clearAllTransactions()
 }

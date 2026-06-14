@@ -134,12 +134,16 @@ class PdfExporter @Inject constructor(
                             TransactionType.CREDIT -> "Income"
                             TransactionType.DEBIT -> "Expense"
                             TransactionType.TRANSFER -> "Transfer"
+                            TransactionType.LEND -> "Lent"
+                            TransactionType.BORROW -> "Borrowed"
                         })
                         table.addCell(transaction.merchant.take(20))
                         val amountText = when (transaction.type) {
                             TransactionType.DEBIT -> "-₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                             TransactionType.CREDIT -> "+₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                             TransactionType.TRANSFER -> "₹${String.format(Locale.US, "%.2f", transaction.amount)}"
+                            TransactionType.LEND -> "↗ ₹${String.format(Locale.US, "%.2f", transaction.amount)}"
+                            TransactionType.BORROW -> "↙ ₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                         }
                         table.addCell(amountText)
                     }

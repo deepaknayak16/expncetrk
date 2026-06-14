@@ -13,6 +13,7 @@ import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,8 +42,22 @@ class AccountsViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
     private val _showAddDialog = MutableStateFlow(false)
     val showAddDialog = _showAddDialog.asStateFlow()
+
+    fun refreshAccounts() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                delay(300)
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
 
     fun triggerAddAccount() {
         _showAddDialog.value = true

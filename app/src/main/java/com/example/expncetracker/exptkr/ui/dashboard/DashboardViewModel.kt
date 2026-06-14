@@ -8,6 +8,9 @@ import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+import com.example.expncetracker.exptkr.data.db.dao.GoalDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,7 +22,9 @@ class DashboardViewModel @Inject constructor(
     private val getRecentTransactionsUseCase: GetRecentTransactionsUseCase,
     private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
     private val getTrendsUseCase: GetTrendsUseCase,
-    private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+    private val repository: TransactionRepository,
+    private val categoryDao: CategoryDao,
+    private val goalDao: GoalDao
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -31,9 +36,11 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> = combine(
         _selectedFilter.flatMapLatest { getSummaryUseCase(it) },
         getRecentTransactionsUseCase(10),
-        categoryDao.getAllCategories()
-    ) { summary, recent, categories ->
-        DashboardUiState.Success(summary, recent, categories) as DashboardUiState
+        categoryDao.getAllCategories(),
+        repository.getAllRecurringTransactions(),
+        goalDao.getAllGoals()
+    ) { summary, recent, categories, recurring, goals ->
+        DashboardUiState.Success(summary, recent, categories, recurring, goals) as DashboardUiState
     }
     .catch { e ->
         emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
@@ -48,10 +55,8 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isSyncing.value = true
             try {
-                // FIX #13: Removed android.util.Log calls
                 importSmsTransactionsUseCase.execute()
             } catch (e: Exception) {
-                // Silently handle or emit to UI via a Snackbar channel if needed
             } finally {
                 _isSyncing.value = false
             }

@@ -10,6 +10,7 @@ import javax.inject.Inject
 class ImportSmsTransactionsUseCase @Inject constructor(
     private val smsReader: SmsReader,
     private val parserRegistry: ParserRegistry,
+    private val categoryDetector: CategoryDetector,
     private val repository: TransactionRepository
 ) {
     suspend fun execute() {
@@ -19,15 +20,16 @@ class ImportSmsTransactionsUseCase @Inject constructor(
 
         val parsedTransactions = rawSmsList.mapNotNull { raw ->
             val parsedSms = parserRegistry.parseSms(raw.address, raw.body, raw.timestamp) ?: return@mapNotNull null
-            val category = CategoryDetector.detect(parsedSms.merchant, parsedSms.type)
+            val categoryName = categoryDetector.detect(parsedSms.merchant, parsedSms.type)
 
             Transaction(
                 smsId = raw.smsId,
                 amount = parsedSms.amount,
                 type = parsedSms.type,
-                categoryName = category.displayName, // Use display name (e.g. "Food") to match DB entities
+                categoryName = categoryName,
                 merchant = parsedSms.merchant,
                 bankName = parsedSms.bankName,
+                note = "Imported from SMS",
                 timestamp = parsedSms.timestamp
             )
         }

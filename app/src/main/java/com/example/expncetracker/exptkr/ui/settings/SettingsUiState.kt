@@ -10,6 +10,8 @@ data class SettingsUiState(
     val isDarkMode: Boolean = false,
     val isBiometricEnabled: Boolean = false,
     val isBiometricAvailable: Boolean = false,
+    val isBudgetAlertsEnabled: Boolean = true,
+    val budgetThreshold: Float = 0.9f,
     val isLoading: Boolean = false,
     val isExporting: Boolean = false,
     val error: String? = null

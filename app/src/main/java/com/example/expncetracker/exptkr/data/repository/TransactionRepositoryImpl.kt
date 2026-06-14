@@ -48,6 +48,12 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getLatestSmsTimestamp(): Long =
         transactionDao.getLatestSmsTimestamp() ?: 0L
 
+    override fun getAllRecurringTransactions(): Flow<List<Transaction>> =
+        transactionDao.getAllRecurringTransactions().map { entities -> entities.map { it.toDomain() } }
+
+    override suspend fun getDueRecurringTransactions(timestamp: Long): List<Transaction> =
+        transactionDao.getDueRecurringTransactions(timestamp).map { it.toDomain() }
+
     override suspend fun clearAllTransactions() =
         transactionDao.clearAll()
 }

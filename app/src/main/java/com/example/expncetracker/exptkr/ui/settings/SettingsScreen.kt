@@ -207,6 +207,35 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         onClick = { viewModel.toggleBiometric(!uiState.isBiometricEnabled) }
                     )
                 }
+                
+                SettingsPreferenceItem(
+                    label = "Budget Alerts",
+                    subtitle = if (uiState.isBudgetAlertsEnabled) "Notify at ${(uiState.budgetThreshold * 100).toInt()}% spent" else "Disabled",
+                    icon = Icons.Default.NotificationsActive,
+                    trailingContent = {
+                        Switch(
+                            checked = uiState.isBudgetAlertsEnabled,
+                            onCheckedChange = { viewModel.toggleBudgetAlerts(it) }
+                        )
+                    },
+                    onClick = { viewModel.toggleBudgetAlerts(!uiState.isBudgetAlertsEnabled) }
+                )
+
+                if (uiState.isBudgetAlertsEnabled) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Text(
+                            text = "Alert Threshold: ${(uiState.budgetThreshold * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Slider(
+                            value = uiState.budgetThreshold,
+                            onValueChange = { viewModel.updateBudgetThreshold(it) },
+                            valueRange = 0.5f..1.0f,
+                            steps = 9
+                        )
+                    }
+                }
             }
         }
 

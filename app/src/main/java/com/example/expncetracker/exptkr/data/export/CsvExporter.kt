@@ -73,6 +73,8 @@ class CsvExporter @Inject constructor(
                         TransactionType.CREDIT -> "Income"
                         TransactionType.DEBIT -> "Expense"
                         TransactionType.TRANSFER -> "Transfer"
+                        TransactionType.LEND -> "Lent"
+                        TransactionType.BORROW -> "Borrowed"
                     }
                     val description = escapeCsvField(transaction.merchant)
                     val bank = escapeCsvField(transaction.bankName)

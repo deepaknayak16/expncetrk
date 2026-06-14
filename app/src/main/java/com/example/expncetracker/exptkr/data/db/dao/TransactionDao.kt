@@ -43,6 +43,12 @@ interface TransactionDao {
     @Query("SELECT MAX(timestamp) FROM transactions")
     suspend fun getLatestTransactionTimestamp(): Long?
 
+    @Query("SELECT * FROM transactions WHERE isRecurring = 1 AND nextDueDate <= :currentTimestamp AND (recurrenceEndDate IS NULL OR recurrenceEndDate >= :currentTimestamp)")
+    suspend fun getDueRecurringTransactions(currentTimestamp: Long): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY nextDueDate ASC")
+    fun getAllRecurringTransactions(): Flow<List<TransactionEntity>>
+
     @Query("DELETE FROM transactions")
     suspend fun clearAll()
 }

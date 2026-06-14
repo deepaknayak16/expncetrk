@@ -287,7 +287,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "${budget.spent.formatAsCurrency()} spent",
+                    text = "${budget.spent.formatAsCurrency()} spent of ${budget.limit.formatAsCurrency()}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -360,7 +360,11 @@ fun AddBudgetDialog(
                         }
                     }
                 } else {
-                    Text("All categories already have a budget.", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = "All categories already have a budget. You can edit existing budgets by clicking the '...' icon on a category card.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 Spacer(Modifier.height(16.dp))

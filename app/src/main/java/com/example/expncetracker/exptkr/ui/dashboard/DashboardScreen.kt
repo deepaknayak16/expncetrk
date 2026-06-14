@@ -2,6 +2,7 @@ package com.example.expncetracker.exptkr.ui.dashboard
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -58,7 +61,8 @@ import java.util.Locale
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToAddTransaction: () -> Unit = {},
-    onNavigateToStatementLedger: () -> Unit = {}
+    onNavigateToStatementLedger: () -> Unit = {},
+    onNavigateToEditTransaction: (Long) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
@@ -101,10 +105,13 @@ fun DashboardScreen(
                         summary = state.summary,
                         recent = state.recentTransactions,
                         categories = state.categories,
+                        recurring = state.recurringTransactions,
+                        goals = state.goals,
                         trends = trends,
                         currentFilter = currentFilter,
                         onNavigateToAddTransaction = onNavigateToAddTransaction,
                         onSeeAllClick = onNavigateToStatementLedger,
+                        onTransactionClick = onNavigateToEditTransaction,
                         onFilterChange = { viewModel.setFilter(it) },
                         onSyncClick = {
                             permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
@@ -121,10 +128,13 @@ fun DashboardContent(
     summary: FinancialSummary,
     recent: List<Transaction>,
     categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
+    recurring: List<Transaction>,
+    goals: List<com.example.expncetracker.exptkr.data.db.entity.GoalEntity>,
     trends: List<com.example.expncetracker.exptkr.domain.model.SpendingTrend>,
     currentFilter: DateFilter,
     onNavigateToAddTransaction: () -> Unit,
     onSeeAllClick: () -> Unit,
+    onTransactionClick: (Long) -> Unit,
     onFilterChange: (DateFilter) -> Unit,
     onSyncClick: () -> Unit,
 ) {
@@ -166,6 +176,46 @@ fun DashboardContent(
                     distribution = summary.categoryDistribution,
                     allCategories = categories
                 )
+            }
+        }
+
+        if (recurring.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    title = "Upcoming Payments",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            items(recurring, key = { "rec_${it.id}" }) { tx ->
+                val categoryEntity = categories.find { it.name == tx.categoryName }
+                TransactionListItem(
+                    transaction = tx.copy(timestamp = tx.nextDueDate ?: tx.timestamp),
+                    categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
+                    categoryColor = categoryEntity?.let { Color(it.color) },
+                    onClick = { onTransactionClick(tx.id) }
+                )
+            }
+        }
+
+        if (goals.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    title = "Savings Goals",
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    goals.forEach { goal ->
+                        GoalProgressItem(goal = goal)
+                    }
+                }
             }
         }
 
@@ -247,12 +297,14 @@ fun DashboardContent(
                     )
                 }
                 
-                items(transactions.take(10), key = { it.id }) { transaction ->
+                val recentLimit = transactions.take(15) // Limit recent activity (L5)
+                items(recentLimit, key = { it.id }) { transaction ->
                     val categoryEntity = categories.find { it.name == transaction.categoryName }
                     TransactionListItem(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
-                        categoryColor = categoryEntity?.let { Color(it.color) }
+                        categoryColor = categoryEntity?.let { Color(it.color) },
+                        onClick = { onTransactionClick(transaction.id) }
                     )
                 }
             }
@@ -260,6 +312,60 @@ fun DashboardContent(
 
         item {
             Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+}
+
+@Composable
+fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalEntity) {
+    val progress = (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
+    
+    Card(
+        modifier = Modifier.width(150.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(60.dp)) {
+                Canvas(modifier = Modifier.size(50.dp)) {
+                    drawArc(
+                        color = Color(goal.color).copy(alpha = 0.2f),
+                        startAngle = 0f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = Color(goal.color),
+                        startAngle = -90f,
+                        sweepAngle = 360f * progress,
+                        useCenter = false,
+                        style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = goal.name,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = goal.currentAmount.formatAsCurrency(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -355,6 +461,19 @@ fun CompactSummaryHeader(
                     if (summary.balance >=0) (if (isDark) DarkIncome else LightIncome) else
                         (if (isDark) DarkExpense else LightExpense), Modifier.weight(1f))
             }
+            
+            if (summary.totalLent > 0 || summary.totalBorrowed > 0) {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    DebtSummaryItem("OWED TO YOU", summary.totalLent.formatAsCurrency(), if (isDark) CategorySalaryDark else CategorySalary)
+                    DebtSummaryItem("YOU OWE", summary.totalBorrowed.formatAsCurrency(), if (isDark) CategoryRentDark else CategoryRent)
+                }
+            }
         }
     }
 }
@@ -374,15 +493,34 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
             overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            style = if (value.length > 12) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = valueColor,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Visible
-        )
+        
+        AnimatedContent(
+            targetState = value,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(220, delayMillis = 90)) + 
+                 scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
+                .togetherWith(fadeOut(animationSpec = tween(90)))
+            },
+            label = "SummaryAnimation"
+        ) { targetValue ->
+            Text(
+                text = targetValue,
+                style = if (targetValue.length > 12) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = valueColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Visible
+            )
+        }
+    }
+}
+
+@Composable
+private fun DebtSummaryItem(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.ExtraBold, color = color)
     }
 }
 

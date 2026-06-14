@@ -3,7 +3,7 @@ package com.example.expncetracker.exptkr.data.mapper
 import com.example.expncetracker.exptkr.core.common.toEpochMilli
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
-import com.example.expncetracker.exptkr.domain.model.Category
+import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 
@@ -15,7 +15,15 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     categoryName = category,
     merchant = merchant,
     bankName = bankName,
-    timestamp = timestamp.toLocalDateTime()
+    note = note,
+    timestamp = timestamp.toLocalDateTime(),
+    isRecurring = isRecurring,
+    frequency = frequency?.let { RecurrenceFrequency.valueOf(it) },
+    nextDueDate = nextDueDate?.toLocalDateTime(),
+    recurrenceEndDate = recurrenceEndDate?.toLocalDateTime(),
+    parentTransactionId = parentTransactionId,
+    counterparty = counterparty,
+    isSettled = isSettled
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -26,5 +34,13 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     category = categoryName,
     merchant = merchant,
     bankName = bankName,
-    timestamp = timestamp.toEpochMilli()
+    note = note,
+    timestamp = timestamp.toEpochMilli(),
+    isRecurring = isRecurring,
+    frequency = frequency?.name,
+    nextDueDate = nextDueDate?.toEpochMilli(),
+    recurrenceEndDate = recurrenceEndDate?.toEpochMilli(),
+    parentTransactionId = parentTransactionId,
+    counterparty = counterparty,
+    isSettled = isSettled
 )

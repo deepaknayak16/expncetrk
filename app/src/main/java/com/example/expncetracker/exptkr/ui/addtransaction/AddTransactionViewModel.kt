@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.domain.model.Category
+import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
@@ -19,8 +20,22 @@ import javax.inject.Inject
 class AddTransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
     private val accountDao: AccountDao,
+    private val categoryDetector: com.example.expncetracker.exptkr.core.parser.CategoryDetector,
     private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
+// ... around line 60
+    fun onMerchantNameChanged(name: String) {
+        viewModelScope.launch {
+            val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT)
+            if (suggestedCategory != Category.OTHERS.displayName) {
+                // Auto-fill category if we found a match with high confidence (non-Others)
+                _suggestedCategory.value = suggestedCategory
+            }
+        }
+    }
+
+    private val _suggestedCategory = MutableStateFlow<String?>(null)
+    val suggestedCategory = _suggestedCategory.asStateFlow()
 
     private val _transactionToEdit = MutableStateFlow<Transaction?>(null)
     val transactionToEdit = _transactionToEdit.asStateFlow()
@@ -56,26 +71,78 @@ class AddTransactionViewModel @Inject constructor(
         type: TransactionType,
         category: String,
         description: String?,
+        note: String? = null,
         bankName: String = "Manual",
+        counterparty: String? = null,
+        isRecurring: Boolean = false,
+        frequency: RecurrenceFrequency? = null,
+        recurrenceEndDate: java.time.LocalDateTime? = null,
         timestamp: java.time.LocalDateTime = java.time.LocalDateTime.now()
     ) {
         viewModelScope.launch {
             if (_transactionToEdit.value?.smsId != null) {
-                // Should not happen as UI prevents editing SMS transactions
                 return@launch
             }
 
+            // Update Account Balance
+            val accountEntities = accountDao.getAllAccounts().first()
+            val account = accountEntities.find { it.name == bankName }
+            
+            account?.let { acc ->
+                var newBalance = acc.balance
+                
+                // If editing, first reverse the old transaction
+                _transactionToEdit.value?.let { old ->
+                    if (old.bankName == bankName) {
+                        newBalance = when (old.type) {
+                            TransactionType.CREDIT, TransactionType.BORROW -> newBalance - old.amount
+                            TransactionType.DEBIT, TransactionType.LEND -> newBalance + old.amount
+                            TransactionType.TRANSFER -> newBalance
+                        }
+                    }
+                }
+                
+                // Apply the new transaction
+                newBalance = when (type) {
+                    TransactionType.CREDIT, TransactionType.BORROW -> newBalance + amount
+                    TransactionType.DEBIT, TransactionType.LEND -> newBalance - amount
+                    TransactionType.TRANSFER -> newBalance
+                }
+                
+                accountDao.updateAccount(acc.copy(balance = newBalance))
+            }
+
+            // Calculate next due date if it is recurring
+            val nextDueDate = if (isRecurring && frequency != null) {
+                calculateNextDate(timestamp, frequency)
+            } else null
+
             val transaction = Transaction(
                 id = id,
-                smsId = _transactionToEdit.value?.smsId, // Keep smsId if editing
+                smsId = _transactionToEdit.value?.smsId,
                 amount = amount,
                 type = type,
                 categoryName = category,
                 merchant = description ?: "Manual Entry",
                 bankName = bankName,
-                timestamp = timestamp
+                note = note,
+                timestamp = timestamp,
+                isRecurring = isRecurring,
+                frequency = frequency,
+                nextDueDate = nextDueDate,
+                recurrenceEndDate = recurrenceEndDate,
+                counterparty = counterparty
             )
             repository.insertTransactions(listOf(transaction))
+        }
+    }
+
+    private fun calculateNextDate(current: java.time.LocalDateTime, frequency: RecurrenceFrequency): java.time.LocalDateTime {
+        return when (frequency) {
+            RecurrenceFrequency.DAILY -> current.plusDays(1)
+            RecurrenceFrequency.WEEKLY -> current.plusWeeks(1)
+            RecurrenceFrequency.MONTHLY -> current.plusMonths(1)
+            RecurrenceFrequency.YEARLY -> current.plusYears(1)
         }
     }
 }

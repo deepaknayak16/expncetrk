@@ -107,8 +107,15 @@ fun TransactionListItem(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
+                    val detailText = buildString {
+                        append(transaction.categoryName)
+                        if (transaction.counterparty != null) {
+                            append(" • ${transaction.counterparty}")
+                        }
+                        append(" • ${transaction.timestamp.formatToDisplay()}")
+                    }
                     Text(
-                        text = "${transaction.categoryName} • ${transaction.timestamp.formatToDisplay()}",
+                        text = detailText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -118,10 +125,12 @@ fun TransactionListItem(
                     TransactionType.CREDIT -> "+"
                     TransactionType.DEBIT -> "-"
                     TransactionType.TRANSFER -> "⇄ "
+                    TransactionType.LEND -> "↗ "
+                    TransactionType.BORROW -> "↙ "
                 }
                 val amountColor = when (transaction.type) {
-                    TransactionType.CREDIT -> if (isDarkTheme) DarkIncome else LightIncome
-                    TransactionType.DEBIT -> if (isDarkTheme) DarkExpense else LightExpense
+                    TransactionType.CREDIT, TransactionType.BORROW -> if (isDarkTheme) DarkIncome else LightIncome
+                    TransactionType.DEBIT, TransactionType.LEND -> if (isDarkTheme) DarkExpense else LightExpense
                     TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
                 }
                 

@@ -94,6 +94,15 @@ class TransactionViewModel @Inject constructor(
         _sortOrder.value = order
     }
 
+    fun refreshTransactions() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            delay(300)
+            _selectedFilter.value = _selectedFilter.value
+            _isRefreshing.value = false
+        }
+    }
+
     fun syncSmsTransactions() {
         viewModelScope.launch {
             _isRefreshing.value = true
@@ -121,6 +130,38 @@ class TransactionViewModel @Inject constructor(
                     repository.deleteTransactionById(transaction.id)
                     _statusEvent.send("Transaction deleted")
                 }
+            }
+        }
+    }
+
+    fun splitTransaction(parent: Transaction, splits: List<Pair<String, Double>>) {
+        viewModelScope.launch {
+            try {
+                repository.deleteTransactionById(parent.id)
+                val subTransactions = splits.map { (catName, amt) ->
+                    parent.copy(
+                        id = 0,
+                        amount = amt,
+                        categoryName = catName,
+                        parentTransactionId = parent.id,
+                        note = "Split from original ₹${parent.amount}: ${parent.note ?: ""}".trim()
+                    )
+                }
+                repository.insertTransactions(subTransactions)
+                _statusEvent.send("Transaction split successfully")
+            } catch (e: Exception) {
+                _statusEvent.send("Split failed: ${e.message}")
+            }
+        }
+    }
+
+    fun settleTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            try {
+                repository.updateTransaction(transaction.copy(isSettled = true))
+                _statusEvent.send("Debt marked as settled")
+            } catch (e: Exception) {
+                _statusEvent.send("Settlement failed: ${e.message}")
             }
         }
     }
