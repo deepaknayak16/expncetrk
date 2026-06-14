@@ -417,6 +417,8 @@ fun CompactSummaryHeader(
     var showFilterSheet by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
 
+    var showDatePicker by remember { mutableStateOf(false) }
+
     if (showFilterSheet) {
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },
@@ -426,6 +428,35 @@ fun CompactSummaryHeader(
                 currentFilter = currentFilter,
                 onFilterSelected = { onFilterChange(it); showFilterSheet = false }
             )
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = calendar.timeInMillis
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val selectedCal = Calendar.getInstance().apply { timeInMillis = millis }
+                        calendar = selectedCal
+                        // We must update the filter type to MONTH to ensure the summary updates
+                        onFilterChange(DateFilter.MONTH)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
@@ -453,12 +484,22 @@ fun CompactSummaryHeader(
                     Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
                 }
 
-                Text(
-                    text = monthYearFormat.format(calendar.time),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { 
+                            showDatePicker = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = monthYearFormat.format(calendar.time),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
 
                 Row {
                     val isNextMonthInFuture = remember(calendar) {
@@ -573,6 +614,7 @@ fun DistributionSection(
     distribution: Map<String, Double>,
     allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>
 ) {
+    // Include ALL categories, even those with 0 amount
     val items = allCategories.map { entity ->
         val amount = distribution[entity.name] ?: 0.0
         val categoryEnum = Category.entries.find { it.displayName == entity.name } ?: Category.OTHERS
@@ -586,7 +628,8 @@ fun DistributionSection(
             text = "Spending Distribution",
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -594,7 +637,8 @@ fun DistributionSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
-                .horizontalScroll(rememberScrollState()),
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.Bottom
         ) {
@@ -625,6 +669,7 @@ fun DistributionSection(
                             ),
                         contentAlignment = Alignment.BottomCenter
                     ) {
+                        // The actual colored bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -632,6 +677,7 @@ fun DistributionSection(
                                 .background(item.color)
                         )
                         
+                        // Rotated label inside the bar
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Start,
@@ -658,7 +704,7 @@ fun DistributionSection(
                         ) {
                             Text(
                                 text = item.name.uppercase(),
-                                color = Color.White.copy(alpha = 0.9f),
+                                color = if (barHeightFraction > 0.4f) Color.White.copy(alpha = 0.9f) else item.color,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
                                 maxLines = 1,
