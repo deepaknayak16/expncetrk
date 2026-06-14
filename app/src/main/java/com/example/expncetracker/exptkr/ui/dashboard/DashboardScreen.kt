@@ -304,7 +304,7 @@ fun DashboardContent(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                         categoryColor = categoryEntity?.let { Color(it.color) },
-                        onClick = { onTransactionClick(transaction.id) }
+                        onClick = { /* Home transactions are read-only as requested (R1) */ }
                     )
                 }
             }

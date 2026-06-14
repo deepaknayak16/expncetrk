@@ -165,7 +165,7 @@ fun AppNavGraph() {
                             "budget" -> budgetViewModel.triggerAddBudget()
                             "accounts" -> accountsViewModel.triggerAddAccount()
                             "categories" -> categoriesViewModel.triggerAddCategory()
-                            "goals" -> { /* Goals adds via FAB, or we can handle here too */ }
+                            "goals" -> goalsViewModel.triggerAddGoal()
                             else -> {
                                 editingTransactionId = null
                                 showAddTransactionSheet = true

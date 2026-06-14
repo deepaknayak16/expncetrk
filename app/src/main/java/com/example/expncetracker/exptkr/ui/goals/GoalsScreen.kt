@@ -30,14 +30,10 @@ import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 @Composable
 fun GoalsScreen(viewModel: GoalsViewModel) {
     val goals by viewModel.goals.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
+    val showAddDialog by viewModel.showAddDialog.collectAsState()
 
     Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Goal")
-            }
-        }
+        /* FAB removed as requested - Add icon in top bar handles this */
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background),
@@ -69,10 +65,10 @@ fun GoalsScreen(viewModel: GoalsViewModel) {
 
     if (showAddDialog) {
         AddGoalDialog(
-            onDismiss = { showAddDialog = false },
+            onDismiss = { viewModel.onDialogDismissed() },
             onConfirm = { name, target, color ->
                 viewModel.addGoal(name, target, color)
-                showAddDialog = false
+                viewModel.onDialogDismissed()
             }
         )
     }

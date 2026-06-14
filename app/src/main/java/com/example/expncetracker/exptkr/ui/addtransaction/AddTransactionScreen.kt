@@ -79,7 +79,7 @@ fun AddTransactionScreen(
 
     LaunchedEffect(transactionToEdit) {
         transactionToEdit?.let {
-            amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
+            amountText = if (it.amount % 1.0 == 0.0) it.amount.toLong().toString() else "%.2f".format(it.amount)
             merchantName = it.merchant
             note = it.note ?: ""
             selectedType = it.type
@@ -91,9 +91,10 @@ fun AddTransactionScreen(
         }
     }
 
-    LaunchedEffect(allCategories) {
+    LaunchedEffect(allCategories, selectedType) {
         if (selectedCategoryName.isEmpty() && allCategories.isNotEmpty()) {
-            selectedCategoryName = allCategories.find { it.type == "EXPENSE" }?.name ?: ""
+            val typeStr = if (selectedType == TransactionType.CREDIT) "INCOME" else "EXPENSE"
+            selectedCategoryName = allCategories.find { it.type == typeStr }?.name ?: allCategories.first().name
         }
     }
 
@@ -196,10 +197,10 @@ fun AddTransactionScreen(
                     types.forEachIndexed { index, (type, label) ->
                         TypeTab(label, selectedType == type) { 
                             selectedType = type
-                            if (type == TransactionType.CREDIT) {
-                                allCategories.find { it.type == "INCOME" }?.let { selectedCategoryName = it.name }
-                            } else if (type == TransactionType.DEBIT) {
-                                allCategories.find { it.type == "EXPENSE" }?.let { selectedCategoryName = it.name }
+                            val typeStr = if (type == TransactionType.CREDIT) "INCOME" else "EXPENSE"
+                            val currentCatValid = allCategories.find { it.name == selectedCategoryName }?.type == typeStr
+                            if (!currentCatValid) {
+                                allCategories.find { it.type == typeStr }?.let { selectedCategoryName = it.name }
                             }
                         }
                         if (index < types.size - 1) {
@@ -296,6 +297,7 @@ fun AddTransactionScreen(
                     onValueChange = { merchantName = it },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     placeholder = { Text("Merchant / Payee", style = MaterialTheme.typography.bodyMedium) },
+                    label = { Text("Merchant") },
                     textStyle = MaterialTheme.typography.bodyLarge,
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
@@ -310,6 +312,7 @@ fun AddTransactionScreen(
                     onValueChange = { note = it },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     placeholder = { Text("Note (Optional)", style = MaterialTheme.typography.bodyMedium) },
+                    label = { Text("Note") },
                     textStyle = MaterialTheme.typography.bodyLarge,
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
@@ -407,7 +410,7 @@ fun AddTransactionScreen(
         }
     }
 
-    // Modal Sheets and Dialogs (unchanged)
+    // Modal Sheets and Dialogs
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
