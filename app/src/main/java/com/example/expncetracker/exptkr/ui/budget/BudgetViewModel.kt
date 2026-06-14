@@ -10,6 +10,7 @@ import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -45,6 +46,9 @@ class BudgetViewModel @Inject constructor(
     
     val categories = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _statusEvent = Channel<String>()
+    val statusEvent = _statusEvent.receiveAsFlow()
     
     @OptIn(ExperimentalCoroutinesApi::class)
     val budgetList: StateFlow<List<BudgetUiModel>> = _selectedMonth.flatMapLatest { month ->
@@ -72,7 +76,10 @@ class BudgetViewModel @Inject constructor(
                 )
             }
         }.flowOn(Dispatchers.Default)
-    }.catch { emit(emptyList()) }
+    }.catch { e ->
+        _statusEvent.send("Budget load failed: ${e.message}")
+        emit(emptyList())
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _isRefreshing = MutableStateFlow(false)

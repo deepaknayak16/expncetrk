@@ -53,12 +53,15 @@ class TransactionViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
+    private val _refreshTrigger = MutableStateFlow(0)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val transactions: StateFlow<List<Transaction>> = combine(
         _selectedFilter,
         _searchQuery.debounce(300L),
-        _sortOrder
-    ) { filter, query, sort ->
+        _sortOrder,
+        _refreshTrigger
+    ) { filter, query, sort, _ ->
         Triple(filter, query, sort)
     }.flatMapLatest { (filter, query, sort) ->
         _isLoading.value = true
@@ -97,8 +100,8 @@ class TransactionViewModel @Inject constructor(
     fun refreshTransactions() {
         viewModelScope.launch {
             _isRefreshing.value = true
+            _refreshTrigger.value++
             delay(300)
-            _selectedFilter.value = _selectedFilter.value
             _isRefreshing.value = false
         }
     }

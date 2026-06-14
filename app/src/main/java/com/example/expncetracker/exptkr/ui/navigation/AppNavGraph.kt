@@ -152,7 +152,7 @@ fun AppNavGraph() {
                         "settings" -> stringResource(R.string.settings_title)
                         else -> stringResource(R.string.app_name)
                     },
-                    showSearch = false,
+                    showSearch = currentRoute == "dashboard",
                     onMenuClick = { scope.launch { drawerState.open() } },
                     onBackClick = { navController.popBackStack() },
                     onSearchClick = {
@@ -248,7 +248,7 @@ fun AppNavGraph() {
                     sheetState = sheetState,
                     containerColor = MaterialTheme.colorScheme.surface,
                     dragHandle = { BottomSheetDefaults.DragHandle() },
-                    modifier = Modifier.fillMaxHeight(0.9f)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     AddTransactionScreen(
                         transactionId = editingTransactionId,
@@ -374,7 +374,7 @@ private fun ModernNavigationBar(
             NavigationBarItem(
                 selected = isSelected,
                 onClick = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     navController.navigate(item.route) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true

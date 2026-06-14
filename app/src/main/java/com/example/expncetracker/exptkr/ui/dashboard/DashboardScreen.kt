@@ -141,7 +141,7 @@ fun DashboardContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             val calendar = Calendar.getInstance()
@@ -152,17 +152,52 @@ fun DashboardContent(
                 else -> stringResource(R.string.greeting_night)
             }
             Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp)) {
-                Text(
-                    text = "$greeting!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Welcome back to MoneyWise",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (recurring.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.NotificationImportant,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Upcoming Payment Due!",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    text = "You have ${recurring.size} bill${if (recurring.size > 1) "s" else ""} to pay soon",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "$greeting!",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Welcome back to ${stringResource(R.string.app_name)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
@@ -297,14 +332,14 @@ fun DashboardContent(
                     )
                 }
                 
-                val recentLimit = transactions.take(15) // Limit recent activity (L5)
+                val recentLimit = transactions.take(15)
                 items(recentLimit, key = { it.id }) { transaction ->
                     val categoryEntity = categories.find { it.name == transaction.categoryName }
                     TransactionListItem(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                         categoryColor = categoryEntity?.let { Color(it.color) },
-                        onClick = { /* Home transactions are read-only as requested (R1) */ }
+                        onClick = { onTransactionClick(transaction.id) }
                     )
                 }
             }
@@ -362,7 +397,7 @@ fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalE
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = goal.currentAmount.formatAsCurrency(),
+                text = "${goal.currentAmount.formatAsCurrency()} / ${goal.targetAmount.formatAsCurrency()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -413,7 +448,7 @@ fun CompactSummaryHeader(
             ) {
                 IconButton(onClick = {
                     calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                    if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
+                    onFilterChange(DateFilter.MONTH)
                 }) {
                     Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
                 }
@@ -428,12 +463,14 @@ fun CompactSummaryHeader(
                 Row {
                     val isNextMonthInFuture = remember(calendar) {
                         val next = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                        next.timeInMillis > System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000 * 3) // 3 month buffer
+                        val now = Calendar.getInstance()
+                        next.get(Calendar.YEAR) > now.get(Calendar.YEAR) || 
+                        (next.get(Calendar.YEAR) == now.get(Calendar.YEAR) && next.get(Calendar.MONTH) > now.get(Calendar.MONTH))
                     }
                     IconButton(
                         onClick = {
                             calendar = (calendar.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                            if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
+                            onFilterChange(DateFilter.MONTH)
                         },
                         enabled = !isNextMonthInFuture
                     ) {
@@ -556,9 +593,9 @@ fun DistributionSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(170.dp)
+                .height(160.dp)
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             items.forEach { item ->
@@ -566,8 +603,15 @@ fun DistributionSection(
                 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(if (items.size > 6) 60.dp else 0.dp).then(if (items.size <= 6) Modifier.weight(1f) else Modifier)
+                    modifier = Modifier.width(44.dp)
                 ) {
+                    Text(
+                        text = if (item.amount >= 1000) String.format(Locale.US, "%.1fK", item.amount/1000) else item.amount.toInt().toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -592,7 +636,7 @@ fun DistributionSection(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Start,
                             modifier = Modifier
-                                .padding(bottom = 12.dp)
+                                .padding(bottom = 8.dp)
                                 .layout { measurable, constraints ->
                                     val placeable = measurable.measure(
                                         constraints.copy(
@@ -613,18 +657,10 @@ fun DistributionSection(
                                 }
                         ) {
                             Text(
-                                text = if (item.amount >= 1000) String.format(Locale.US, "%.1fK", item.amount/1000) else item.amount.toInt().toString(),
-                                color = Color.White,
+                                text = item.name.uppercase(),
+                                color = Color.White.copy(alpha = 0.9f),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
-                                maxLines = 1
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = item.name.uppercase(),
-                                color = Color.White,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.ExtraBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Visible
                             )

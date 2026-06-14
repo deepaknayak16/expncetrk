@@ -15,6 +15,7 @@ import androidx.fragment.app.FragmentActivity
 import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.PERMISSION_RATIONALE_SHOWN_KEY
+import com.example.expncetracker.exptkr.core.common.NOTIFICATION_PERMISSION_SHOWN_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
 import androidx.datastore.preferences.core.edit
 import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
@@ -42,11 +43,13 @@ class MainActivity : FragmentActivity() {
         val biometricEnabled = preferencesFlow.map { it[BIOMETRIC_ENABLED_KEY] ?: false }
         val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] ?: false }
         val rationaleShownFlow = preferencesFlow.map { it[PERMISSION_RATIONALE_SHOWN_KEY] ?: false }
+        val notificationRationaleFlow = preferencesFlow.map { it[NOTIFICATION_PERMISSION_SHOWN_KEY] ?: false }
 
         setContent {
             val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
             val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
             val isRationaleShown by rationaleShownFlow.collectAsState(initial = false)
+            val isNotificationRationaleShown by notificationRationaleFlow.collectAsState(initial = false)
             val scope = rememberCoroutineScope()
             
             var showPermissionRationale by remember(isRationaleShown) { 
@@ -56,17 +59,21 @@ class MainActivity : FragmentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result ->
-                val granted = result.values.all { it }
                 if (result[android.Manifest.permission.READ_SMS] == true) {
                     Toast.makeText(this@MainActivity, "SMS permission granted", Toast.LENGTH_SHORT).show()
                     scope.launch {
                         dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
                     }
                 }
+                if (result[android.Manifest.permission.POST_NOTIFICATIONS] == true || result[android.Manifest.permission.POST_NOTIFICATIONS] == false) {
+                    scope.launch {
+                        dataStore.edit { it[NOTIFICATION_PERMISSION_SHOWN_KEY] = true }
+                    }
+                }
             }
 
-            LaunchedEffect(Unit) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            LaunchedEffect(isNotificationRationaleShown) {
+                if (!isNotificationRationaleShown && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                     permissionLauncher.launch(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS))
                 }
             }

@@ -24,11 +24,10 @@ class AddTransactionViewModel @Inject constructor(
     private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
 // ... around line 60
-    fun onMerchantNameChanged(name: String) {
+    fun onMerchantNameChanged(name: String, currentCategory: String) {
         viewModelScope.launch {
             val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT)
-            if (suggestedCategory != Category.OTHERS.displayName) {
-                // Auto-fill category if we found a match with high confidence (non-Others)
+            if (suggestedCategory != Category.OTHERS.displayName && (currentCategory.isEmpty() || currentCategory == Category.OTHERS.displayName)) {
                 _suggestedCategory.value = suggestedCategory
             }
         }
