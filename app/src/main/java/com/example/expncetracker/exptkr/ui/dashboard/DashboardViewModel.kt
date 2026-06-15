@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
@@ -12,6 +13,7 @@ import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 import com.example.expncetracker.exptkr.data.db.dao.GoalDao
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,14 +34,16 @@ class DashboardViewModel @Inject constructor(
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing = _isSyncing.asStateFlow()
-    private val _statusEvent = Channel<String>()
+    
+    private val _statusEvent = Channel<String>(Channel.BUFFERED)
+    val statusEvent = _statusEvent.receiveAsFlow()
 
     val uiState: StateFlow<DashboardUiState> = combine(
-        _selectedFilter.flatMapLatest { getSummaryUseCase(it) },
-        getRecentTransactionsUseCase(10),
-        categoryDao.getAllCategories(),
-        repository.getAllRecurringTransactions(),
-        goalDao.getAllGoals()
+        _selectedFilter.flatMapLatest { getSummaryUseCase(it) }.distinctUntilChanged(),
+        getRecentTransactionsUseCase(10).distinctUntilChanged(),
+        categoryDao.getAllCategories().distinctUntilChanged(),
+        repository.getAllRecurringTransactions().distinctUntilChanged(),
+        goalDao.getAllGoals().distinctUntilChanged()
     ) { summary, recent, categories, recurring, goals ->
         DashboardUiState.Success(summary, recent, categories, recurring, goals) as DashboardUiState
     }
@@ -48,8 +52,8 @@ class DashboardViewModel @Inject constructor(
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
-    val trends: StateFlow<List<SpendingTrend>> = _selectedFilter.flatMapLatest {
-        getTrendsUseCase(6)
+    val trends: StateFlow<List<SpendingTrend>> = _selectedFilter.flatMapLatest { filter ->
+        getTrendsUseCase(filter.toMonths())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun syncTransactions() {

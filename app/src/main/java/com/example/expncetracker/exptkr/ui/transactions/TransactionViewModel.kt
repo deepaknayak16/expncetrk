@@ -3,8 +3,8 @@ package com.example.expncetracker.exptkr.ui.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -24,6 +24,21 @@ enum class SortOrder(val title: String) {
     AMOUNT_ASC("Lowest Amount")
 }
 
+data class TransactionFilter(
+    val query: String = "",
+    val startDate: Long? = null,
+    val endDate: Long? = null,
+    val minAmount: Double? = null,
+    val maxAmount: Double? = null,
+    val categoryName: String? = null,
+    val accountName: String? = null
+)
+
+data class SmartFilter(
+    val name: String,
+    val filter: TransactionFilter
+)
+
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
@@ -38,13 +53,19 @@ class TransactionViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
+    private val _advancedFilter = MutableStateFlow(TransactionFilter())
+    val advancedFilter = _advancedFilter.asStateFlow()
+
+    private val _smartFilters = MutableStateFlow<List<SmartFilter>>(emptyList())
+    val smartFilters = _smartFilters.asStateFlow()
+
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
     val selectedFilter = _selectedFilter.asStateFlow()
 
     private val _sortOrder = MutableStateFlow(SortOrder.DATE_DESC)
     val sortOrder = _sortOrder.asStateFlow()
 
-    private val _statusEvent = Channel<String>()
+    private val _statusEvent = Channel<String>(Channel.BUFFERED)
     val statusEvent = _statusEvent.receiveAsFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -58,35 +79,77 @@ class TransactionViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val transactions: StateFlow<List<Transaction>> = combine(
         _selectedFilter,
-        _searchQuery.debounce(300L),
+        _searchQuery
+            .debounce(300L)
+            .filter { it.length >= 2 || it.isEmpty() },
         _sortOrder,
+        _advancedFilter,
         _refreshTrigger
-    ) { filter, query, sort, _ ->
-        Triple(filter, query, sort)
-    }.flatMapLatest { (filter, query, sort) ->
-        _isLoading.value = true
+    ) { filter, query, sort, adv, _ ->
         val now = LocalDateTime.now()
-        val startDateTime = when (filter) {
+        val defaultStart = when (filter) {
             DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
             DateFilter.WEEK -> now.minusDays(7)
             DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
             DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
         }
-        val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val startMillis = adv.startDate ?: defaultStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = adv.endDate ?: now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         
-        repository.searchTransactions(startMillis, endMillis, query).map { list ->
-            when (sort) {
-                SortOrder.DATE_DESC -> list.sortedByDescending { it.timestamp }
-                SortOrder.DATE_ASC -> list.sortedBy { it.timestamp }
-                SortOrder.AMOUNT_DESC -> list.sortedByDescending { it.amount }
-                SortOrder.AMOUNT_ASC -> list.sortedBy { it.amount }
+        FilterParams(startMillis, endMillis, query, sort, adv)
+    }.flatMapLatest { params ->
+        _isLoading.value = true
+        repository.searchTransactions(params.startMillis, params.endMillis, params.query).map { list ->
+            list.filter { tx ->
+                val amountMatch = (params.adv.minAmount == null || tx.amount >= params.adv.minAmount) &&
+                                 (params.adv.maxAmount == null || tx.amount <= params.adv.maxAmount)
+                val categoryMatch = params.adv.categoryName == null || tx.categoryName == params.adv.categoryName
+                val accountMatch = params.adv.accountName == null || tx.bankName == params.adv.accountName
+                
+                // Advanced text search across merchant, note, category, account
+                val textMatch = if (params.adv.query.isNotEmpty()) {
+                    tx.merchant.contains(params.adv.query, ignoreCase = true) ||
+                    (tx.note?.contains(params.adv.query, ignoreCase = true) ?: false) ||
+                    tx.categoryName.contains(params.adv.query, ignoreCase = true) ||
+                    tx.bankName.contains(params.adv.query, ignoreCase = true)
+                } else true
+
+                amountMatch && categoryMatch && accountMatch && textMatch
+            }.let { filteredList ->
+                when (params.sort) {
+                    SortOrder.DATE_DESC -> filteredList.sortedByDescending { it.timestamp }
+                    SortOrder.DATE_ASC -> filteredList.sortedBy { it.timestamp }
+                    SortOrder.AMOUNT_DESC -> filteredList.sortedByDescending { it.amount }
+                    SortOrder.AMOUNT_ASC -> filteredList.sortedBy { it.amount }
+                }
             }
         }.onEach { _isLoading.value = false }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private data class FilterParams(
+        val startMillis: Long,
+        val endMillis: Long,
+        val query: String,
+        val sort: SortOrder,
+        val adv: TransactionFilter
+    )
+
     fun onSearchQueryChange(newQuery: String) {
         _searchQuery.value = newQuery
+    }
+
+    fun updateAdvancedFilter(update: (TransactionFilter) -> TransactionFilter) {
+        _advancedFilter.update(update)
+    }
+
+    fun saveSmartFilter(name: String) {
+        val currentFilter = _advancedFilter.value.copy(query = _searchQuery.value)
+        _smartFilters.update { it + SmartFilter(name, currentFilter) }
+    }
+
+    fun applySmartFilter(smartFilter: SmartFilter) {
+        _searchQuery.value = smartFilter.filter.query
+        _advancedFilter.value = smartFilter.filter
     }
 
     fun setFilter(filter: DateFilter) {

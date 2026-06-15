@@ -30,7 +30,7 @@ class GetTrendsUseCase @Inject constructor(
             }
 
             txList.forEach { tx ->
-                if (tx.type == TransactionType.DEBIT) {
+                if (tx.type == TransactionType.DEBIT || tx.type == TransactionType.LEND || tx.type == TransactionType.TRANSFER) {
                     val label = "${tx.timestamp.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${tx.timestamp.year % 100}"
                     if (trends.containsKey(label)) {
                         trends[label] = trends[label]!! + tx.amount

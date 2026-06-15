@@ -1,4 +1,4 @@
-package com.example.expncetracker.exptkr.ui.dashboard
+package com.example.expncetracker.exptkr.domain.model
 
 enum class DateFilter(val title: String) {
     DAY("Today"),

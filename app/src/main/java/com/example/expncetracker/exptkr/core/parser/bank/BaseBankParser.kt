@@ -1,5 +1,7 @@
 package com.example.expncetracker.exptkr.core.parser.bank
 
+import android.util.Log
+import com.example.expncetracker.BuildConfig
 import com.example.expncetracker.exptkr.core.parser.BankParser
 import com.example.expncetracker.exptkr.core.parser.ParsedSms
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime
@@ -25,12 +27,12 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             val amountMatch = amountRegex.find(cleanBody) ?: return null
             val amountStr = amountMatch.groupValues.getOrNull(1)?.replace(",", "") ?: return null
             val amount = amountStr.toDoubleOrNull() ?: return null
-            if (amount < 0) return null  // Allow 0.00 for logging purposes
-            if (amount == 0.0 && BuildConfig.DEBUG) {
-                Log.d("BankParser", "Zero-amount transaction from $bankName: $smsBody")
+            
+            if (amount < 0) return null
+            if (amount == 0.0) {
+                if (BuildConfig.DEBUG) Log.d("BankParser", "Zero-amount transaction from $bankName: $smsBody")
+                return null
             }
-
-            if (amount <= 0) return null
 
             val type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT
 
@@ -39,7 +41,7 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
 
             ParsedSms(amount, type, merchant, bankName, time)
         } catch (e: Exception) {
-            // FIX #13: Removed android.util.Log call. Use Timber in debug if needed.
+            if (BuildConfig.DEBUG) Log.d("BankParser", "Parse failed: ${e.message}")
             null
         }
     }

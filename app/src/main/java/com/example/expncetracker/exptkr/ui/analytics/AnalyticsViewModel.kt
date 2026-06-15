@@ -4,16 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.usecase.GetDailyTotalsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.temporal.WeekFields
+import java.util.Locale
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -58,10 +60,19 @@ class AnalyticsViewModel @Inject constructor(
 
     fun setFilter(filter: DateFilter) {
         _selectedFilter.value = filter
-        if (filter == DateFilter.WEEK) {
-            _weekRange.value = Pair(
+        _weekRange.value = when (filter) {
+            DateFilter.WEEK -> Pair(
                 LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L),
                 LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(6)
+            )
+            DateFilter.DAY -> Pair(LocalDate.now(), LocalDate.now())
+            DateFilter.MONTH -> Pair(
+                LocalDate.now().withDayOfMonth(1),
+                LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth())
+            )
+            DateFilter.YEAR -> Pair(
+                LocalDate.now().withDayOfYear(1),
+                LocalDate.now().withDayOfYear(LocalDate.now().lengthOfYear())
             )
         }
     }

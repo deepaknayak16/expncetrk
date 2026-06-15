@@ -5,8 +5,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
@@ -18,16 +23,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.ui.dashboard.TimeFilterRow
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.core.common.formatToDisplay
 import com.example.expncetracker.exptkr.ui.theme.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +49,8 @@ fun TransactionScreen(
     val categories by viewModel.categories.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val advancedFilter by viewModel.advancedFilter.collectAsState()
+    val smartFilters by viewModel.smartFilters.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -206,20 +218,38 @@ fun TransactionScreen(
                 }
 
                 if (showFilterSheet) {
-                    ModalBottomSheet(
-                        onDismissRequest = { showFilterSheet = false },
-                        containerColor = MaterialTheme.colorScheme.surface
+                    AdvancedFilterBottomSheet(
+                        currentFilter = advancedFilter,
+                        categories = categories,
+                        onDismiss = { showFilterSheet = false },
+                        onApply = { viewModel.updateAdvancedFilter { it.copy(
+                            startDate = it.startDate,
+                            endDate = it.endDate,
+                            minAmount = it.minAmount,
+                            maxAmount = it.maxAmount,
+                            categoryName = it.categoryName
+                        ) } },
+                        onUpdate = { viewModel.updateAdvancedFilter { it } },
+                        onSaveSmartFilter = { viewModel.saveSmartFilter(it) }
+                    )
+                }
+
+                if (smartFilters.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(Modifier.padding(16.dp)) {
-                            TimeFilterRow(
-                                currentFilter = selectedFilter,
-                                onFilterSelected = { 
-                                    viewModel.setFilter(it)
-                                    showFilterSheet = false 
-                                }
+                        smartFilters.forEach { sf ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { viewModel.applySmartFilter(sf) },
+                                label = { Text(sf.name) },
+                                leadingIcon = { Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp)) }
                             )
                         }
-                        Spacer(Modifier.height(24.dp))
                     }
                 }
 
@@ -303,7 +333,7 @@ fun TransactionDetailContent(
 ) {
     val isDark = MaterialTheme.isDark
     val canDelete = transaction.smsId == null && java.time.Duration.between(transaction.timestamp, java.time.LocalDateTime.now()).toMinutes() <= 60
-    val canEdit = transaction.smsId == null
+    val canEdit = transaction.smsId == null && java.time.Duration.between(transaction.timestamp, java.time.LocalDateTime.now()).toMinutes() <= 60
     val canSplit = transaction.type == TransactionType.DEBIT
     val isDebt = transaction.type == TransactionType.LEND || transaction.type == TransactionType.BORROW
 
@@ -524,6 +554,141 @@ fun SplitTransactionDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdvancedFilterBottomSheet(
+    currentFilter: TransactionFilter,
+    categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit,
+    onUpdate: (TransactionFilter) -> Unit,
+    onSaveSmartFilter: (String) -> Unit
+) {
+    val dateRangePickerState = rememberDateRangePickerState()
+    var showSmartFilterDialog by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxHeight(0.9f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text("Advanced Filters", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(24.dp))
+
+            // Date Range
+            Text("Date Range", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            DateRangePicker(
+                state = dateRangePickerState,
+                modifier = Modifier.height(400.dp),
+                title = null,
+                headline = null,
+                showModeToggle = false
+            )
+            
+            LaunchedEffect(dateRangePickerState.selectedStartDateMillis, dateRangePickerState.selectedEndDateMillis) {
+                onUpdate(currentFilter.copy(
+                    startDate = dateRangePickerState.selectedStartDateMillis,
+                    endDate = dateRangePickerState.selectedEndDateMillis
+                ))
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Amount Range
+            Text("Amount Range", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            val min = 0f
+            val max = 100000f
+            var sliderPosition by remember { 
+                mutableStateOf((currentFilter.minAmount?.toFloat() ?: min)..(currentFilter.maxAmount?.toFloat() ?: max)) 
+            }
+            RangeSlider(
+                value = sliderPosition,
+                onValueChange = { 
+                    sliderPosition = it
+                    onUpdate(currentFilter.copy(minAmount = it.start.toDouble(), maxAmount = it.endInclusive.toDouble()))
+                },
+                valueRange = min..max,
+                steps = 100
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("₹${sliderPosition.start.roundToInt()}")
+                Text("₹${sliderPosition.endInclusive.roundToInt()}")
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Category Selection
+            Text("Category", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = currentFilter.categoryName == null,
+                    onClick = { onUpdate(currentFilter.copy(categoryName = null)) },
+                    label = { Text("All") }
+                )
+                categories.forEach { cat ->
+                    FilterChip(
+                        selected = currentFilter.categoryName == cat.name,
+                        onClick = { onUpdate(currentFilter.copy(categoryName = cat.name)) },
+                        label = { Text(cat.name) }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(32.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedButton(
+                    onClick = { showSmartFilterDialog = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Save Search")
+                }
+                Button(
+                    onClick = { onApply(); onDismiss() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Apply Filters")
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+
+    if (showSmartFilterDialog) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showSmartFilterDialog = false },
+            title = { Text("Save Smart Filter") },
+            text = {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Filter Name") },
+                    placeholder = { Text("e.g. Monthly Food") }
+                )
+            },
+            confirmButton = {
+                Button(onClick = { onSaveSmartFilter(name); showSmartFilterDialog = false }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSmartFilterDialog = false }) {
+                    Text("Cancel") }
+            }
+        )
+    }
+}
+
+
 @Composable
 private fun DetailItem(label: String, value: String) {
     Row(
@@ -547,7 +712,7 @@ private fun DetailItem(label: String, value: String) {
             modifier = Modifier.weight(0.7f),
             textAlign = androidx.compose.ui.text.style.TextAlign.End,
             maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

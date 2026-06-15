@@ -5,6 +5,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -206,8 +207,12 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         }
                     )
                     
-                    if (uiState.isExporting) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    AnimatedVisibility(
+                        visible = uiState.isExporting,
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp))
                     }
                     SettingsPreferenceItem(
                         label = "Dark Mode",
@@ -271,7 +276,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                                 enabled = deleteInput == "DELETE",
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                             ) {
-                                Text("Confirm")
+                                Text("Replace with Demo Data")
                             }
                         },
                         dismissButton = {
@@ -311,17 +316,6 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         onClick = { }
-                    )
-                    SettingsPreferenceItem(
-                        label = "Privacy Policy",
-                        icon = Icons.Default.Policy,
-                        trailingContent = {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        },
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/expncetracker/privacy-policy".toUri())
-                            ctx.startActivity(intent)
-                        }
                     )
                 }
             }

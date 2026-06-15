@@ -4,7 +4,7 @@ import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.LocalDateTime

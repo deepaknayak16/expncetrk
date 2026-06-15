@@ -1,0 +1,61 @@
+package com.example.expncetracker.exptkr.core.notification
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.example.expncetracker.exptkr.MainActivity
+import com.example.expncetracker.R
+
+object AppNotificationManager {
+    private const val CHANNEL_ID = "quick_actions_channel"
+    private const val NOTIFICATION_ID = 1001
+
+    fun showQuickActionsNotification(context: Context) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Quick Actions",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Provides quick access to add expenses and view budgets"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val addExpenseIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra("navigate_to", "add_transaction")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val addExpensePendingIntent = PendingIntent.getActivity(
+            context, 0, addExpenseIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val viewBudgetsIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra("navigate_to", "budget")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val viewBudgetsPendingIntent = PendingIntent.getActivity(
+            context, 1, viewBudgetsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // Use a proper icon if available
+            .setContentTitle("Expense Tracker")
+            .setContentText("Quickly manage your finances")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true) // Make it persistent
+            .addAction(0, "Add Expense", addExpensePendingIntent)
+            .addAction(0, "View Budgets", viewBudgetsPendingIntent)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+}

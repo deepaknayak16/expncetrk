@@ -2,7 +2,7 @@ package com.example.expncetracker.exptkr.ui.navigation
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -50,8 +50,20 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppNavGraph() {
+fun AppNavGraph(startRoute: String? = null) {
     val navController = rememberNavController()
+    
+    LaunchedEffect(startRoute) {
+        if (startRoute != null) {
+            navController.navigate(startRoute) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry.value?.destination?.route
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -62,13 +74,11 @@ fun AppNavGraph() {
     val categoriesViewModel: CategoriesViewModel = hiltViewModel()
     val goalsViewModel: GoalsViewModel = hiltViewModel()
 
-    var showAddTransactionSheet by remember { mutableStateOf(false) }
-    var editingTransactionId by remember { mutableStateOf<Long?>(null) }
-    
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isFullScreenRoute = currentRoute?.startsWith("add_transaction") == true
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = !isFullScreenRoute,
         drawerContent = {
             ModalDrawerSheet {
                 Box(
@@ -141,50 +151,54 @@ fun AppNavGraph() {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
             topBar = {
-                ModernTopAppBar(
-                    title = when (currentRoute) {
-                        "transactions" -> "Ledger"
-                        "categories" -> stringResource(R.string.category_label)
-                        "analytics" -> stringResource(R.string.analytics_title)
-                        "budget" -> stringResource(R.string.budget_title)
-                        "goals" -> "Goals"
-                        "accounts" -> "Accounts"
-                        "settings" -> stringResource(R.string.settings_title)
-                        else -> stringResource(R.string.app_name)
-                    },
-                    showSearch = currentRoute == "dashboard",
-                    onMenuClick = { scope.launch { drawerState.open() } },
-                    onBackClick = { navController.popBackStack() },
-                    onSearchClick = {
-                        if (currentRoute != "transactions") {
-                            navController.navigate("transactions")
-                        }
-                    },
-                    onAddClick = { 
-                        when (currentRoute) {
-                            "budget" -> budgetViewModel.triggerAddBudget()
-                            "accounts" -> accountsViewModel.triggerAddAccount()
-                            "categories" -> categoriesViewModel.triggerAddCategory()
-                            "goals" -> goalsViewModel.triggerAddGoal()
-                            else -> {
-                                editingTransactionId = null
-                                showAddTransactionSheet = true
+                if (!isFullScreenRoute) {
+                    ModernTopAppBar(
+                        title = when (currentRoute) {
+                            "transactions" -> "Ledger"
+                            "categories" -> stringResource(R.string.category_label)
+                            "analytics" -> stringResource(R.string.analytics_title)
+                            "budget" -> stringResource(R.string.budget_title)
+                            "goals" -> "Goals"
+                            "accounts" -> "Accounts"
+                            "settings" -> stringResource(R.string.settings_title)
+                            else -> stringResource(R.string.app_name)
+                        },
+                        showSearch = currentRoute == "dashboard",
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onBackClick = { navController.popBackStack() },
+                        onSearchClick = {
+                            if (currentRoute != "transactions") {
+                                navController.navigate("transactions")
+                            }
+                        },
+                        onAddClick = { 
+                            when (currentRoute) {
+                                "budget" -> budgetViewModel.triggerAddBudget()
+                                "accounts" -> accountsViewModel.triggerAddAccount()
+                                "categories" -> categoriesViewModel.triggerAddCategory()
+                                "goals" -> goalsViewModel.triggerAddGoal()
+                                else -> navController.navigate("add_transaction")
                             }
                         }
-                    }
-                )
+                    )
+                }
             },
             bottomBar = {
-                ModernNavigationBar(
-                    navController = navController,
-                    currentRoute = currentRoute
-                )
+                if (!isFullScreenRoute) {
+                    ModernNavigationBar(
+                        navController = navController,
+                        currentRoute = currentRoute
+                    )
+                }
             }
         ) { innerPadding ->
             NavHost(
                 navController = navController,
                 startDestination = "dashboard",
-                modifier = Modifier.padding(innerPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (isFullScreenRoute) PaddingValues(0.dp) else innerPadding)
+                    .consumeWindowInsets(if (isFullScreenRoute) PaddingValues(0.dp) else innerPadding),
                 enterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally { it / 2 } },
                 exitTransition = { fadeOut(animationSpec = tween(300)) + slideOutHorizontally { -it / 2 } },
                 popEnterTransition = { fadeIn(animationSpec = tween(300)) + slideInHorizontally { -it / 2 } },
@@ -195,15 +209,13 @@ fun AppNavGraph() {
                     DashboardScreen(
                         viewModel = vm,
                         onNavigateToAddTransaction = {
-                            editingTransactionId = null
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction")
                         },
                         onNavigateToStatementLedger = {
                             navController.navigate("transactions")
                         },
                         onNavigateToEditTransaction = { id ->
-                            editingTransactionId = id
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction?transactionId=$id")
                         }
                     )
                 }
@@ -212,8 +224,7 @@ fun AppNavGraph() {
                     TransactionScreen(
                         viewModel = vm,
                         onNavigateToEdit = { id ->
-                            editingTransactionId = id
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction?transactionId=$id")
                         }
                     )
                 }
@@ -237,27 +248,19 @@ fun AppNavGraph() {
                 composable("categories") {
                     CategoriesScreen(categoriesViewModel)
                 }
-            }
-
-            if (showAddTransactionSheet) {
-                ModalBottomSheet(
-                    onDismissRequest = { 
-                        showAddTransactionSheet = false
-                        editingTransactionId = null
-                    },
-                    sheetState = sheetState,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    dragHandle = { BottomSheetDefaults.DragHandle() },
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    AddTransactionScreen(
-                        transactionId = editingTransactionId,
-                        onNavigateBack = { 
-                            scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                showAddTransactionSheet = false
-                                editingTransactionId = null
-                            }
+                composable(
+                    route = "add_transaction?transactionId={transactionId}",
+                    arguments = listOf(
+                        navArgument("transactionId") {
+                            type = NavType.LongType
+                            defaultValue = 0L
                         }
+                    )
+                ) { backStackEntry ->
+                    val id = backStackEntry.arguments?.getLong("transactionId")?.takeIf { it != 0L }
+                    AddTransactionScreen(
+                        transactionId = id,
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
             }
@@ -303,15 +306,9 @@ private fun ModernTopAppBar(
 
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary
-                            )
-                        )
-                    )
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -365,7 +362,9 @@ private fun ModernNavigationBar(
 
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     NavigationBar(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 6.dp
     ) {

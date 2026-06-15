@@ -39,7 +39,9 @@ fun TransactionListItem(
     
     // Fallback if category name doesn't match enum
     val categoryEnum = Category.entries.find { it.name == transaction.categoryName.uppercase() } ?: Category.OTHERS
-    val style = getTransactionStyle(categoryEnum, isDarkTheme)
+    val style = remember(categoryEnum, isDarkTheme) { 
+        getTransactionStyle(categoryEnum, isDarkTheme) 
+    }
     
     val icon = categoryIcon ?: style.first
     val color = categoryColor ?: style.second
@@ -80,12 +82,12 @@ fun TransactionListItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                    .padding(vertical = 8.dp, horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(color.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
@@ -94,16 +96,17 @@ fun TransactionListItem(
                         imageVector = icon,
                         contentDescription = null,
                         tint = color,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = transaction.merchant,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
@@ -116,7 +119,7 @@ fun TransactionListItem(
                     }
                     Text(
                         text = detailText,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

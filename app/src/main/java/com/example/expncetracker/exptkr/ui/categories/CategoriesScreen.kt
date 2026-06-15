@@ -42,8 +42,8 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
     val incomeCategories = allCategories.filter { it.type == "INCOME" }
     val expenseCategories = allCategories.filter { it.type == "EXPENSE" }
     
-    // FIX C1: Percentage based on total transaction volume (Income + Expense)
-    val totalVolume = (summary?.totalIncome ?: 0.0) + (summary?.totalExpense ?: 0.0)
+    val totalExpenseVolume = summary?.totalExpense ?: 0.0
+    val totalIncomeVolume = summary?.totalIncome ?: 0.0
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -112,7 +112,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                 items(incomeCategories) { category ->
                     val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
                     val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                    val percentage = if (totalVolume > 0) (amount / totalVolume * 100).toInt() else -1
+                    val percentage = if (totalIncomeVolume > 0) (amount / totalIncomeVolume * 100).toInt() else 0
                     
                     CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
                     HorizontalDivider(
@@ -125,7 +125,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                 items(expenseCategories) { category ->
                     val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
                     val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                    val percentage = if (totalVolume > 0) (amount / totalVolume * 100).toInt() else -1
+                    val percentage = if (totalExpenseVolume > 0) (amount / totalExpenseVolume * 100).toInt() else 0
                     
                     CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
                     HorizontalDivider(

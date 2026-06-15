@@ -9,14 +9,20 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Manages Google Drive synchronization for backup and restore operations.
  */
-class GoogleDriveSyncManager(private val context: Context) {
+@Singleton
+class GoogleDriveSyncManager @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
 
     private var driveService: Drive? = null
 
@@ -128,7 +134,5 @@ class GoogleDriveSyncManager(private val context: Context) {
 
     fun signOut() {
         driveService = null
-        GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
-    }
     }
 }

@@ -47,7 +47,7 @@ fun GradientCard(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 20.dp,
+                elevation = 8.dp,
                 shape = MaterialTheme.shapes.extraLarge,
                 ambientColor = gradientStart.copy(alpha = 0.15f),
                 spotColor = gradientStart.copy(alpha = 0.15f)
@@ -345,7 +345,9 @@ fun EmptyState(
         )
         if (action != null) {
             Spacer(modifier = Modifier.height(24.dp))
-            action()
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                action()
+            }
         }
     }
 }

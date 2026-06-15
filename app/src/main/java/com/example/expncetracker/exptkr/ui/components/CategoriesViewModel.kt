@@ -6,8 +6,8 @@ import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,7 +16,6 @@ import javax.inject.Inject
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(
     private val categoryDao: CategoryDao,
-    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
     getSummaryUseCase: GetSummaryUseCase
 ) : ViewModel() {
 
@@ -79,9 +78,8 @@ class CategoriesViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                importSmsTransactionsUseCase.execute()
-            } catch (e: Exception) {
-                // Ignore
+                // Categories refresh is just a local state refresh trigger if needed
+                kotlinx.coroutines.delay(300)
             } finally {
                 _isRefreshing.value = false
             }

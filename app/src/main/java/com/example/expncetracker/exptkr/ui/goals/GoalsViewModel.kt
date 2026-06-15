@@ -44,7 +44,7 @@ class GoalsViewModel @Inject constructor(
     fun updateGoalAmount(id: Long, additionalAmount: Double) {
         viewModelScope.launch {
             repository.getGoalById(id)?.let { goal ->
-                val newAmount = goal.currentAmount + additionalAmount
+                val newAmount = (goal.currentAmount + additionalAmount).coerceAtLeast(0.0)
                 repository.updateGoal(
                     goal.copy(
                         currentAmount = newAmount,

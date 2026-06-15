@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.ui.dashboard.TimeFilterRow
 import com.example.expncetracker.exptkr.ui.dashboard.DistributionSection
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
@@ -71,6 +71,38 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val lineModelProducer = remember { CartesianChartModelProducer() }
     val columnModelProducer = remember { CartesianChartModelProducer() }
 
+    val lineChart = rememberCartesianChart(
+        rememberLineCartesianLayer(),
+        startAxis = rememberStartAxis(
+            label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
+            tick = null,
+            guideline = rememberLineComponent(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+        ),
+        bottomAxis = rememberBottomAxis(
+            label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
+            tick = null,
+            guideline = null,
+            valueFormatter = { value, _, _ -> trends.getOrNull(value.toInt())?.label ?: "" }
+        )
+    )
+
+    val columnChart = rememberCartesianChart(
+        rememberColumnCartesianLayer(
+            columnProvider = ColumnCartesianLayer.ColumnProvider.series(
+                rememberLineComponent(color = MaterialTheme.colorScheme.primary, thickness = 10.dp, shape = Shape.rounded(50))
+            )
+        ),
+        startAxis = rememberStartAxis(
+            label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
+            tick = null,
+            guideline = rememberLineComponent(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+        ),
+        bottomAxis = rememberBottomAxis(
+            label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
+            valueFormatter = { value, _, _ -> trends.getOrNull(value.toInt())?.label ?: "" }
+        )
+    )
+
     var currentWeekStart by remember {
         mutableStateOf(
             LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L)
@@ -104,10 +136,19 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
     }
 
-    LaunchedEffect(trends) {
+    LaunchedEffect(trends, dailyTotals, selectedFilter) {
         if (trends.isNotEmpty()) {
             lineModelProducer.runTransaction { lineSeries { series(trends.map { it.amount.toFloat() }) } }
-            columnModelProducer.runTransaction { columnSeries { series(trends.map { it.amount.toFloat() }) } }
+        }
+        if (selectedFilter == DateFilter.WEEK && dailyTotals.isNotEmpty()) {
+            val sortedTotals = dailyTotals.entries.sortedBy { it.key }
+            columnModelProducer.runTransaction { 
+                columnSeries { series(sortedTotals.map { it.value.toFloat() }) } 
+            }
+        } else if (trends.isNotEmpty()) {
+            columnModelProducer.runTransaction { 
+                columnSeries { series(trends.map { it.amount.toFloat() }) } 
+            }
         }
     }
 
@@ -137,16 +178,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         isRefreshing = isRefreshing,
         onRefresh = { viewModel.refreshData() },
         state = pullRefreshState,
-        modifier = Modifier.fillMaxSize(),
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullRefreshState,
-                isRefreshing = isRefreshing,
-                containerColor = MaterialTheme.colorScheme.surface,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.TopCenter)
-            )
-        }
+        modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -316,20 +348,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                             if (trends.isNotEmpty()) {
                                 CartesianChartHost(
-                                    chart = rememberCartesianChart(
-                                        rememberLineCartesianLayer(),
-                                        startAxis = rememberStartAxis(
-                                            label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                                            tick = null,
-                                            guideline = rememberLineComponent(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                                        ),
-                                        bottomAxis = rememberBottomAxis(
-                                            label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                                            tick = null,
-                                            guideline = null,
-                                            valueFormatter = { value, _, _ -> trends.getOrNull(value.toInt())?.label ?: "" }
-                                        )
-                                    ),
+                                    chart = lineChart,
                                     modelProducer = lineModelProducer,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -376,24 +395,9 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("Performance View", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(16.dp))
-                        if (trends.isNotEmpty()) {
+                        if (trends.isNotEmpty() || dailyTotals.isNotEmpty()) {
                             CartesianChartHost(
-                                chart = rememberCartesianChart(
-                                    rememberColumnCartesianLayer(
-                                        columnProvider = ColumnCartesianLayer.ColumnProvider.series(
-                                            rememberLineComponent(color = MaterialTheme.colorScheme.primary, thickness = 10.dp, shape = Shape.rounded(50))
-                                        )
-                                    ),
-                                    startAxis = rememberStartAxis(
-                                        label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                                        tick = null,
-                                        guideline = rememberLineComponent(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                                    ),
-                                    bottomAxis = rememberBottomAxis(
-                                        label = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                                        valueFormatter = { value, _, _ -> trends.getOrNull(value.toInt())?.label ?: "" }
-                                    )
-                                ),
+                                chart = columnChart,
                                 modelProducer = columnModelProducer,
                                 modifier = Modifier.height(180.dp)
                             )

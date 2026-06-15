@@ -16,12 +16,14 @@ import androidx.fragment.app.FragmentActivity
 import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.PERMISSION_RATIONALE_SHOWN_KEY
+import com.example.expncetracker.exptkr.core.common.SMS_PERMISSION_PERMANENTLY_DENIED_KEY
 import com.example.expncetracker.exptkr.core.common.NOTIFICATION_PERMISSION_SHOWN_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
 import androidx.datastore.preferences.core.edit
 import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
 import com.example.expncetracker.exptkr.security.BiometricResult
+import com.example.expncetracker.exptkr.core.notification.AppNotificationManager
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
 import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -45,19 +47,27 @@ class MainActivity : FragmentActivity() {
         val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] ?: false }
         val rationaleShownFlow = preferencesFlow.map { it[PERMISSION_RATIONALE_SHOWN_KEY] ?: false }
         val notificationRationaleFlow = preferencesFlow.map { it[NOTIFICATION_PERMISSION_SHOWN_KEY] ?: false }
+        val smsPermanentlyDeniedFlow = preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }
 
         setContent {
             val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
             val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
             val isRationaleShown by rationaleShownFlow.collectAsState(initial = false)
             val isNotificationRationaleShown by notificationRationaleFlow.collectAsState(initial = false)
+            val isSmsPermanentlyDenied by smsPermanentlyDeniedFlow.collectAsState(initial = false)
             val scope = rememberCoroutineScope()
 
-            var showPermissionRationale by remember(isRationaleShown) {
+            val startRoute = remember { intent.getStringExtra("navigate_to") }
+
+            LaunchedEffect(Unit) {
+                AppNotificationManager.showQuickActionsNotification(this@MainActivity)
+            }
+
+            var showPermissionRationale by remember(isRationaleShown, isSmsPermanentlyDenied) {
                 mutableStateOf(
                     !isRationaleShown &&
                             !SmsPermissionManager.hasPermissions(this@MainActivity) &&
-                            !(preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }.collectAsState(initial = false).value)
+                            !isSmsPermanentlyDenied
                 )
             }
 
@@ -116,7 +126,7 @@ class MainActivity : FragmentActivity() {
                         TextButton(onClick = { 
                             showPermissionRationale = false
                             scope.launch {
-                                dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
+                                dataStore.edit { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] = true }
                             }
                         }) { Text("Maybe Later") }
                     }
@@ -173,14 +183,14 @@ class MainActivity : FragmentActivity() {
                 if (authenticated) {
                     ExpncetrackerTheme(darkTheme = isDarkMode) {
                         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                            AppNavGraph()
+                            AppNavGraph(startRoute = startRoute)
                         }
                     }
                 }
             } else {
                 ExpncetrackerTheme(darkTheme = isDarkMode) {
                     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                        AppNavGraph()
+                        AppNavGraph(startRoute = startRoute)
                     }
                 }
             }

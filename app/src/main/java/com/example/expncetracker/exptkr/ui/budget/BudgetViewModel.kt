@@ -6,7 +6,7 @@ import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.entity.BudgetEntity
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
-import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

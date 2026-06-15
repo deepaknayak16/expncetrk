@@ -10,6 +10,7 @@ import com.example.expncetracker.exptkr.core.common.BUDGET_ALERTS_ENABLED_KEY
 import com.example.expncetracker.exptkr.core.common.BUDGET_THRESHOLD_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
+import com.example.expncetracker.exptkr.core.sync.GoogleDriveSyncManager
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
@@ -36,6 +37,7 @@ class SettingsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val loadSampleDataUseCase: LoadSampleDataUseCase,
     private val googleSignInClient: GoogleSignInClient,
+    private val googleDriveSyncManager: GoogleDriveSyncManager,
     private val biometricAuthManager: BiometricAuthManager,
     private val csvExporter: CsvExporter,
     private val pdfExporter: PdfExporter
@@ -99,6 +101,7 @@ class SettingsViewModel @Inject constructor(
     fun signOutFromGoogle() {
         viewModelScope.launch {
             googleSignInClient.signOut().addOnCompleteListener {
+                googleDriveSyncManager.signOut()
                 _uiState.update { it.copy(isSignedIn = false, accountName = null) }
             }
         }

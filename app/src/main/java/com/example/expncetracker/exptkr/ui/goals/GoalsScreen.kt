@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -66,8 +67,8 @@ fun GoalsScreen(viewModel: GoalsViewModel) {
     if (showAddDialog) {
         AddGoalDialog(
             onDismiss = { viewModel.onDialogDismissed() },
-            onConfirm = { name, target, color ->
-                viewModel.addGoal(name, target, color)
+            onConfirm = { name, target, color, deadline ->
+                viewModel.addGoal(name, target, color, deadline)
                 viewModel.onDialogDismissed()
             }
         )
@@ -76,7 +77,9 @@ fun GoalsScreen(viewModel: GoalsViewModel) {
 
 @Composable
 fun GoalCard(goal: GoalEntity) {
-    val progress = (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
+    val progress = if (goal.targetAmount > 0) {
+        (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
+    } else 0f
     val animatedProgress by animateFloatAsState(targetValue = progress, label = "GoalProgress")
 
     Card(
@@ -136,11 +139,32 @@ fun GoalCard(goal: GoalEntity) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddGoalDialog(onDismiss: () -> Unit, onConfirm: (String, Double, Int) -> Unit) {
+fun AddGoalDialog(onDismiss: () -> Unit, onConfirm: (String, Double, Int, Long?) -> Unit) {
     var name by remember { mutableStateOf("") }
     var target by remember { mutableStateOf("") }
     val colors = listOf(0xFF3B82F6, 0xFF10B981, 0xFFF97316, 0xFF8B5CF6, 0xFFEF4444)
     var selectedColor by remember { mutableStateOf(colors[0]) }
+    
+    var showDatePicker by remember { mutableStateOf(false) }
+    var selectedDeadline by remember { mutableStateOf<Long?>(null) }
+    val datePickerState = rememberDatePickerState()
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedDeadline = datePickerState.selectedDateMillis
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -162,6 +186,27 @@ fun AddGoalDialog(onDismiss: () -> Unit, onConfirm: (String, Double, Int) -> Uni
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(12.dp))
+                
+                OutlinedCard(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Event, contentDescription = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = if (selectedDeadline != null) {
+                                java.time.Instant.ofEpochMilli(selectedDeadline!!).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+                            } else "Deadline (Optional)",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                
+                Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     colors.forEach { color ->
                         Box(
@@ -179,7 +224,7 @@ fun AddGoalDialog(onDismiss: () -> Unit, onConfirm: (String, Double, Int) -> Uni
         confirmButton = {
             Button(onClick = { 
                 val t = target.toDoubleOrNull() ?: 0.0
-                if (name.isNotBlank() && t > 0) onConfirm(name, t, selectedColor.toInt())
+                if (name.isNotBlank() && t > 0) onConfirm(name, t, selectedColor.toInt(), selectedDeadline)
             }) { Text("Create") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

@@ -14,6 +14,7 @@ import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.YearMonth
 import javax.inject.Inject
 
 @HiltViewModel
@@ -38,8 +39,7 @@ class AddTransactionViewModel @Inject constructor(
                     name = entity.name,
                     balance = entity.balance,
                     type = entity.type,
-                    icon = androidx.compose.material.icons.Icons.Default.AccountBalanceWallet,
-                    color = androidx.compose.ui.graphics.Color(entity.color)
+                    color = entity.color
                 )
             }
         }
@@ -151,7 +151,11 @@ class AddTransactionViewModel @Inject constructor(
         return when (frequency) {
             RecurrenceFrequency.DAILY -> current.plusDays(1)
             RecurrenceFrequency.WEEKLY -> current.plusWeeks(1)
-            RecurrenceFrequency.MONTHLY -> current.plusMonths(1)
+            RecurrenceFrequency.MONTHLY -> {
+                val ym = YearMonth.from(current).plusMonths(1)
+                val day = current.dayOfMonth.coerceAtMost(ym.lengthOfMonth())
+                ym.atDay(day).atTime(current.toLocalTime())
+            }
             RecurrenceFrequency.YEARLY -> current.plusYears(1)
         }
     }

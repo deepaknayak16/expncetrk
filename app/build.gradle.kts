@@ -114,6 +114,10 @@ dependencies {
     // PDF Generation (for export feature)
     implementation(libs.itext7.core)
 
+    // Widgets
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+
     // Testing platforms
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

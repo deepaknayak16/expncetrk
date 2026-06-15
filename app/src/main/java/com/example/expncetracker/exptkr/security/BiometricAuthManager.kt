@@ -79,9 +79,9 @@ class BiometricAuthManager @Inject constructor(
         biometricPrompt.authenticate(promptInfo)
 
         awaitClose {
-            // Cleanup if needed
+            biometricPrompt.cancelAuthentication()
         }
-    }.distinctUntilChanged()
+    }
 }
 
 /**

@@ -4,12 +4,11 @@ import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.util.Locale
 import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.math.ln
 
-@Singleton
 class CategoryDetector @Inject constructor(
     private val repository: TransactionRepository
 ) {
@@ -24,7 +23,9 @@ class CategoryDetector @Inject constructor(
         val cleanMerchant = merchant.trim()
         val upperMerchant = cleanMerchant.uppercase(Locale.ROOT)
         
-        val history = repository.getAllTransactions().first()
+        val history = repository.getAllTransactions()
+            .map { it.take(200) }
+            .first()
 
         // 1. EXACT HISTORY MATCH
         val exactMatch = history.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
@@ -94,7 +95,7 @@ class CategoryDetector @Inject constructor(
 
         categories.forEach { cat ->
             // Prior: P(cat)
-            val logProb = ln((categoryCounts[cat] ?: 0 + 1).toDouble() / (totalDocs + categories.size))
+            var logProb = ln(((categoryCounts[cat] ?: 0) + 1).toDouble() / (totalDocs + categories.size))
             
             // Vocabulary size for Laplace smoothing
             val vocabSize = wordCounts.size

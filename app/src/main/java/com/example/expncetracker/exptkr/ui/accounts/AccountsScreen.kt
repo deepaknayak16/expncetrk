@@ -219,11 +219,11 @@ private fun AccountCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(account.color),
+                    .background(Color(account.color)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = account.icon,
+                    imageVector = Icons.Default.AccountBalance,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
@@ -247,11 +247,15 @@ private fun AccountCard(
             }
 
             Column(horizontalAlignment = Alignment.End) {
+                val balanceColor = when (account.type) {
+                    "Credit Card" -> MaterialTheme.colorScheme.onSurface
+                    else -> if (account.balance >= 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense)
+                }
                 Text(
                     text = account.balance.formatAsCurrency(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (account.balance >= 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense)
+                    color = balanceColor
                 )
                 
                 IconButton(
