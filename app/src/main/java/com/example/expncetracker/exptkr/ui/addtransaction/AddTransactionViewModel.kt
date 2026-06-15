@@ -23,18 +23,6 @@ class AddTransactionViewModel @Inject constructor(
     private val categoryDetector: com.example.expncetracker.exptkr.core.parser.CategoryDetector,
     private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
-// ... around line 60
-    fun onMerchantNameChanged(name: String, currentCategory: String) {
-        viewModelScope.launch {
-            val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT)
-            if (suggestedCategory != Category.OTHERS.displayName && (currentCategory.isEmpty() || currentCategory == Category.OTHERS.displayName)) {
-                _suggestedCategory.value = suggestedCategory
-            }
-        }
-    }
-
-    private val _suggestedCategory = MutableStateFlow<String?>(null)
-    val suggestedCategory = _suggestedCategory.asStateFlow()
 
     private val _transactionToEdit = MutableStateFlow<Transaction?>(null)
     val transactionToEdit = _transactionToEdit.asStateFlow()
@@ -64,6 +52,18 @@ class AddTransactionViewModel @Inject constructor(
         }
     }
 
+    fun onMerchantNameChanged(name: String, currentCategory: String) {
+        viewModelScope.launch {
+            val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT)
+            if (suggestedCategory != Category.OTHERS.displayName && (currentCategory.isEmpty() || currentCategory == Category.OTHERS.displayName)) {
+                _suggestedCategory.value = suggestedCategory
+            }
+        }
+    }
+
+    private val _suggestedCategory = MutableStateFlow<String?>(null)
+    val suggestedCategory = _suggestedCategory.asStateFlow()
+
     fun addTransaction(
         id: Long = 0,
         amount: Double,
@@ -76,6 +76,7 @@ class AddTransactionViewModel @Inject constructor(
         isRecurring: Boolean = false,
         frequency: RecurrenceFrequency? = null,
         recurrenceEndDate: java.time.LocalDateTime? = null,
+        tags: List<String> = emptyList(),
         timestamp: java.time.LocalDateTime = java.time.LocalDateTime.now()
     ) {
         viewModelScope.launch {
@@ -130,7 +131,8 @@ class AddTransactionViewModel @Inject constructor(
                 frequency = frequency,
                 nextDueDate = nextDueDate,
                 recurrenceEndDate = recurrenceEndDate,
-                counterparty = counterparty
+                counterparty = counterparty,
+                tags = tags
             )
             repository.insertTransactions(listOf(transaction))
         }

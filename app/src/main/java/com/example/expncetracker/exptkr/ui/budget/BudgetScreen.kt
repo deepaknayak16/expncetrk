@@ -41,16 +41,25 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
     val isDark = MaterialTheme.isDark
+    
+    var editingBudget by remember { mutableStateOf<BudgetUiModel?>(null) }
 
     val monthFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", Locale.getDefault()) }
 
     val pullRefreshState = rememberPullToRefreshState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.statusEvent.collect { msg ->
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
 
     val totalBudget = budgetList.sumOf { it.limit }
     val totalSpent = budgetList.sumOf { it.spent }
 
     Scaffold(
-        /* FAB removed as requested - Add icon in top bar handles this */
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -150,6 +159,10 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
                         items(budgetList, key = { it.categoryName }) { budget ->
                             BudgetItem(
                                 budget = budget,
+                                onEditClick = { 
+                                    editingBudget = budget
+                                    viewModel.triggerAddBudget()
+                                },
                                 onDeleteClick = { viewModel.deleteBudgetByName(budget.categoryName) }
                             )
                         }
@@ -163,10 +176,15 @@ fun BudgetScreen(viewModel: BudgetViewModel) {
         AddBudgetDialog(
             allCategories = allCategories,
             budgetedCategories = budgetList.map { it.categoryName },
-            onDismiss = { viewModel.onDialogDismissed() },
+            initialBudget = editingBudget,
+            onDismiss = { 
+                viewModel.onDialogDismissed()
+                editingBudget = null
+            },
             onConfirm = { categoryName, limit ->
                 viewModel.saveBudget(categoryName, limit)
                 viewModel.onDialogDismissed()
+                editingBudget = null
             }
         )
     }
@@ -181,10 +199,16 @@ private fun BudgetStatItem(label: String, value: String, color: Color) {
 }
 
 @Composable
-fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
+fun BudgetItem(budget: BudgetUiModel, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
+    
+    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = budget.progress,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 800),
+        label = "budgetProgress"
+    )
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -211,7 +235,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onEditClick() },
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -235,6 +259,16 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("Edit") },
+                        onClick = {
+                            onEditClick()
+                            showMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                         onClick = {
@@ -262,7 +296,7 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 LinearProgressIndicator(
-                    progress = { budget.progress },
+                    progress = { animatedProgress },
                     modifier = Modifier
                         .weight(1f)
                         .height(10.dp)
@@ -307,61 +341,69 @@ fun BudgetItem(budget: BudgetUiModel, onDeleteClick: () -> Unit) {
 fun AddBudgetDialog(
     allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
     budgetedCategories: List<String>,
+    initialBudget: BudgetUiModel? = null,
     onDismiss: () -> Unit, 
     onConfirm: (String, Double) -> Unit
 ) {
     var selectedCategory by remember { 
-        mutableStateOf(allCategories.firstOrNull { it.name !in budgetedCategories }) 
+        mutableStateOf(
+            if (initialBudget != null) allCategories.find { it.name == initialBudget.categoryName }
+            else allCategories.firstOrNull { it.name !in budgetedCategories }
+        ) 
     }
-    var limit by remember { mutableStateOf("") }
+    var limit by remember { 
+        mutableStateOf(if (initialBudget != null) initialBudget.limit.toString() else "") 
+    }
     var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set Monthly Budget", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(if (initialBudget != null) "Edit Budget" else "Set Monthly Budget", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (selectedCategory != null) {
                     ExposedDropdownMenuBox(
                         expanded = expanded,
-                        onExpandedChange = { expanded = !expanded }
+                        onExpandedChange = { if (initialBudget == null) expanded = !expanded }
                     ) {
                         OutlinedTextField(
                             value = selectedCategory!!.name,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Category") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            trailingIcon = { if (initialBudget == null) ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             modifier = Modifier.menuAnchor().fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium
                         )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            allCategories.forEach { category ->
-                                val isBudgeted = category.name in budgetedCategories
-                                DropdownMenuItem(
-                                    text = { 
-                                        Text(
-                                            text = if (isBudgeted) "${category.name} (Budgeted)" else category.name,
-                                            color = if (isBudgeted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface
-                                        ) 
-                                    },
-                                    onClick = {
-                                        if (!isBudgeted) {
-                                            selectedCategory = category
-                                            expanded = false
-                                        }
-                                    },
-                                    enabled = !isBudgeted
-                                )
+                        if (initialBudget == null) {
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                allCategories.forEach { category ->
+                                    val isBudgeted = category.name in budgetedCategories
+                                    DropdownMenuItem(
+                                        text = { 
+                                            Text(
+                                                text = if (isBudgeted) "${category.name} (Budgeted)" else category.name,
+                                                color = if (isBudgeted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface
+                                            ) 
+                                        },
+                                        onClick = {
+                                            if (!isBudgeted) {
+                                                selectedCategory = category
+                                                expanded = false
+                                            }
+                                        },
+                                        enabled = !isBudgeted
+                                    )
+                                }
                             }
                         }
                     }
                 } else {
                     Text(
-                        text = "All categories already have a budget. You can edit existing budgets by clicking the '...' icon on a category card.",
+                        text = "All categories already have a budget. You can edit existing budgets by clicking the 'Edit' option on a category card.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

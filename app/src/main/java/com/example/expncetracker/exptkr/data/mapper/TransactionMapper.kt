@@ -23,7 +23,8 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     recurrenceEndDate = recurrenceEndDate?.toLocalDateTime(),
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
-    isSettled = isSettled
+    isSettled = isSettled,
+    tags = tags?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -42,5 +43,6 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     recurrenceEndDate = recurrenceEndDate?.toEpochMilli(),
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
-    isSettled = isSettled
+    isSettled = isSettled,
+    tags = if (tags.isEmpty()) null else tags.joinToString(",")
 )

@@ -244,7 +244,7 @@ fun TransactionScreen(
                                 )
                             }
                         } else {
-                            val grouped = list.groupBy { it.timestamp.year }
+                            val grouped = list.sortedByDescending { it.timestamp }.groupBy { it.timestamp.year }
                             grouped.forEach { (year, yearTransactions) ->
                                 if (grouped.size > 1) {
                                     item {
@@ -340,7 +340,7 @@ fun TransactionDetailContent(
         if (transaction.counterparty != null) {
             DetailItem(if (transaction.type == TransactionType.LEND) "Lent To" else "Borrowed From", transaction.counterparty!!)
         }
-        DetailItem("Note", transaction.note ?: "No note")
+        DetailItem("Note", transaction.note?.takeIf { it.isNotBlank() } ?: "No note")
         DetailItem("Bank/Account", transaction.bankName)
         DetailItem("Date & Time", transaction.timestamp.formatToDisplay())
         DetailItem("Source", if (transaction.smsId != null) "SMS Import" else "Manual Entry")
@@ -513,7 +513,7 @@ fun SplitTransactionDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(splitList) },
-                enabled = splitList.sumOf { it.second } == transaction.amount && splitList.all { it.first.isNotEmpty() }
+                enabled = kotlin.math.abs(splitList.sumOf { it.second } - transaction.amount) < 0.01 && splitList.all { it.first.isNotEmpty() }
             ) {
                 Text("Confirm Split")
             }
@@ -537,14 +537,14 @@ private fun DetailItem(label: String, value: String) {
             label, 
             color = MaterialTheme.colorScheme.onSurfaceVariant, 
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(0.4f)
+            modifier = Modifier.weight(0.3f)
         )
         Text(
             value, 
             color = MaterialTheme.colorScheme.onSurface, 
             style = MaterialTheme.typography.bodyLarge, 
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(0.6f),
+            modifier = Modifier.weight(0.7f),
             textAlign = androidx.compose.ui.text.style.TextAlign.End,
             maxLines = 2,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis

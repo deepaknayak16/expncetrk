@@ -210,7 +210,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                     DateFilter.DAY -> currentWeekStart.isAfter(LocalDate.now().minusDays(1))
                                     DateFilter.WEEK -> currentWeekStart.plusDays(7).isAfter(LocalDate.now())
                                     DateFilter.MONTH -> currentWeekStart.plusMonths(1).isAfter(LocalDate.now().withDayOfMonth(1).minusDays(1))
-                                    DateFilter.YEAR -> currentWeekStart.year >= LocalDate.now().year
+                                    DateFilter.YEAR -> currentWeekStart.year >= LocalDate.now().year + 1
                                 }
                                 IconButton(
                                     onClick = { 
@@ -289,7 +289,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Text(
-                                            text = if (amount > 0) "-${amount.toInt()}" else "—",
+                                            text = if (amount > 0) "-${amount.formatAsCurrency()}" else "—",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = if (amount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 9.sp
@@ -311,7 +311,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Growth Analysis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                        Text("Spending Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(16.dp))
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                             if (trends.isNotEmpty()) {

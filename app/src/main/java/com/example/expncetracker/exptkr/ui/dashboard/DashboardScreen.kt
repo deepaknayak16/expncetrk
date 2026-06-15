@@ -57,6 +57,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
 
+private const val MAX_RECENT_TRANSACTIONS = 15
+
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
@@ -68,6 +70,7 @@ fun DashboardScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     val trends by viewModel.trends.collectAsState()
     val currentFilter by viewModel.selectedFilter.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -114,7 +117,11 @@ fun DashboardScreen(
                         onTransactionClick = onNavigateToEditTransaction,
                         onFilterChange = { viewModel.setFilter(it) },
                         onSyncClick = {
-                            permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
+                            if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                viewModel.syncTransactions()
+                            } else {
+                                permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
+                            }
                         }
                     )
                 }
@@ -332,14 +339,14 @@ fun DashboardContent(
                     )
                 }
                 
-                val recentLimit = transactions.take(15)
+                val recentLimit = transactions.take(MAX_RECENT_TRANSACTIONS)
                 items(recentLimit, key = { it.id }) { transaction ->
                     val categoryEntity = categories.find { it.name == transaction.categoryName }
                     TransactionListItem(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                         categoryColor = categoryEntity?.let { Color(it.color) },
-                        onClick = { onTransactionClick(transaction.id) }
+                        onClick = { /* Home transactions are read-only */ }
                     )
                 }
             }
@@ -401,6 +408,14 @@ fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalE
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            goal.deadline?.let { deadlineMillis ->
+                val deadlineDate = java.time.Instant.ofEpochMilli(deadlineMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                Text(
+                    text = "Due: ${deadlineDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy"))}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 }
@@ -614,12 +629,13 @@ fun DistributionSection(
     distribution: Map<String, Double>,
     allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>
 ) {
-    // Include ALL categories, even those with 0 amount
+    // Include only categories with spending > 0
     val items = allCategories.map { entity ->
         val amount = distribution[entity.name] ?: 0.0
         val categoryEnum = Category.entries.find { it.displayName == entity.name } ?: Category.OTHERS
         DistributionItem(entity.name, amount, categoryEnum, Color(entity.color))
-    }.sortedByDescending { it.amount }
+    }.filter { it.amount > 0 }
+    .sortedByDescending { it.amount }
     
     val maxVal = items.maxOfOrNull { it.amount }?.coerceAtLeast(1.0) ?: 1.0
 

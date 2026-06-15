@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -140,7 +141,16 @@ class MainActivity : FragmentActivity() {
                             }) { Text("Retry") }
                         },
                         dismissButton = {
-                            TextButton(onClick = { finish() }) { Text("Exit App") }
+                            Column {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        dataStore.edit { it[BIOMETRIC_ENABLED_KEY] = false }
+                                        authenticated = true
+                                        authError = null
+                                    }
+                                }) { Text("Use PIN/Fallback Instead") }
+                                TextButton(onClick = { finish() }) { Text("Exit App") }
+                            }
                         }
                     )
                 }

@@ -68,9 +68,7 @@ class AnalyticsViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                // First sync SMS to ensure latest data is imported
-                importSmsTransactionsUseCase.execute()
-                // Then trigger a re-emission of all data flows
+                // Trigger a re-emission of all data flows
                 _refreshTrigger.value++
                 _statusEvent.send("Data refreshed")
             } catch (e: Exception) {

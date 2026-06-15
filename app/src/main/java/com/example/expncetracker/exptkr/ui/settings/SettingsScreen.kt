@@ -36,12 +36,20 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val ctx = LocalContext.current
     val uiState = viewModel.uiState.collectAsState().value
     val snackbarHostState = remember { SnackbarHostState() }
+    var isSigningIn by remember { mutableStateOf(false) }
 
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.handleSignInResult(result.data)
+        isSigningIn = false
+        when (result.resultCode) {
+            Activity.RESULT_OK -> viewModel.handleSignInResult(result.data)
+            Activity.RESULT_CANCELED -> {
+                Toast.makeText(ctx, "Sign-in cancelled", Toast.LENGTH_SHORT).show()
+            }
+            else -> {
+                Toast.makeText(ctx, "Sign-in failed (${result.resultCode})", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -137,13 +145,23 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     }
                 } else {
                     Button(
-                        onClick = { signInLauncher.launch(viewModel.getSignInIntent()) },
+                        onClick = { 
+                            isSigningIn = true
+                            signInLauncher.launch(viewModel.getSignInIntent()) 
+                        },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = MaterialTheme.shapes.medium
+                        shape = MaterialTheme.shapes.medium,
+                        enabled = !isSigningIn
                     ) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(22.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Sign In to Google", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        if (isSigningIn) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Signing in...", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("Sign In to Google", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

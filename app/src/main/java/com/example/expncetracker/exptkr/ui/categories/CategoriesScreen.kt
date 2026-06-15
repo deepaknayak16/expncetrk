@@ -41,6 +41,9 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
 
     val incomeCategories = allCategories.filter { it.type == "INCOME" }
     val expenseCategories = allCategories.filter { it.type == "EXPENSE" }
+    
+    // FIX C1: Percentage based on total transaction volume (Income + Expense)
+    val totalVolume = (summary?.totalIncome ?: 0.0) + (summary?.totalExpense ?: 0.0)
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -107,12 +110,11 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
             ) {
                 item { CategoryHeader("Income Categories") }
                 items(incomeCategories) { category ->
-                val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                val total = summary?.totalIncome ?: 0.0
-                val percentage = if (total > 0) (amount / total * 100).toInt() else -1
-                
-                CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
+                    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
+                    val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
+                    val percentage = if (totalVolume > 0) (amount / totalVolume * 100).toInt() else -1
+                    
+                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -121,12 +123,11 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
 
                 item { CategoryHeader("Expense Categories") }
                 items(expenseCategories) { category ->
-                val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                val total = summary?.totalExpense ?: 0.0
-                val percentage = if (total > 0) (amount / total * 100).toInt() else -1
-                
-                CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
+                    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
+                    val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
+                    val percentage = if (totalVolume > 0) (amount / totalVolume * 100).toInt() else -1
+                    
+                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -138,6 +139,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
 
     if (showAddDialog) {
         AddCategoryDialog(
+            existingCategories = allCategories.map { it.name },
             onDismiss = { viewModel.onDialogDismissed() },
             onConfirm = { name, type, iconName, color ->
                 viewModel.addCategory(name, type, iconName, color)
@@ -149,11 +151,18 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Int) -> Unit) {
+private fun AddCategoryDialog(
+    existingCategories: List<String>,
+    onDismiss: () -> Unit, 
+    onConfirm: (String, String, String, Int) -> Unit
+) {
     var name by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("EXPENSE") }
     var selectedIconName by remember { mutableStateOf("OTHERS") }
     var selectedColor by remember { mutableStateOf(presetColors[0]) }
+    
+    // FIX C2: Duplicate name check
+    val isNameDuplicate = existingCategories.any { it.equals(name.trim(), ignoreCase = true) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -165,7 +174,13 @@ private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String,
                     onValueChange = { name = it },
                     label = { Text("Category Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium
+                    shape = MaterialTheme.shapes.medium,
+                    isError = isNameDuplicate && name.isNotBlank(),
+                    supportingText = {
+                        if (isNameDuplicate && name.isNotBlank()) {
+                            Text("Category name already exists")
+                        }
+                    }
                 )
                 Spacer(Modifier.height(16.dp))
                 
@@ -220,8 +235,8 @@ private fun AddCategoryDialog(onDismiss: () -> Unit, onConfirm: (String, String,
         },
         confirmButton = {
             Button(
-                onClick = { if (name.isNotBlank()) onConfirm(name, type, selectedIconName, selectedColor.toInt()) },
-                enabled = name.isNotBlank(),
+                onClick = { if (name.isNotBlank() && !isNameDuplicate) onConfirm(name.trim(), type, selectedIconName, selectedColor.toInt()) },
+                enabled = name.isNotBlank() && !isNameDuplicate,
                 shape = MaterialTheme.shapes.medium
             ) {
                 Text("Add")

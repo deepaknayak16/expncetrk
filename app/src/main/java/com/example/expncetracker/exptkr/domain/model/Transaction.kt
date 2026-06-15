@@ -18,7 +18,8 @@ data class Transaction(
     val recurrenceEndDate: LocalDateTime? = null,
     val parentTransactionId: Long? = null,
     val counterparty: String? = null,
-    val isSettled: Boolean = false
+    val isSettled: Boolean = false,
+    val tags: List<String> = emptyList()
 ) {
     init {
         require(amount >= 0) { "Amount cannot be negative" }

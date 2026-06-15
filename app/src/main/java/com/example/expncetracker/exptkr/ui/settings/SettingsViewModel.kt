@@ -75,14 +75,23 @@ class SettingsViewModel @Inject constructor(
 
     fun handleSignInResult(data: Intent?) {
         viewModelScope.launch {
-            try {
-                val account = GoogleSignIn.getSignedInAccountFromIntent(data).result
+            val task = com.google.android.gms.auth.api.signin.GoogleSignIn.getSignedInAccountFromIntent(data)
+            if (task.isSuccessful) {
+                val account = task.result
                 _uiState.update {
                     it.copy(isSignedIn = true, accountName = account?.displayName)
                 }
                 _statusEvent.send("Signed in successfully")
-            } catch (e: Exception) {
-                _statusEvent.send("Sign-in failed: ${e.message}")
+            } else {
+                val exception = task.exception as? com.google.android.gms.common.api.ApiException
+                val statusCode = exception?.statusCode ?: -1
+                val message = when (statusCode) {
+                    com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.SIGN_IN_CANCELLED -> "Sign-in cancelled"
+                    com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.SIGN_IN_FAILED -> "Sign-in failed. Check your Google account."
+                    com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes.SIGN_IN_CURRENTLY_IN_PROGRESS -> "Sign-in already in progress"
+                    else -> "Sign-in error (code: $statusCode)"
+                }
+                _statusEvent.send(message)
             }
         }
     }
