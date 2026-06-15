@@ -52,9 +52,13 @@ class MainActivity : FragmentActivity() {
             val isRationaleShown by rationaleShownFlow.collectAsState(initial = false)
             val isNotificationRationaleShown by notificationRationaleFlow.collectAsState(initial = false)
             val scope = rememberCoroutineScope()
-            
-            var showPermissionRationale by remember(isRationaleShown) { 
-                mutableStateOf(!isRationaleShown && !SmsPermissionManager.hasPermissions(this@MainActivity)) 
+
+            var showPermissionRationale by remember(isRationaleShown) {
+                mutableStateOf(
+                    !isRationaleShown &&
+                            !SmsPermissionManager.hasPermissions(this@MainActivity) &&
+                            !(preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }.collectAsState(initial = false).value)
+                )
             }
 
             val permissionLauncher = rememberLauncherForActivityResult(
@@ -65,6 +69,11 @@ class MainActivity : FragmentActivity() {
                     scope.launch {
                         dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
                     }
+                    // In "Maybe Later" click:
+                    scope.launch {
+                        dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
+                        // DON'T set permanently denied here — let them try again later
+                    }
                 }
                 if (result[android.Manifest.permission.POST_NOTIFICATIONS] == true || result[android.Manifest.permission.POST_NOTIFICATIONS] == false) {
                     scope.launch {
@@ -74,7 +83,13 @@ class MainActivity : FragmentActivity() {
             }
 
             LaunchedEffect(isNotificationRationaleShown) {
-                if (!isNotificationRationaleShown && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                if (!isNotificationRationaleShown &&
+                    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+                    androidx.core.content.ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
                     permissionLauncher.launch(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS))
                 }
             }

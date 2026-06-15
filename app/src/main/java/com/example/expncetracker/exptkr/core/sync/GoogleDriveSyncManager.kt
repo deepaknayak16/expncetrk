@@ -3,6 +3,7 @@ package com.example.expncetracker.exptkr.core.sync
 import android.content.Context
 import com.example.expncetracker.BuildConfig
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -127,5 +128,7 @@ class GoogleDriveSyncManager(private val context: Context) {
 
     fun signOut() {
         driveService = null
+        GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+    }
     }
 }

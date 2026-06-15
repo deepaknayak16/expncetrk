@@ -94,7 +94,7 @@ class CategoryDetector @Inject constructor(
 
         categories.forEach { cat ->
             // Prior: P(cat)
-            var logProb = ln((categoryCounts[cat] ?: 0).toDouble() / totalDocs)
+            val logProb = ln((categoryCounts[cat] ?: 0 + 1).toDouble() / (totalDocs + categories.size))
             
             // Vocabulary size for Laplace smoothing
             val vocabSize = wordCounts.size

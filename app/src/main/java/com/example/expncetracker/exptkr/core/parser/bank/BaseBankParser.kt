@@ -25,6 +25,10 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             val amountMatch = amountRegex.find(cleanBody) ?: return null
             val amountStr = amountMatch.groupValues.getOrNull(1)?.replace(",", "") ?: return null
             val amount = amountStr.toDoubleOrNull() ?: return null
+            if (amount < 0) return null  // Allow 0.00 for logging purposes
+            if (amount == 0.0 && BuildConfig.DEBUG) {
+                Log.d("BankParser", "Zero-amount transaction from $bankName: $smsBody")
+            }
 
             if (amount <= 0) return null
 

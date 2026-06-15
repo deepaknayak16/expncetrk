@@ -80,7 +80,16 @@ class AddTransactionViewModel @Inject constructor(
         timestamp: java.time.LocalDateTime = java.time.LocalDateTime.now()
     ) {
         viewModelScope.launch {
-            if (_transactionToEdit.value?.smsId != null) {
+            val existing = _transactionToEdit.value
+            if (existing?.smsId != null) {
+                // Only allow updating category, note, tags, counterparty
+                val updated = existing.copy(
+                    categoryName = category,
+                    note = note,
+                    counterparty = counterparty,
+                    tags = tags
+                )
+                repository.updateTransaction(updated)
                 return@launch
             }
 

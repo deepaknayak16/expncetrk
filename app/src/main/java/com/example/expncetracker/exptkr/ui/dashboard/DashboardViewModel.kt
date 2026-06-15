@@ -32,6 +32,7 @@ class DashboardViewModel @Inject constructor(
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing = _isSyncing.asStateFlow()
+    private val _statusEvent = Channel<String>()
 
     val uiState: StateFlow<DashboardUiState> = combine(
         _selectedFilter.flatMapLatest { getSummaryUseCase(it) },
@@ -56,7 +57,8 @@ class DashboardViewModel @Inject constructor(
             _isSyncing.value = true
             try {
                 importSmsTransactionsUseCase.execute()
-            } catch (e: Exception) {
+            } catch (e: Exception){
+                _statusEvent.send("Sync failed: ${e.localizedMessage}")
             } finally {
                 _isSyncing.value = false
             }

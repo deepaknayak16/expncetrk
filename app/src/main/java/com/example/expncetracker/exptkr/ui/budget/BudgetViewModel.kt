@@ -49,9 +49,10 @@ class BudgetViewModel @Inject constructor(
 
     private val _statusEvent = Channel<String>()
     val statusEvent = _statusEvent.receiveAsFlow()
-    
+    private val _refreshTrigger = MutableStateFlow(0)
     @OptIn(ExperimentalCoroutinesApi::class)
-    val budgetList: StateFlow<List<BudgetUiModel>> = _selectedMonth.flatMapLatest { month ->
+    val budgetList: StateFlow<List<BudgetUiModel>> = combine(_selectedMonth, _refreshTrigger) { month, _ -> month }
+        .flatMapLatest { month ->
         val startMillis = month.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = month.atEndOfMonth().atTime(LocalTime.MAX).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         
@@ -100,9 +101,8 @@ class BudgetViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                // Force re-trigger by emitting current value
-                _selectedMonth.value = _selectedMonth.value
-                delay(300) 
+                _refreshTrigger.value++
+                delay(300)
             } finally {
                 _isRefreshing.value = false
             }

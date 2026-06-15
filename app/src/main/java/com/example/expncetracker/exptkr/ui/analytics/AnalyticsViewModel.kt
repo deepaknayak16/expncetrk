@@ -58,6 +58,12 @@ class AnalyticsViewModel @Inject constructor(
 
     fun setFilter(filter: DateFilter) {
         _selectedFilter.value = filter
+        if (filter == DateFilter.WEEK) {
+            _weekRange.value = Pair(
+                LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L),
+                LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(6)
+            )
+        }
     }
 
     fun setWeekRange(start: LocalDate, end: LocalDate) {

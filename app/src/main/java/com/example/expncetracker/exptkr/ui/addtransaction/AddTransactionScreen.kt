@@ -416,7 +416,9 @@ fun AddTransactionScreen(
                     try {
                         val result = evaluate(amountText)
                         amountText = if (result % 1.0 == 0.0) result.toLong().toString() else "%.2f".format(result)
-                    } catch (_: Exception) { }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Invalid expression", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
 

@@ -127,7 +127,7 @@ class TransactionViewModel @Inject constructor(
                     _statusEvent.send("SMS transactions cannot be deleted")
                 }
                 Duration.between(transaction.timestamp, LocalDateTime.now()).toMinutes() > 60 -> {
-                    _statusEvent.send("Transactions older than 1 hour can only be edited")
+                    _statusEvent.send("Manual transactions older than 1 hour cannot be deleted")
                 }
                 else -> {
                     repository.deleteTransactionById(transaction.id)

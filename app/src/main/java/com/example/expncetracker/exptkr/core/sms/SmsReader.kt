@@ -53,8 +53,8 @@ class SmsReader @Inject constructor(
                     val dateIndex = cursor.getColumnIndexOrThrow("date")
 
                     while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idIndex)
-                        if (processedIds.contains(id)) continue
+                        val uniqueId = "${uri}_${id}"
+                        if (processedIds.contains(uniqueId)) continue
                         
                         val address = cursor.getString(addressIndex) ?: ""
                         val body = cursor.getString(bodyIndex) ?: ""
@@ -84,7 +84,7 @@ class SmsReader @Inject constructor(
                                     timestamp = cursor.getLong(dateIndex)
                                 )
                             )
-                            processedIds.add(id)
+                            processedIds.add(uniqueId)
                         }
                     }
                 }

@@ -150,6 +150,9 @@ fun DashboardContent(
         contentPadding = PaddingValues(bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        AnimatedContent(targetState = recurring.isNotEmpty(), label = "greeting") { hasRecurring ->
+            if (hasRecurring) { UpcomingPaymentBanner(...) }
+            else { GreetingText(
         item {
             val calendar = Calendar.getInstance()
             val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
@@ -206,6 +209,10 @@ fun DashboardContent(
                     )
                 }
             }
+        }
+
+        item {
+            NetWorthCard(summary = summary)
         }
 
         item {
@@ -338,15 +345,16 @@ fun DashboardContent(
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
                     )
                 }
-                
-                val recentLimit = transactions.take(MAX_RECENT_TRANSACTIONS)
+
+                val limitedRecent = recent.take(MAX_RECENT_TRANSACTIONS)
+                val grouped = limitedRecent.groupBy{
                 items(recentLimit, key = { it.id }) { transaction ->
                     val categoryEntity = categories.find { it.name == transaction.categoryName }
                     TransactionListItem(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                         categoryColor = categoryEntity?.let { Color(it.color) },
-                        onClick = { /* Home transactions are read-only */ }
+                        onClick = { onNavigateToEditTransaction(transaction.id) }
                     )
                 }
             }
@@ -415,6 +423,57 @@ fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalE
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun NetWorthCard(summary: FinancialSummary) {
+    val isDark = MaterialTheme.isDark
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "YOUR NET WORTH",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = summary.netWorth.formatAsCurrency(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Spacer(Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text("Total Assets", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(summary.totalAssets.formatAsCurrency(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isDark) DarkIncome else LightIncome)
+                }
+                Box(modifier = Modifier.width(1.dp).height(30.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text("Total Liabilities", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(summary.totalLiabilities.formatAsCurrency(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isDark) DarkExpense else LightExpense)
+                }
             }
         }
     }
@@ -586,7 +645,7 @@ private fun SummaryColumn(label: String, value: String, valueColor: Color, modif
             overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         AnimatedContent(
             targetState = value,
             transitionSpec = {

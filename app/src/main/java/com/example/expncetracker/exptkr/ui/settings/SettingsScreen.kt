@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import com.example.expncetracker.BuildConfig
+import com.example.expncetracker.exptkr.core.common.Constants.FILE_PROVIDER_AUTHORITY
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
@@ -331,11 +332,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
 }
 
 private fun shareFile(context: android.content.Context, file: File, mimeType: String) {
-    val uri = FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        file
-    )
+    val uri = FileProvider.getUriForFile(context, FILE_PROVIDER_AUTHORITY, file)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = mimeType
         putExtra(Intent.EXTRA_STREAM, uri)

@@ -1,18 +1,19 @@
 package com.example.expncetracker.exptkr.domain.usecase
 
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
-import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.ui.dashboard.DateFilter
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
 
 class GetSummaryUseCase @Inject constructor(
-    private val repository: TransactionRepository
+    private val repository: TransactionRepository,
+    private val accountDao: AccountDao
 ) {
     operator fun invoke(filter: DateFilter): Flow<FinancialSummary> {
         val now = LocalDateTime.now()
@@ -26,7 +27,10 @@ class GetSummaryUseCase @Inject constructor(
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-        return repository.getTransactionsInRange(startMillis, endMillis).map { txList ->
+        return combine(
+            repository.getTransactionsInRange(startMillis, endMillis),
+            accountDao.getAllAccounts()
+        ) { txList, accounts ->
             var income = 0.0
             var expense = 0.0
             var lent = 0.0
@@ -42,18 +46,35 @@ class GetSummaryUseCase @Inject constructor(
                     }
                     TransactionType.LEND -> {
                         if (!tx.isSettled) lent += tx.amount
-                        // LENDING is money going out, so it affects balance like an expense
-                        expense += tx.amount 
+                        // LENDING is money going out, it reflects in account balance already
                     }
                     TransactionType.BORROW -> {
                         if (!tx.isSettled) borrowed += tx.amount
-                        // BORROWING is money coming in, so it affects balance like income
-                        income += tx.amount
+                        // BORROWING is money coming in, it reflects in account balance already
                     }
                     TransactionType.TRANSFER -> { }
                 }
             }
-            FinancialSummary(income, expense, income - expense, lent, borrowed, map)
+
+            val totalAccountBalance = accounts.sumOf { it.balance }
+            val accountAssets = accounts.filter { it.balance > 0 }.sumOf { it.balance }
+            val accountLiabilities = accounts.filter { it.balance < 0 }.sumOf { kotlin.math.abs(it.balance) }
+            
+            val totalAssets = accountAssets + lent
+            val totalLiabilities = accountLiabilities + borrowed
+            val netWorth = totalAccountBalance + lent - borrowed
+
+            FinancialSummary(
+                totalIncome = income,
+                totalExpense = expense,
+                balance = income - expense,
+                totalLent = lent,
+                totalBorrowed = borrowed,
+                totalAssets = totalAssets,
+                totalLiabilities = totalLiabilities,
+                netWorth = netWorth,
+                categoryDistribution = map
+            )
         }
     }
 }
