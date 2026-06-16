@@ -14,8 +14,8 @@ import com.example.expncetracker.exptkr.core.sync.GoogleDriveSyncManager
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
-import com.example.expncetracker.exptkr.domain.usecase.RestoreBackupFromGoogleDriveUseCase
-import com.example.expncetracker.exptkr.domain.usecase.SyncBackupToGoogleDriveUseCase
+import com.example.expncetracker.exptkr.domain.usecase.sync.RestoreBackupFromGoogleDriveUseCase
+import com.example.expncetracker.exptkr.domain.usecase.sync.SyncBackupToGoogleDriveUseCase
 import com.example.expncetracker.exptkr.domain.usecase.LoadSampleDataUseCase
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
 import com.example.expncetracker.exptkr.security.BiometricStatus

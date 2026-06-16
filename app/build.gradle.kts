@@ -118,6 +118,9 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
 
+    // Security
+    implementation(libs.androidx.security.crypto)
+
     // Testing platforms
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

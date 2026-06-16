@@ -28,6 +28,10 @@ class AddTransactionViewModel @Inject constructor(
     private val _transactionToEdit = MutableStateFlow<Transaction?>(null)
     val transactionToEdit = _transactionToEdit.asStateFlow()
 
+    val transactionHistory: StateFlow<List<Transaction>> = repository.getAllTransactions()
+        .map { it.take(200) }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     val categories: StateFlow<List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -54,7 +58,7 @@ class AddTransactionViewModel @Inject constructor(
 
     fun onMerchantNameChanged(name: String, currentCategory: String) {
         viewModelScope.launch {
-            val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT)
+            val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT, transactionHistory.value)
             if (suggestedCategory != Category.OTHERS.displayName && (currentCategory.isEmpty() || currentCategory == Category.OTHERS.displayName)) {
                 _suggestedCategory.value = suggestedCategory
             }
@@ -143,7 +147,12 @@ class AddTransactionViewModel @Inject constructor(
                 counterparty = counterparty,
                 tags = tags
             )
-            repository.insertTransactions(listOf(transaction))
+            
+            if (id != 0L) {
+                repository.updateTransaction(transaction)
+            } else {
+                repository.insertTransaction(transaction)
+            }
         }
     }
 

@@ -222,14 +222,8 @@ fun TransactionScreen(
                         currentFilter = advancedFilter,
                         categories = categories,
                         onDismiss = { showFilterSheet = false },
-                        onApply = { viewModel.updateAdvancedFilter { it.copy(
-                            startDate = it.startDate,
-                            endDate = it.endDate,
-                            minAmount = it.minAmount,
-                            maxAmount = it.maxAmount,
-                            categoryName = it.categoryName
-                        ) } },
-                        onUpdate = { viewModel.updateAdvancedFilter { it } },
+                        onApply = { showFilterSheet = false },
+                        onUpdate = { newFilter -> viewModel.updateAdvancedFilter { newFilter } },
                         onSaveSmartFilter = { viewModel.saveSmartFilter(it) }
                     )
                 }

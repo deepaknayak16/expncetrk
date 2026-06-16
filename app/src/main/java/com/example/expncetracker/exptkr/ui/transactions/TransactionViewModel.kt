@@ -3,8 +3,10 @@ package com.example.expncetracker.exptkr.ui.transactions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -44,6 +46,7 @@ data class SmartFilter(
 class TransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
     private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
+    private val accountDao: AccountDao,
     categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
     
@@ -194,6 +197,15 @@ class TransactionViewModel @Inject constructor(
                 }
                 else -> {
                     repository.deleteTransactionById(transaction.id)
+                    // S4 FIX: Reverse account balance
+                    accountDao.getAccountByName(transaction.bankName)?.let { account ->
+                        val newBalance = when (transaction.type) {
+                            TransactionType.CREDIT, TransactionType.BORROW -> account.balance - transaction.amount
+                            TransactionType.DEBIT, TransactionType.LEND -> account.balance + transaction.amount
+                            else -> account.balance
+                        }
+                        accountDao.updateAccount(account.copy(balance = newBalance))
+                    }
                     _statusEvent.send("Transaction deleted")
                 }
             }
@@ -225,6 +237,19 @@ class TransactionViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 repository.updateTransaction(transaction.copy(isSettled = true))
+                // S4 FIX: Update account balance on settlement
+                // If LEND: money returned -> add to balance
+                // If BORROW: money paid back -> subtract from balance
+                accountDao.getAccountByName(transaction.bankName)?.let { account ->
+                    val balanceAdjustment = when (transaction.type) {
+                        TransactionType.LEND -> transaction.amount
+                        TransactionType.BORROW -> -transaction.amount
+                        else -> 0.0
+                    }
+                    if (balanceAdjustment != 0.0) {
+                        accountDao.updateAccount(account.copy(balance = account.balance + balanceAdjustment))
+                    }
+                }
                 _statusEvent.send("Debt marked as settled")
             } catch (e: Exception) {
                 _statusEvent.send("Settlement failed: ${e.message}")

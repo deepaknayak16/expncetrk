@@ -1,4 +1,4 @@
-package com.example.expncetracker.exptkr.domain.usecase
+package com.example.expncetracker.exptkr.domain.usecase.sync
 
 import android.content.Context
 import com.example.expncetracker.exptkr.core.sync.GoogleDriveSyncManager

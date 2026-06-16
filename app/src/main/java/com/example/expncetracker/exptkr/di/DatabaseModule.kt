@@ -16,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import com.example.expncetracker.exptkr.core.common.SecurityUtils
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -27,12 +28,11 @@ object DatabaseModule {
         // Load the native SQLCipher library
         System.loadLibrary("sqlcipher")
 
-        // Create passphrase for encrypted database (in production, store this securely)
-        val passphrase = "expense_tracker_secure_key".toByteArray()
+        // Create/Retrieve passphrase for encrypted database from Android Keystore
+        val passphrase = SecurityUtils.getOrCreatePassphrase(context)
         val factory = SupportOpenHelperFactory(passphrase)
 
         return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
-            .fallbackToDestructiveMigration()
             .openHelperFactory(factory) // Enable SQLCipher encryption
             .build()
     }

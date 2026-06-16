@@ -79,13 +79,8 @@ class MainActivity : FragmentActivity() {
                     scope.launch {
                         dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
                     }
-                    // In "Maybe Later" click:
-                    scope.launch {
-                        dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
-                        // DON'T set permanently denied here — let them try again later
-                    }
                 }
-                if (result[android.Manifest.permission.POST_NOTIFICATIONS] == true || result[android.Manifest.permission.POST_NOTIFICATIONS] == false) {
+                if (result.containsKey(android.Manifest.permission.POST_NOTIFICATIONS)) {
                     scope.launch {
                         dataStore.edit { it[NOTIFICATION_PERMISSION_SHOWN_KEY] = true }
                     }

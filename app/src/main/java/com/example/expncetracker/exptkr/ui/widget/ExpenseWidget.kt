@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.ZoneId
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import com.example.expncetracker.exptkr.core.common.SecurityUtils
 
 class ExpenseWidget : GlanceAppWidget() {
 
@@ -51,7 +52,7 @@ class ExpenseWidget : GlanceAppWidget() {
     }
 
     private fun provideDatabase(context: Context): AppDatabase {
-        val passphrase = "expense_tracker_secure_key".toByteArray()
+        val passphrase = SecurityUtils.getOrCreatePassphrase(context)
         val factory = SupportOpenHelperFactory(passphrase)
         return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
             .fallbackToDestructiveMigration()

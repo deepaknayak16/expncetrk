@@ -56,8 +56,10 @@ import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.time.YearMonth
+import java.util.Calendar
 import java.util.Locale
 
+// D5 FIX
 private const val MAX_RECENT_TRANSACTIONS = 15
 
 @Composable
@@ -118,6 +120,7 @@ fun DashboardScreen(
                         onTransactionClick = onNavigateToEditTransaction,
                         onFilterChange = { viewModel.setFilter(it) },
                         onSyncClick = {
+                            // D1 FIX: Check permission before launching
                             if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                                 viewModel.syncTransactions()
                             } else {
@@ -194,7 +197,7 @@ fun DashboardContent(
                     transaction = tx.copy(timestamp = tx.nextDueDate ?: tx.timestamp),
                     categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                     categoryColor = categoryEntity?.let { Color(it.color) },
-                    onClick = {} // Read-only on dashboard
+                    onClick = { /* Read-only on dashboard */ }
                 )
             }
         }
@@ -284,7 +287,7 @@ fun DashboardContent(
                 }
             }
         } else {
-            val limitedRecent = recent.take(MAX_RECENT_TRANSACTIONS)
+            val limitedRecent = recent.take(MAX_RECENT_TRANSACTIONS) // D5 FIX
             val grouped = limitedRecent.groupBy { 
                 it.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()))
             }
@@ -306,7 +309,7 @@ fun DashboardContent(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                         categoryColor = categoryEntity?.let { Color(it.color) },
-                        onClick = null // Disabled editing for recent activity
+                        onClick = null // D2 FIX: truly read-only
                     )
                 }
             }
@@ -370,6 +373,7 @@ fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalE
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // D4 FIX: Show deadline
             goal.deadline?.let { deadlineMillis ->
                 val deadlineDate = java.time.Instant.ofEpochMilli(deadlineMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                 Text(
@@ -765,7 +769,8 @@ fun DistributionSection(
             val amount = distribution[entity.name] ?: 0.0
             val categoryEnum = Category.entries.find { it.displayName == entity.name } ?: Category.OTHERS
             DistributionItem(entity.name, amount, categoryEnum, Color(entity.color))
-        }.sortedByDescending { it.amount }
+        }.filter { it.amount > 0 } // D3 FIX
+        .sortedByDescending { it.amount }
     }
     
     val maxVal = remember(distributionData) {
@@ -818,22 +823,49 @@ fun DistributionSection(
                             ),
                         contentAlignment = Alignment.BottomCenter
                     ) {
+                        // The actual colored bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(barHeightFraction)
                                 .background(item.color)
                         )
+                        
+                        // Rotated label inside the bar
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
+                            modifier = Modifier
+                                .padding(bottom = 8.dp)
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(
+                                        constraints.copy(
+                                            minWidth = 0,
+                                            maxWidth = constraints.maxHeight,
+                                            minHeight = 0,
+                                            maxHeight = constraints.maxWidth
+                                        )
+                                    )
+                                    layout(placeable.height, placeable.width) {
+                                        placeable.placeWithLayer(
+                                            x = (placeable.height - placeable.width) / 2,
+                                            y = (placeable.width - placeable.height) / 2
+                                        ) {
+                                            rotationZ = -90f
+                                        }
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = item.name.uppercase(),
+                                color = if (barHeightFraction > 0.4f) Color.White.copy(alpha = 0.9f) else item.color,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Visible
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(44.dp),
-                        textAlign = TextAlign.Center
-                    )
                 }
             }
         }
