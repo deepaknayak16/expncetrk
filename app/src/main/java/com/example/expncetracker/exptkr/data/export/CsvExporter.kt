@@ -68,7 +68,7 @@ class CsvExporter @Inject constructor(
                 transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
                     val date = transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
                     val time = transaction.timestamp.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME)
-                    val category = transaction.categoryName
+                    val category = escapeCsvField(transaction.categoryName)
                     val type = when(transaction.type) {
                         TransactionType.CREDIT -> "Income"
                         TransactionType.DEBIT -> "Expense"

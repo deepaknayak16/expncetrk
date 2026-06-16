@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -44,6 +46,7 @@ data class SmartFilter(
 class TransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
     private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
+    private val accountDao: AccountDao,
     categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
     
@@ -193,6 +196,7 @@ class TransactionViewModel @Inject constructor(
                     _statusEvent.send("Manual transactions older than 1 hour cannot be deleted")
                 }
                 else -> {
+                    reverseAccountBalance(transaction)
                     repository.deleteTransactionById(transaction.id)
                     _statusEvent.send("Transaction deleted")
                 }
@@ -203,6 +207,7 @@ class TransactionViewModel @Inject constructor(
     fun splitTransaction(parent: Transaction, splits: List<Pair<String, Double>>) {
         viewModelScope.launch {
             try {
+                reverseAccountBalance(parent)
                 repository.deleteTransactionById(parent.id)
                 val subTransactions = splits.map { (catName, amt) ->
                     parent.copy(
@@ -219,6 +224,16 @@ class TransactionViewModel @Inject constructor(
                 _statusEvent.send("Split failed: ${e.message}")
             }
         }
+    }
+
+    private suspend fun reverseAccountBalance(transaction: Transaction) {
+        val account = accountDao.getAllAccounts().first().find { it.name == transaction.bankName } ?: return
+        val reverted = when (transaction.type) {
+            TransactionType.CREDIT, TransactionType.BORROW -> account.balance - transaction.amount
+            TransactionType.DEBIT, TransactionType.LEND -> account.balance + transaction.amount
+            TransactionType.TRANSFER -> account.balance
+        }
+        accountDao.updateAccount(account.copy(balance = reverted))
     }
 
     fun settleTransaction(transaction: Transaction) {

@@ -94,30 +94,27 @@ class AddTransactionViewModel @Inject constructor(
             }
 
             // Update Account Balance
-            val accountEntities = accountDao.getAllAccounts().first()
-            val account = accountEntities.find { it.name == bankName }
-            
-            account?.let { acc ->
-                var newBalance = acc.balance
-                
-                // If editing, first reverse the old transaction
-                _transactionToEdit.value?.let { old ->
-                    if (old.bankName == bankName) {
-                        newBalance = when (old.type) {
-                            TransactionType.CREDIT, TransactionType.BORROW -> newBalance - old.amount
-                            TransactionType.DEBIT, TransactionType.LEND -> newBalance + old.amount
-                            TransactionType.TRANSFER -> newBalance
-                        }
+            // 1. If editing, reverse the old transaction from its ORIGINAL account
+            //    (the account may differ from the newly selected one).
+            _transactionToEdit.value?.let { old ->
+                accountDao.getAllAccounts().first().find { it.name == old.bankName }?.let { oldAcc ->
+                    val reverted = when (old.type) {
+                        TransactionType.CREDIT, TransactionType.BORROW -> oldAcc.balance - old.amount
+                        TransactionType.DEBIT, TransactionType.LEND -> oldAcc.balance + old.amount
+                        TransactionType.TRANSFER -> oldAcc.balance
                     }
+                    accountDao.updateAccount(oldAcc.copy(balance = reverted))
                 }
-                
-                // Apply the new transaction
-                newBalance = when (type) {
-                    TransactionType.CREDIT, TransactionType.BORROW -> newBalance + amount
-                    TransactionType.DEBIT, TransactionType.LEND -> newBalance - amount
-                    TransactionType.TRANSFER -> newBalance
+            }
+
+            // 2. Apply the new transaction to the selected account.
+            //    Re-fetch so the reversal above is reflected when old and new account match.
+            accountDao.getAllAccounts().first().find { it.name == bankName }?.let { acc ->
+                val newBalance = when (type) {
+                    TransactionType.CREDIT, TransactionType.BORROW -> acc.balance + amount
+                    TransactionType.DEBIT, TransactionType.LEND -> acc.balance - amount
+                    TransactionType.TRANSFER -> acc.balance
                 }
-                
                 accountDao.updateAccount(acc.copy(balance = newBalance))
             }
 
@@ -143,7 +140,11 @@ class AddTransactionViewModel @Inject constructor(
                 counterparty = counterparty,
                 tags = tags
             )
-            repository.insertTransactions(listOf(transaction))
+            if (id != 0L) {
+                repository.updateTransaction(transaction)
+            } else {
+                repository.insertTransactions(listOf(transaction))
+            }
         }
     }
 
