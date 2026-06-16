@@ -1,6 +1,8 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -68,6 +70,9 @@ fun AddTransactionScreen(
     var recurrenceFrequency by remember { mutableStateOf(RecurrenceFrequency.MONTHLY) }
     var tagsInput by remember { mutableStateOf("") }
     var userSelectedCategory by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
     val contactPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickContact()
@@ -309,6 +314,7 @@ fun AddTransactionScreen(
                         modifier = fieldModifier,
                         placeholder = { Text(if (selectedType == TransactionType.LEND) "Lent to?" else "Borrowed from?", style = MaterialTheme.typography.bodyMedium) },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
                             IconButton(
                                 onClick = { contactPicker.launch(null) },
                                 modifier = Modifier.size(24.dp)

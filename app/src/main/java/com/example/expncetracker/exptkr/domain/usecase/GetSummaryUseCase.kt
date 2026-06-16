@@ -17,11 +17,12 @@ class GetSummaryUseCase @Inject constructor(
 ) {
     operator fun invoke(filter: DateFilter): Flow<FinancialSummary> {
         val now = LocalDateTime.now()
+        val today = now.toLocalDate()
         val startDateTime = when (filter) {
-            DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
-            DateFilter.WEEK -> now.minusDays(7)
-            DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
-            DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
+            DateFilter.DAY -> today.atStartOfDay()
+            DateFilter.WEEK -> today.minusDays(6).atStartOfDay()
+            DateFilter.MONTH -> today.withDayOfMonth(1).atStartOfDay()
+            DateFilter.YEAR -> today.withDayOfYear(1).atStartOfDay()
         }
 
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()

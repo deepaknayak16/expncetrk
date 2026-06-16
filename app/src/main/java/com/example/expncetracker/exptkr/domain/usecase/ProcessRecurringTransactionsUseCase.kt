@@ -21,44 +21,44 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
         val dueTransactions = repository.getDueRecurringTransactions(currentMillis)
         
         dueTransactions.forEach { tx ->
-            // Create a new transaction instance for today
-            val newTransaction = tx.copy(
-                id = 0,
-                smsId = null,
-                timestamp = now,
-                isRecurring = false, // The new instance is a normal transaction
-                frequency = null,
-                nextDueDate = null,
-                recurrenceEndDate = null,
-                parentTransactionId = tx.id
-            )
-            
-            // 1. Insert the new transaction
-            repository.insertTransaction(newTransaction)
-            
-            // 2. Update Account Balance
-            val accounts = accountDao.getAllAccounts().first()
-            val account = accounts.find { it.name == tx.bankName }
-            account?.let { acc ->
-                val newBalance = if (tx.type == TransactionType.CREDIT) {
-                    acc.balance + tx.amount
-                } else {
-                    acc.balance - tx.amount
+            val account = accountDao.getAllAccounts().first().find { it.name == tx.bankName }
+            var accumulatedBalance = account?.balance
+
+            // Generate one instance for every period that has elapsed since the last due date,
+            // so missed periods (e.g. app/worker not run for a while) are caught up.
+            var nextDate = tx.nextDueDate ?: tx.timestamp
+            while (!nextDate.isAfter(now)) {
+                // Stop generating once the recurrence end date is passed.
+                if (tx.recurrenceEndDate != null && nextDate.isAfter(tx.recurrenceEndDate)) break
+
+                val newTransaction = tx.copy(
+                    id = 0,
+                    smsId = null,
+                    timestamp = nextDate,
+                    isRecurring = false, // The new instance is a normal transaction
+                    frequency = null,
+                    nextDueDate = null,
+                    recurrenceEndDate = null,
+                    parentTransactionId = tx.id
+                )
+                repository.insertTransaction(newTransaction)
+
+                accumulatedBalance = accumulatedBalance?.let { balance ->
+                    if (tx.type == TransactionType.CREDIT) balance + tx.amount else balance - tx.amount
                 }
-                accountDao.updateAccount(acc.copy(balance = newBalance))
+
+                nextDate = calculateNextDate(nextDate, tx.frequency!!)
             }
-            
-            // 3. Update the next due date on the parent recurring transaction
-            val nextDate = calculateNextDate(tx.nextDueDate ?: tx.timestamp, tx.frequency!!)
-            val updatedParent = tx.copy(nextDueDate = nextDate)
-            
-            // Check if end date reached
-            if (tx.recurrenceEndDate != null && nextDate.isAfter(tx.recurrenceEndDate)) {
-                // Stop recurring
-                repository.updateTransaction(updatedParent.copy(isRecurring = false))
-            } else {
-                repository.updateTransaction(updatedParent)
+
+            // Persist the account balance once after catching up all periods.
+            if (account != null && accumulatedBalance != null) {
+                accountDao.updateAccount(account.copy(balance = accumulatedBalance))
             }
+
+            // Update the parent recurring transaction with the new next due date,
+            // stopping recurrence if the end date has been reached.
+            val ended = tx.recurrenceEndDate != null && nextDate.isAfter(tx.recurrenceEndDate)
+            repository.updateTransaction(tx.copy(nextDueDate = nextDate, isRecurring = !ended))
         }
     }
 
