@@ -129,7 +129,13 @@ class BudgetViewModel @Inject constructor(
 
     fun deleteBudgetByName(categoryName: String) {
         viewModelScope.launch {
-            budgetDao.deleteBudget(BudgetEntity(categoryName, 0.0))
+            val budget = budgetDao.getBudgetByCategory(categoryName)
+            if (budget != null) {
+                budgetDao.deleteBudget(budget)
+                _statusEvent.send("Budget deleted")
+            } else {
+                _statusEvent.send("Budget not found")
+            }
         }
     }
 }

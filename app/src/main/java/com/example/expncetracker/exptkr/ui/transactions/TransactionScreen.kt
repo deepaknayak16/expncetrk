@@ -423,7 +423,7 @@ fun TransactionDetailContent(
         }
         
         if (transaction.smsId != null) {
-            Text("SMS transactions are immutable.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+            Text("SMS transactions: amount and merchant cannot be edited. Category, note, and tags can be updated.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
         }
 
         Spacer(Modifier.height(24.dp))

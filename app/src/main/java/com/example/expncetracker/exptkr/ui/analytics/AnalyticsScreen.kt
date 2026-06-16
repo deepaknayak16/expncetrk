@@ -145,9 +145,19 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             columnModelProducer.runTransaction { 
                 columnSeries { series(sortedTotals.map { it.value.toFloat() }) } 
             }
-        } else if (trends.isNotEmpty()) {
-            columnModelProducer.runTransaction { 
-                columnSeries { series(trends.map { it.amount.toFloat() }) } 
+        } else if (dailyTotals.isNotEmpty()) {
+            // Group by week for month view, by month for year view
+            val groupedData = when (selectedFilter) {
+                DateFilter.MONTH -> dailyTotals.entries
+                    .groupBy { it.key.dayOfMonth / 7 }
+                    .map { it.value.sumOf { e -> e.value }.toFloat() }
+                DateFilter.YEAR -> dailyTotals.entries
+                    .groupBy { it.key.monthValue }
+                    .map { it.value.sumOf { e -> e.value }.toFloat() }
+                else -> dailyTotals.entries.sortedBy { it.key }.map { it.value.toFloat() }
+            }
+            columnModelProducer.runTransaction {
+                columnSeries { series(groupedData) }
             }
         }
     }
@@ -242,7 +252,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                     DateFilter.DAY -> currentWeekStart.isAfter(LocalDate.now().minusDays(1))
                                     DateFilter.WEEK -> currentWeekStart.plusDays(7).isAfter(LocalDate.now())
                                     DateFilter.MONTH -> currentWeekStart.plusMonths(1).isAfter(LocalDate.now().withDayOfMonth(1).minusDays(1))
-                                    DateFilter.YEAR -> currentWeekStart.year >= LocalDate.now().year + 1
+                                    DateFilter.YEAR -> currentWeekStart.year >= LocalDate.now().year
                                 }
                                 IconButton(
                                     onClick = { 

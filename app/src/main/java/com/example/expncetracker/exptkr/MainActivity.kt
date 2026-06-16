@@ -27,6 +27,7 @@ import com.example.expncetracker.exptkr.core.notification.AppNotificationManager
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
 import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -56,6 +57,8 @@ class MainActivity : FragmentActivity() {
             val isNotificationRationaleShown by notificationRationaleFlow.collectAsState(initial = false)
             val isSmsPermanentlyDenied by smsPermanentlyDeniedFlow.collectAsState(initial = false)
             val scope = rememberCoroutineScope()
+
+            var hasAskedNotificationThisSession by remember { mutableStateOf(false) }
 
             val startRoute = remember { intent.getStringExtra("navigate_to") }
 
@@ -89,12 +92,14 @@ class MainActivity : FragmentActivity() {
 
             LaunchedEffect(isNotificationRationaleShown) {
                 if (!isNotificationRationaleShown &&
+                    !hasAskedNotificationThisSession &&
                     android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
                     androidx.core.content.ContextCompat.checkSelfPermission(
                         this@MainActivity,
                         android.Manifest.permission.POST_NOTIFICATIONS
                     ) != android.content.pm.PackageManager.PERMISSION_GRANTED
                 ) {
+                    hasAskedNotificationThisSession = true
                     permissionLauncher.launch(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS))
                 }
             }
@@ -135,6 +140,7 @@ class MainActivity : FragmentActivity() {
 
                 LaunchedEffect(retryCount) {
                     if (!authenticated) {
+                        delay(300)
                         biometricAuthManager.authenticate(this@MainActivity)
                             .collect { result ->
                                 when (result) {

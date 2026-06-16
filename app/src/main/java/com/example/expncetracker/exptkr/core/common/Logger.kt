@@ -16,11 +16,11 @@ object Logger {
     }
 
     fun e(message: String, throwable: Throwable? = null) {
-        if (DEBUG) Log.e(TAG, message, throwable)
+        Log.e(TAG, message, throwable)
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        if (DEBUG) Log.e(tag, message, throwable)
+        Log.e(tag, message, throwable)
     }
 
     fun i(message: String) {

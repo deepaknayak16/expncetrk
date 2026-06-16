@@ -1,5 +1,7 @@
 package com.example.expncetracker.exptkr.ui.dashboard
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -30,19 +32,24 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.expncetracker.R
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
+import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
+import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
 import com.example.expncetracker.exptkr.ui.components.SectionHeader
 import com.example.expncetracker.exptkr.ui.components.EmptyState
@@ -54,8 +61,11 @@ import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.YearMonth
+import java.time.ZoneId
 import java.util.Calendar
 import java.util.Locale
 
@@ -73,12 +83,12 @@ fun DashboardScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     val trends by viewModel.trends.collectAsState()
     val currentFilter by viewModel.selectedFilter.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions[android.Manifest.permission.READ_SMS] == true) {
+        if (permissions[Manifest.permission.READ_SMS] == true) {
             viewModel.syncTransactions()
         }
     }
@@ -121,10 +131,10 @@ fun DashboardScreen(
                         onFilterChange = { viewModel.setFilter(it) },
                         onSyncClick = {
                             // D1 FIX: Check permission before launching
-                            if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
                                 viewModel.syncTransactions()
                             } else {
-                                permissionLauncher.launch(arrayOf(android.Manifest.permission.READ_SMS))
+                                permissionLauncher.launch(arrayOf(Manifest.permission.READ_SMS))
                             }
                         }
                     )
@@ -138,10 +148,10 @@ fun DashboardScreen(
 fun DashboardContent(
     summary: FinancialSummary,
     recent: List<Transaction>,
-    categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
+    categories: List<CategoryEntity>,
     recurring: List<Transaction>,
-    goals: List<com.example.expncetracker.exptkr.data.db.entity.GoalEntity>,
-    trends: List<com.example.expncetracker.exptkr.domain.model.SpendingTrend>,
+    goals: List<GoalEntity>,
+    trends: List<SpendingTrend>,
     currentFilter: DateFilter,
     onNavigateToAddTransaction: () -> Unit,
     onSeeAllClick: () -> Unit,
@@ -322,7 +332,7 @@ fun DashboardContent(
 }
 
 @Composable
-fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalEntity) {
+fun GoalProgressItem(goal: GoalEntity) {
     val progress = if (goal.targetAmount > 0) {
         (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
     } else 0f
@@ -375,9 +385,9 @@ fun GoalProgressItem(goal: com.example.expncetracker.exptkr.data.db.entity.GoalE
             )
             // D4 FIX: Show deadline
             goal.deadline?.let { deadlineMillis ->
-                val deadlineDate = java.time.Instant.ofEpochMilli(deadlineMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                val deadlineDate = Instant.ofEpochMilli(deadlineMillis).atZone(ZoneId.systemDefault()).toLocalDate()
                 Text(
-                    text = "Due: ${deadlineDate.format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy"))}",
+                    text = "Due: ${deadlineDate.format(DateTimeFormatter.ofPattern("MMM yyyy"))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -526,14 +536,14 @@ fun CompactSummaryHeader(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = yearMonth.atDay(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = yearMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        val selectedDate = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        val selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
                         yearMonth = YearMonth.from(selectedDate)
                         // We must update the filter type to MONTH to ensure the summary updates
                         onFilterChange(DateFilter.MONTH)
@@ -572,7 +582,7 @@ fun CompactSummaryHeader(
             ) {
                 IconButton(onClick = {
                     yearMonth = yearMonth.minusMonths(1)
-                    onFilterChange(DateFilter.MONTH)
+                    if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
                 }) {
                     Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
                 }
@@ -648,7 +658,7 @@ fun CompactSummaryHeader(
 
 @Composable
 fun GreetingHeader() {
-    val now = java.time.LocalTime.now()
+    val now = LocalTime.now()
     val greeting = when (now.hour) {
         in 0..11 -> stringResource(R.string.greeting_morning)
         in 12..15 -> stringResource(R.string.greeting_afternoon)
@@ -762,13 +772,14 @@ private data class DistributionItem(
 @Composable
 fun DistributionSection(
     distribution: Map<String, Double>,
-    allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>
+    allCategories: List<CategoryEntity>
 ) {
-    val distributionData = remember(distribution, allCategories) {
+    val isDarkTheme = MaterialTheme.isDark
+    val distributionData = remember(distribution, allCategories, isDarkTheme) {
         allCategories.map { entity ->
             val amount = distribution[entity.name] ?: 0.0
             val categoryEnum = Category.entries.find { it.displayName == entity.name } ?: Category.OTHERS
-            DistributionItem(entity.name, amount, categoryEnum, Color(entity.color))
+            DistributionItem(entity.name, amount, categoryEnum, getCategoryColor(categoryEnum, isDarkTheme))
         }.filter { it.amount > 0 } // D3 FIX
         .sortedByDescending { it.amount }
     }

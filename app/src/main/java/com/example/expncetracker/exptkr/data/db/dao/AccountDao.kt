@@ -23,4 +23,7 @@ interface AccountDao {
 
     @Query("SELECT * FROM accounts WHERE name = :name")
     suspend fun getAccountByName(name: String): AccountEntity?
+
+    @Query("UPDATE accounts SET balance = balance + :delta WHERE name = :name")
+    suspend fun adjustBalance(name: String, delta: Double): Int
 }

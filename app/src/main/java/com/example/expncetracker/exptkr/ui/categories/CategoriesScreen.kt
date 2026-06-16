@@ -28,6 +28,7 @@ import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
 import com.example.expncetracker.exptkr.ui.components.availableIcons
 import com.example.expncetracker.exptkr.ui.components.presetColors
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +113,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                 items(incomeCategories) { category ->
                     val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
                     val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                    val percentage = if (totalIncomeVolume > 0) (amount / totalIncomeVolume * 100).toInt() else 0
+                    val percentage = if (totalIncomeVolume > 0) (amount / totalIncomeVolume * 100).roundToInt() else 0
                     
                     CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
                     HorizontalDivider(

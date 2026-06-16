@@ -6,66 +6,56 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
-import androidx.glance.action.actionStartActivity
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.*
 import androidx.glance.layout.*
 import androidx.glance.text.*
-import androidx.glance.unit.ColorProvider
-import androidx.room.Room
+import androidx.glance.GlanceTheme
+import com.example.expncetracker.R
 import com.example.expncetracker.exptkr.MainActivity
-import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.ZoneId
-import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
-import com.example.expncetracker.exptkr.core.common.SecurityUtils
-
+import android.content.Intent
 class ExpenseWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Initialize SQLCipher
-        try {
-            System.loadLibrary("sqlcipher")
-        } catch (e: Exception) {
-            // Log error or handle failure
-        }
-
-        val database = provideDatabase(context)
+        // Safe database access via Singleton pattern
+        val database = AppDatabase.getInstance(context)
         val transactionDao = database.transactionDao()
         val budgetDao = database.budgetDao()
 
+        // Time Calculations
         val now = LocalDateTime.now()
-        val startOfDay = now.withHour(0).withMinute(0).withSecond(0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endOfDay = now.withHour(23).withMinute(59).withSecond(59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val startOfDay = now.withHour(0).withMinute(0).withSecond(0).withNano(0)
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endOfDay = now.withHour(23).withMinute(59).withSecond(59).withNano(999)
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+        // Fetching Data safely inside a suspend context
         val todayTransactions = transactionDao.getTransactionsInRange(startOfDay, endOfDay).first()
         val todaySpending = todayTransactions.filter { it.type == "DEBIT" }.sumOf { it.amount }
-        
+
         val budgets = budgetDao.getAllBudgets().first()
         val totalBudget = budgets.sumOf { it.limitAmount }
-        val remainingBudget = totalBudget - todaySpending 
+        val remainingBudget = totalBudget - todaySpending
 
         provideContent {
-            WidgetContent(todaySpending, remainingBudget)
+            GlanceTheme {
+                WidgetContent(todaySpending, remainingBudget)
+            }
         }
-    }
-
-    private fun provideDatabase(context: Context): AppDatabase {
-        val passphrase = SecurityUtils.getOrCreatePassphrase(context)
-        val factory = SupportOpenHelperFactory(passphrase)
-        return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
-            .fallbackToDestructiveMigration()
-            .openHelperFactory(factory)
-            .build()
     }
 
     @Composable
     private fun WidgetContent(todaySpending: Double, remaining: Double) {
+        val context = LocalContext.current
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ImageProvider(com.example.expncetracker.R.drawable.glance_appwidget_background))
+                // Fixed the package path for R.drawable
+                .background(ImageProvider(R.drawable.glance_appwidget_background))
                 .appWidgetBackground()
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -78,32 +68,36 @@ class ExpenseWidget : GlanceAppWidget() {
                 Column(modifier = GlanceModifier.defaultWeight()) {
                     Text(
                         text = "Today",
-                        style = TextStyle(fontSize = 12.sp, color = ColorProvider(Color.Gray))
+                        style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant)
                     )
                     Text(
-                        text = "₹${todaySpending.toInt()}",
-                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ColorProvider(Color.White))
+                        text = "₹${"%.2f".format(todaySpending)}",
+                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = GlanceTheme.colors.onSurface)
                     )
                 }
                 Spacer(modifier = GlanceModifier.width(8.dp))
                 Column(modifier = GlanceModifier.defaultWeight()) {
                     Text(
                         text = "Left",
-                        style = TextStyle(fontSize = 12.sp, color = ColorProvider(Color.Gray))
+                        style = TextStyle(fontSize = 12.sp, color = GlanceTheme.colors.onSurfaceVariant)
                     )
                     Text(
-                        text = "₹${remaining.toInt()}",
-                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ColorProvider(if (remaining < 0) Color.Red else Color.Green))
+                        text = "₹${"%.2f".format(remaining)}",
+                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (remaining < 0) GlanceTheme.colors.error else androidx.glance.color.ColorProvider(Color.Green, Color.Green))
                     )
                 }
             }
-            
+
             Spacer(modifier = GlanceModifier.height(8.dp))
-            
+
             Button(
-                text = "+ Add Expense",
-                onClick = actionStartActivity<MainActivity>(),
-                modifier = GlanceModifier.fillMaxWidth().height(36.dp)
+                text = context.getString(R.string.widget_add_expense),
+                onClick = actionStartActivity(
+                    Intent(context, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("navigate_to", "add_transaction")
+                    }
+                ),
             )
         }
     }

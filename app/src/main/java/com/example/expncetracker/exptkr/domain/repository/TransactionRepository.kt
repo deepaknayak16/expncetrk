@@ -18,4 +18,5 @@ interface TransactionRepository {
     fun getAllRecurringTransactions(): Flow<List<Transaction>>
     suspend fun getDueRecurringTransactions(timestamp: Long): List<Transaction>
     suspend fun clearAllTransactions()
+    suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>)
 }

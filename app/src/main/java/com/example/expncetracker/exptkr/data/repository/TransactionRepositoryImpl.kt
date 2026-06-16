@@ -56,4 +56,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun clearAllTransactions() =
         transactionDao.clearAll()
+
+    override suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>) =
+        transactionDao.splitTransaction(parentId, subTransactions.map { it.toEntity() })
 }

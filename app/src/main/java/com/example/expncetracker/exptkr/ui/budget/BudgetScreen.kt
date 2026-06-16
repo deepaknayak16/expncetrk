@@ -203,9 +203,9 @@ fun BudgetItem(budget: BudgetUiModel, onEditClick: () -> Unit, onDeleteClick: ()
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.isDark
-    
+    val targetProgress by remember(budget.progress) { mutableFloatStateOf(budget.progress) }
     val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = budget.progress,
+        targetValue = targetProgress,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 800),
         label = "budgetProgress"
     )
@@ -413,7 +413,11 @@ fun AddBudgetDialog(
 
                 OutlinedTextField(
                     value = limit,
-                    onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) limit = it },
+                    onValueChange = { input ->
+                        if (input.count { it == '.' } <= 1 && input.all { c -> c.isDigit() || c == '.' }) {
+                            limit = input
+                        }
+                    },
                     label = { Text("Monthly Limit") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),

@@ -7,7 +7,7 @@ object Constants {
     val BANK_SENDERS = listOf(
         "HDFC", "SBI", "ICICI", "AXIS", "KOTAK", "PNB", "CANBNK", "IDBI", 
         "UNION", "YESBNK", "RBL", "INDUS", "HSBC", "STAN", "FED", "UBI",
-        "CITI", "BANK"
+        "CITI"
     )
     val WALLET_SENDERS = listOf("PAYTM")
 }

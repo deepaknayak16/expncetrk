@@ -51,4 +51,10 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions")
     suspend fun clearAll()
+
+    @androidx.room.Transaction
+    suspend fun splitTransaction(parentId: Long, children: List<TransactionEntity>) {
+        deleteById(parentId)
+        insertTransactions(children)
+    }
 }

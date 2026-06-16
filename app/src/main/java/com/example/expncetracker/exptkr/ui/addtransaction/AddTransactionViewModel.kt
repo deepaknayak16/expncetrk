@@ -12,6 +12,7 @@ import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -57,7 +58,7 @@ class AddTransactionViewModel @Inject constructor(
     }
 
     fun onMerchantNameChanged(name: String, currentCategory: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             val suggestedCategory = categoryDetector.detect(name, TransactionType.DEBIT, transactionHistory.value)
             if (suggestedCategory != Category.OTHERS.displayName && (currentCategory.isEmpty() || currentCategory == Category.OTHERS.displayName)) {
                 _suggestedCategory.value = suggestedCategory

@@ -54,6 +54,10 @@ class SmsReader @Inject constructor(
                         val isWallet = Constants.WALLET_SENDERS.any { prefix ->
                             address.uppercase().contains(prefix.uppercase()) || body.uppercase().contains(prefix.uppercase())
                         }
+                        val allAllowedSenders = Constants.BANK_SENDERS + Constants.WALLET_SENDERS
+                        val isAllowedSender = allAllowedSenders.any { prefix ->
+                            address.uppercase().contains(prefix.uppercase()) || body.uppercase().contains(prefix.uppercase())
+                        }
 
                         val isRelevant = isBankBySender || isBankByBody || isWallet
 

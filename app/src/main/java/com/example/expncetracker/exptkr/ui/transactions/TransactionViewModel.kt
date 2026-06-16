@@ -197,14 +197,14 @@ class TransactionViewModel @Inject constructor(
                 }
                 else -> {
                     repository.deleteTransactionById(transaction.id)
-                    // S4 FIX: Reverse account balance
-                    accountDao.getAccountByName(transaction.bankName)?.let { account ->
-                        val newBalance = when (transaction.type) {
-                            TransactionType.CREDIT, TransactionType.BORROW -> account.balance - transaction.amount
-                            TransactionType.DEBIT, TransactionType.LEND -> account.balance + transaction.amount
-                            else -> account.balance
-                        }
-                        accountDao.updateAccount(account.copy(balance = newBalance))
+                    // S4 FIX: Reverse account balance atomically
+                    val delta = when (transaction.type) {
+                        TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
+                        TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
+                        else -> 0.0
+                    }
+                    if (delta != 0.0) {
+                        accountDao.adjustBalance(transaction.bankName, delta)
                     }
                     _statusEvent.send("Transaction deleted")
                 }
@@ -216,7 +216,6 @@ class TransactionViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 reverseAccountBalance(parent)
-                repository.deleteTransactionById(parent.id)
                 val subTransactions = splits.map { (catName, amt) ->
                     parent.copy(
                         id = 0,
@@ -226,7 +225,7 @@ class TransactionViewModel @Inject constructor(
                         note = "Split from original ₹${parent.amount}: ${parent.note ?: ""}".trim()
                     )
                 }
-                repository.insertTransactions(subTransactions)
+                repository.splitTransaction(parent.id, subTransactions)
                 _statusEvent.send("Transaction split successfully")
             } catch (e: Exception) {
                 _statusEvent.send("Split failed: ${e.message}")
@@ -235,31 +234,30 @@ class TransactionViewModel @Inject constructor(
     }
 
     private suspend fun reverseAccountBalance(transaction: Transaction) {
-        val account = accountDao.getAllAccounts().first().find { it.name == transaction.bankName } ?: return
-        val reverted = when (transaction.type) {
-            TransactionType.CREDIT, TransactionType.BORROW -> account.balance - transaction.amount
-            TransactionType.DEBIT, TransactionType.LEND -> account.balance + transaction.amount
-            TransactionType.TRANSFER -> account.balance
+        val delta = when (transaction.type) {
+            TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
+            TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
+            else -> 0.0
         }
-        accountDao.updateAccount(account.copy(balance = reverted))
+        if (delta != 0.0) {
+            accountDao.adjustBalance(transaction.bankName, delta)
+        }
     }
 
     fun settleTransaction(transaction: Transaction) {
         viewModelScope.launch {
             try {
                 repository.updateTransaction(transaction.copy(isSettled = true))
-                // S4 FIX: Update account balance on settlement
+                // S4 FIX: Update account balance on settlement atomically
                 // If LEND: money returned -> add to balance
                 // If BORROW: money paid back -> subtract from balance
-                accountDao.getAccountByName(transaction.bankName)?.let { account ->
-                    val balanceAdjustment = when (transaction.type) {
-                        TransactionType.LEND -> transaction.amount
-                        TransactionType.BORROW -> -transaction.amount
-                        else -> 0.0
-                    }
-                    if (balanceAdjustment != 0.0) {
-                        accountDao.updateAccount(account.copy(balance = account.balance + balanceAdjustment))
-                    }
+                val delta = when (transaction.type) {
+                    TransactionType.LEND -> transaction.amount
+                    TransactionType.BORROW -> -transaction.amount
+                    else -> 0.0
+                }
+                if (delta != 0.0) {
+                    accountDao.adjustBalance(transaction.bankName, delta)
                 }
                 _statusEvent.send("Debt marked as settled")
             } catch (e: Exception) {
