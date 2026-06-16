@@ -21,8 +21,21 @@ import android.content.Intent
 class ExpenseWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        try {
+            System.loadLibrary("sqlcipher")
+        } catch (e: Exception) {
+            provideContent { Text("Database unavailable") }
+            return
+        }
+
+        val database = try {
+            AppDatabase.getInstance(context)
+        } catch (e: Exception) {
+            provideContent { Text("Database error") }
+            return
+        }
         // Safe database access via Singleton pattern
-        val database = AppDatabase.getInstance(context)
+        //val database = AppDatabase.getInstance(context)
         val transactionDao = database.transactionDao()
         val budgetDao = database.budgetDao()
 

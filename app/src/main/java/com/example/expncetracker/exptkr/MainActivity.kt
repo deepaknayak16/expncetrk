@@ -1,5 +1,11 @@
 package com.example.expncetracker.exptkr
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.example.expncetracker.exptkr.core.common.BIOMETRIC_ENABLED_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
@@ -63,6 +70,13 @@ class MainActivity : FragmentActivity() {
             val startRoute = remember { intent.getStringExtra("navigate_to") }
 
             LaunchedEffect(Unit) {
+                val channel = NotificationChannel(
+                    "quick_actions_channel",
+                    "Quick Actions",
+                    NotificationManager.IMPORTANCE_LOW
+                )
+                val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                nm.createNotificationChannel(channel)
                 AppNotificationManager.showQuickActionsNotification(this@MainActivity)
             }
 
@@ -77,13 +91,13 @@ class MainActivity : FragmentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result ->
-                if (result[android.Manifest.permission.READ_SMS] == true) {
+                if (result[Manifest.permission.READ_SMS] == true) {
                     Toast.makeText(this@MainActivity, "SMS permission granted", Toast.LENGTH_SHORT).show()
                     scope.launch {
                         dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
                     }
                 }
-                if (result[android.Manifest.permission.POST_NOTIFICATIONS] == true) {
+                if (result[Manifest.permission.POST_NOTIFICATIONS] == true) {
                     scope.launch {
                         dataStore.edit { it[NOTIFICATION_PERMISSION_SHOWN_KEY] = true }
                     }
@@ -93,14 +107,14 @@ class MainActivity : FragmentActivity() {
             LaunchedEffect(isNotificationRationaleShown) {
                 if (!isNotificationRationaleShown &&
                     !hasAskedNotificationThisSession &&
-                    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
-                    androidx.core.content.ContextCompat.checkSelfPermission(
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
                         this@MainActivity,
-                        android.Manifest.permission.POST_NOTIFICATIONS
-                    ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
                 ) {
                     hasAskedNotificationThisSession = true
-                    permissionLauncher.launch(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS))
+                    permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
                 }
             }
 

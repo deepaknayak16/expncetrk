@@ -6,10 +6,12 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 // Imports for your custom application utilities (Verify these match your packages)
 import com.example.expncetracker.exptkr.core.common.SecurityUtils
 import com.example.expncetracker.exptkr.core.common.Constants
-import android.content.Context // Added missing import
+import android.content.Context
 import androidx.room.Database
-import androidx.room.Room // Added missing import
+import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
@@ -64,12 +66,26 @@ abstract class AppDatabase : RoomDatabase() {
             val databaseName = Constants.DATABASE_NAME
 
             fun createDb(): AppDatabase {
+                // Load the native SQLCipher library
+                try {
+                    System.loadLibrary("sqlcipher")
+                } catch (e: UnsatisfiedLinkError) {
+                    // Ignore if already loaded or not needed
+                }
+
                 val passphrase = SecurityUtils.getOrCreatePassphrase(appContext)
                 val factory = SupportOpenHelperFactory(passphrase)
+                
+                val MIGRATION_4_5 = object : Migration(4, 5) {
+                    override fun migrate(db: SupportSQLiteDatabase) {
+                        db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty TEXT")
+                    }
+                }
 
                 return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
-                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .openHelperFactory(factory)
+                    .addMigrations(MIGRATION_4_5)
+                    .fallbackToDestructiveMigration()
                     .build()
             }
 
