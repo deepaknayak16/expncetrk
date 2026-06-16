@@ -9,13 +9,14 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.expncetracker.exptkr.MainActivity
 import com.example.expncetracker.R
-
+import androidx.core.content.ContextCompat
 object AppNotificationManager {
     private const val CHANNEL_ID = "quick_actions_channel"
     private const val NOTIFICATION_ID = 1001
 
     fun showQuickActionsNotification(context: Context) {
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -30,7 +31,7 @@ object AppNotificationManager {
 
         val addExpenseIntent = Intent(context, MainActivity::class.java).apply {
             putExtra("navigate_to", "add_transaction")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val addExpensePendingIntent = PendingIntent.getActivity(
             context, 0, addExpenseIntent,
@@ -39,7 +40,7 @@ object AppNotificationManager {
 
         val viewBudgetsIntent = Intent(context, MainActivity::class.java).apply {
             putExtra("navigate_to", "budget")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val viewBudgetsPendingIntent = PendingIntent.getActivity(
             context, 1, viewBudgetsIntent,
@@ -47,15 +48,23 @@ object AppNotificationManager {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Use a proper icon if available
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(
+                ContextCompat.getColor(
+                    context,
+                    android.R.color.holo_blue_dark
+                )
+            ) // <-- Fixed closing parenthesis here
             .setContentTitle("Expense Tracker")
             .setContentText("Quickly manage your finances")
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true) // Make it persistent
+            .setOngoing(true)
             .addAction(0, "Add Expense", addExpensePendingIntent)
             .addAction(0, "View Budgets", viewBudgetsPendingIntent)
             .build()
 
+        //val notificationManager =
+            //context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 }

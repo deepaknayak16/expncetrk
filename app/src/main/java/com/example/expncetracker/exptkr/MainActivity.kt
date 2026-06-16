@@ -80,7 +80,7 @@ class MainActivity : FragmentActivity() {
                         dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
                     }
                 }
-                if (result.containsKey(android.Manifest.permission.POST_NOTIFICATIONS)) {
+                if (result[android.Manifest.permission.POST_NOTIFICATIONS] == true) {
                     scope.launch {
                         dataStore.edit { it[NOTIFICATION_PERMISSION_SHOWN_KEY] = true }
                     }

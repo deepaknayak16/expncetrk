@@ -115,6 +115,14 @@ class BudgetViewModel @Inject constructor(
 
     fun saveBudget(categoryName: String, limit: Double) {
         viewModelScope.launch {
+            if (categoryName.isBlank()) {
+                _statusEvent.send("Please select a category")
+                return@launch
+            }
+            if (limit <= 0) {
+                _statusEvent.send("Budget limit must be greater than 0")
+                return@launch
+            }
             budgetDao.insertBudget(BudgetEntity(categoryName, limit))
         }
     }
