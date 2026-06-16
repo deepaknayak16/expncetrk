@@ -16,10 +16,11 @@ class GetTrendsUseCase @Inject constructor(
 ) {
     operator fun invoke(months: Int = 6): Flow<List<SpendingTrend>> {
         val now = LocalDateTime.now()
+        val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val startDateTime = now.minusMonths(months.toLong() - 1).withDayOfMonth(1).withHour(0).withMinute(0)
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-        return repository.getTransactionsInRange(startMillis, Long.MAX_VALUE).map { txList ->
+        return repository.getTransactionsInRange(startMillis, endMillis).map { txList ->
             val trends = mutableMapOf<String, Double>()
             
             // Initialize last N months with 0

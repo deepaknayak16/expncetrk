@@ -1,6 +1,8 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,7 +58,7 @@ fun AddTransactionScreen(
     val allCategories by viewModel.categories.collectAsState()
     val suggestedCategory by viewModel.suggestedCategory.collectAsState()
 
-    var amountText by remember { mutableStateOf("0") }
+    var amountText by remember { mutableStateOf("") }
     var merchantName by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEBIT) }
@@ -67,9 +69,24 @@ fun AddTransactionScreen(
     var isRecurring by remember { mutableStateOf(false) }
     var recurrenceFrequency by remember { mutableStateOf(RecurrenceFrequency.MONTHLY) }
     var tagsInput by remember { mutableStateOf("") }
+    var userSelectedCategory by remember { mutableStateOf(false) }
 
-    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    val contactPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickContact()
+    ) { uri ->
+        uri?.let {
+            val cursor = context.contentResolver.query(it, null, null, null, null)
+            cursor?.use { c ->
+                if (c.moveToFirst()) {
+                    val nameIndex = c.getColumnIndex(android.provider.ContactsContract.Contacts.DISPLAY_NAME)
+                    if (nameIndex != -1) counterparty = c.getString(nameIndex)
+                }
+            }
+        }
+    }
 
     LaunchedEffect(transactionId) {
         if (transactionId != null && transactionId != 0L) {
@@ -94,7 +111,7 @@ fun AddTransactionScreen(
 
     LaunchedEffect(suggestedCategory) {
         suggestedCategory?.let {
-            if (selectedCategoryName.isEmpty() || selectedCategoryName == "Others") {
+            if (!userSelectedCategory && (selectedCategoryName.isEmpty() || selectedCategoryName == "Others")) {
                 selectedCategoryName = it
             }
         }
@@ -297,6 +314,14 @@ fun AddTransactionScreen(
                         modifier = fieldModifier,
                         placeholder = { Text(if (selectedType == TransactionType.LEND) "Lent to?" else "Borrowed from?", style = MaterialTheme.typography.bodyMedium) },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { contactPicker.launch(null) },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(Icons.Default.ContactPage, contentDescription = "Pick contact", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        },
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
@@ -421,18 +446,18 @@ fun AddTransactionScreen(
                     },
                     onClearClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        amountText = "0"
+                        amountText = ""
                     },
                     onDeleteClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        if (amountText.length > 1) amountText = amountText.dropLast(1) else amountText = "0"
+                        if (amountText.isNotEmpty()) amountText = amountText.dropLast(1)
                     },
                     onBracketClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         val openBrackets = amountText.count { it == '(' }
                         val closeBrackets = amountText.count { it == ')' }
                         
-                        if (amountText == "0") {
+                        if (amountText.isEmpty()) {
                             amountText = "("
                         } else {
                             val lastChar = if (amountText.isNotEmpty()) amountText.last() else ' '
@@ -542,6 +567,7 @@ fun AddTransactionScreen(
             val categoriesToShow = when (selectedType) {
                 TransactionType.CREDIT -> allCategories.filter { it.type == "INCOME" }
                 TransactionType.DEBIT -> allCategories.filter { it.type == "EXPENSE" }
+                TransactionType.TRANSFER -> allCategories.filter { it.name == "Transfer" || it.name == "Others" }
                 else -> allCategories
             }
 
@@ -558,6 +584,7 @@ fun AddTransactionScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.height(90.dp).clip(MaterialTheme.shapes.medium).clickable { 
                             selectedCategoryName = category.name
+                            userSelectedCategory = true
                             showCategorySheet = false 
                         }.padding(4.dp)
                     ) {

@@ -114,7 +114,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                     val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
                     val percentage = if (totalIncomeVolume > 0) (amount / totalIncomeVolume * 100).toInt() else 0
                     
-                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
+                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -127,7 +127,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                     val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
                     val percentage = if (totalExpenseVolume > 0) (amount / totalExpenseVolume * 100).toInt() else 0
                     
-                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color))
+                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 72.dp, end = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -249,7 +249,12 @@ private fun AddCategoryDialog(
 }
 
 @Composable
-private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: Double, percentage: Int = 0, color: Color) {
+private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: Double, percentage: Int = 0, color: Color, type: String = "EXPENSE") {
+    val amountColor = when (type) {
+        "INCOME" -> if (isDark) DarkIncome else LightIncome
+        else -> if (isDark) DarkExpense else LightExpense
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -284,7 +289,7 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = amount.formatAsCurrency(),
-                        color = if (isDark) DarkExpense else LightExpense,
+                        color = amountColor,
                         style = MaterialTheme.typography.labelMedium
                     )
                     Spacer(Modifier.width(8.dp))
@@ -297,7 +302,7 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
             } else if (amount > 0) {
                 Text(
                     text = amount.formatAsCurrency(),
-                    color = if (isDark) DarkExpense else LightExpense,
+                    color = amountColor,
                     style = MaterialTheme.typography.labelMedium
                 )
             }

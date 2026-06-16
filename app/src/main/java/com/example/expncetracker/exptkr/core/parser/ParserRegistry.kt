@@ -36,7 +36,7 @@ class ParserRegistry @Inject constructor(
             is SbiParser -> "SBI"
             is IciciParser -> "ICICI"
             is AxisParser -> "AXIS"
-            else -> ""
+            else -> "!__NO_MATCH__!"
         }
     }
 }

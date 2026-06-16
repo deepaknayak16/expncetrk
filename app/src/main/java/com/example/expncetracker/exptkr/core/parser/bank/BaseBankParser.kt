@@ -22,6 +22,11 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             val isDebit = debitRegex.containsMatchIn(cleanBody)
             val isCredit = creditRegex.containsMatchIn(cleanBody)
 
+            if (isDebit && isCredit) {
+                if (BuildConfig.DEBUG) Log.w("BankParser", "Ambiguous SMS (both debit+credit): $cleanBody")
+                return null // Let GenericParser handle it
+            }
+
             if (!isDebit && !isCredit) return null
 
             val amountMatch = amountRegex.find(cleanBody) ?: return null

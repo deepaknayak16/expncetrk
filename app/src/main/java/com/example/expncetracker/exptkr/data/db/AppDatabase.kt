@@ -18,7 +18,7 @@ import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
 @Database(
     entities = [TransactionEntity::class, RawSmsEntity::class, BudgetEntity::class, AccountEntity::class, CategoryEntity::class, GoalEntity::class],
     version = 5,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao

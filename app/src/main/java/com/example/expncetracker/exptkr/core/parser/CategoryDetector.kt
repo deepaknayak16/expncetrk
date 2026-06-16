@@ -19,14 +19,14 @@ class CategoryDetector @Inject constructor(
      * 2. Naive Bayes ML Classifier (Trained on user history)
      * 3. Rule-based Fallback (Hardcoded patterns)
      */
-    suspend fun detect(merchant: String, type: TransactionType): String {
+    suspend fun detect(
+        merchant: String, 
+        type: TransactionType, 
+        history: List<com.example.expncetracker.exptkr.domain.model.Transaction> = emptyList()
+    ): String {
         val cleanMerchant = merchant.trim()
         val upperMerchant = cleanMerchant.uppercase(Locale.ROOT)
         
-        val history = repository.getAllTransactions()
-            .map { it.take(200) }
-            .first()
-
         // 1. EXACT HISTORY MATCH
         val exactMatch = history.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
         if (exactMatch != null) {
@@ -118,8 +118,8 @@ class CategoryDetector @Inject constructor(
         // This is a simplified heuristic for confidence
         val confidence = if (probabilities.size > 1) {
             val sorted = probabilities.values.sortedDescending()
-            val diff = sorted[0] - sorted[1]
-            (diff / -sorted[0]).coerceIn(0.0, 1.0)
+            val totalRange = sorted.last() - sorted[0]
+            if (totalRange != 0.0) ((sorted[0] - sorted[1]) / totalRange).coerceIn(0.0, 1.0) else 0.0
         } else 1.0
 
         return Prediction(bestCategory, confidence)

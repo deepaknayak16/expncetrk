@@ -38,7 +38,8 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
                     isRecurring = false, // The new instance is a normal transaction
                     frequency = null,
                     nextDueDate = null,
-                    recurrenceEndDate = null
+                    recurrenceEndDate = null,
+                    parentTransactionId = tx.id
                 )
                 repository.insertTransaction(newTransaction)
 
