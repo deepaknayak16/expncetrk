@@ -161,28 +161,16 @@ fun DashboardContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 20.dp),
+        contentPadding = PaddingValues(bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            AnimatedContent(
-                targetState = recurring.isNotEmpty(),
-                label = "greeting"
-            ) { hasUpcoming ->
-                if (hasUpcoming) {
-                    UpcomingPaymentBanner(recurringCount = recurring.size)
-                } else {
-                    GreetingHeader()
-                }
-            }
-        }
-
-        item {
-            NetWorthCard(summary = summary)
-        }
-
-        item {
-            CompactSummaryHeader(summary = summary, currentFilter = currentFilter, onFilterChange = onFilterChange)
+            ModernDashboardHeader(
+                summary = summary,
+                recurringCount = recurring.size,
+                currentFilter = currentFilter,
+                onFilterChange = onFilterChange
+            )
         }
 
         item {
@@ -198,7 +186,7 @@ fun DashboardContent(
             item {
                 SectionHeader(
                     title = "Upcoming Payments",
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp)
                 )
             }
             items(recurring, key = { "rec_${it.id}" }) { tx ->
@@ -396,131 +384,31 @@ fun GoalProgressItem(goal: GoalEntity) {
     }
 }
 
-@Composable
-fun NetWorthCard(summary: FinancialSummary) {
-    val isDark = MaterialTheme.isDark
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1.2f)) {
-                    Text(
-                        text = "NET WORTH",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = summary.netWorth.formatAsCurrency(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "TOTAL ASSETS",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = summary.totalAssets.formatAsCurrency(),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDark) DarkIncome else LightIncome,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "TOTAL LIABILITIES",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = summary.totalLiabilities.formatAsCurrency(),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDark) DarkExpense else LightExpense,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Spacer(Modifier.height(8.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Financial Health Score",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val healthScore = remember(summary) {
-                    if (summary.totalAssets > 0) {
-                        ((summary.netWorth / summary.totalAssets) * 100).toInt().coerceIn(0, 100)
-                    } else 0
-                }
-                Text(
-                    text = "$healthScore%",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        healthScore > 70 -> if (isDark) DarkIncome else LightIncome
-                        healthScore > 40 -> MaterialTheme.colorScheme.primary
-                        else -> if (isDark) DarkExpense else LightExpense
-                    }
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CompactSummaryHeader(
+fun ModernDashboardHeader(
     summary: FinancialSummary,
+    recurringCount: Int,
     currentFilter: DateFilter,
     onFilterChange: (DateFilter) -> Unit
 ) {
+    val now = LocalTime.now()
+    val greeting = when (now.hour) {
+        in 0..11 -> "Good morning"
+        in 12..15 -> "Good afternoon"
+        in 16..20 -> "Good evening"
+        else -> "Good night"
+    }
+
+    var showFilterSheet by remember { mutableStateOf(false) }
     var yearMonth by remember { mutableStateOf(YearMonth.now()) }
     val monthYearFormatter = remember { DateTimeFormatter.ofPattern("MMMM, yyyy", Locale.getDefault()) }
-    var showFilterSheet by remember { mutableStateOf(false) }
-    val isDark = MaterialTheme.isDark
 
-    var showDatePicker by remember { mutableStateOf(false) }
+    val healthScore = remember(summary) {
+        if (summary.totalAssets > 0)
+            ((summary.netWorth / summary.totalAssets) * 100).toInt().coerceIn(0, 100)
+        else 0
+    }
 
     if (showFilterSheet) {
         ModalBottomSheet(
@@ -534,235 +422,310 @@ fun CompactSummaryHeader(
         }
     }
 
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = yearMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
-                        yearMonth = YearMonth.from(selectedDate)
-                        // We must update the filter type to MONTH to ensure the summary updates
-                        onFilterChange(DateFilter.MONTH)
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
+    Column(modifier = Modifier.padding(12.dp)) {
 
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = {
-                    yearMonth = yearMonth.minusMonths(1)
-                    if (currentFilter == DateFilter.MONTH) onFilterChange(DateFilter.MONTH)
-                }) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = MaterialTheme.colorScheme.primary)
-                }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { 
-                            showDatePicker = true
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = yearMonth.format(monthYearFormatter),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-
-                Row {
-                    val isNextMonthInFuture = remember(yearMonth) {
-                        yearMonth.plusMonths(1).isAfter(YearMonth.now())
-                    }
-                    IconButton(
-                        onClick = {
-                            yearMonth = yearMonth.plusMonths(1)
-                            onFilterChange(DateFilter.MONTH)
-                        },
-                        enabled = !isNextMonthInFuture
-                    ) {
-                        Icon(
-                            Icons.Default.ChevronRight, 
-                            contentDescription = "Next", 
-                            tint = if (isNextMonthInFuture) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = { showFilterSheet = true }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                SummaryColumn("EXPENSE", summary.totalExpense.formatAsCurrency(), if (isDark) DarkExpense else LightExpense, Modifier.weight(1f))
-                SummaryColumn("INCOME", summary.totalIncome.formatAsCurrency(), if (isDark) DarkIncome else LightIncome, Modifier.weight(1f))
-                SummaryColumn("TOTAL", summary.balance.formatAsCurrency(),
-                    if (summary.balance >=0) (if (isDark) DarkIncome else LightIncome) else
-                        (if (isDark) DarkExpense else LightExpense), Modifier.weight(1f))
-            }
-            
-            if (summary.totalLent > 0 || summary.totalBorrowed > 0) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    DebtSummaryItem("OWED TO YOU", summary.totalLent.formatAsCurrency(), if (isDark) CategorySalaryDark else CategorySalary)
-                    DebtSummaryItem("YOU OWE", summary.totalBorrowed.formatAsCurrency(), if (isDark) CategoryRentDark else CategoryRent)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun GreetingHeader() {
-    val now = LocalTime.now()
-    val greeting = when (now.hour) {
-        in 0..11 -> stringResource(R.string.greeting_morning)
-        in 12..15 -> stringResource(R.string.greeting_afternoon)
-        in 16..20 -> stringResource(R.string.greeting_evening)
-        else -> stringResource(R.string.greeting_night)
-    }
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
-        Text(
-            text = "$greeting!",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = "Welcome back to ${stringResource(R.string.app_name)}",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-fun UpcomingPaymentBanner(recurringCount: Int) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
-    ) {
+        // Row 1: Greeting + Payment badge + Filter button
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.NotificationImportant,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.width(12.dp))
             Column {
                 Text(
-                    text = "Upcoming Payment Due!",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    text = greeting,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "You have $recurringCount bill${if (recurringCount > 1) "s" else ""} to pay soon",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                    text = yearMonth.format(monthYearFormatter),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (recurringCount > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Text(
+                                text = "Payment due",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+
+                OutlinedIconButton(
+                    onClick = { showFilterSheet = true },
+                    modifier = Modifier.size(32.dp),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Icon(
+                        Icons.Default.FilterList,
+                        contentDescription = "Filter",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Row 2: Month navigation
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isNextMonthInFuture = remember(yearMonth) {
+                yearMonth.plusMonths(1).isAfter(YearMonth.now())
+            }
+
+            IconButton(
+                onClick = {
+                    yearMonth = yearMonth.minusMonths(1)
+                    onFilterChange(DateFilter.MONTH)
+                },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    Icons.Default.ChevronLeft,
+                    contentDescription = "Previous month",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = yearMonth.format(monthYearFormatter),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
+            IconButton(
+                onClick = {
+                    yearMonth = yearMonth.plusMonths(1)
+                    onFilterChange(DateFilter.MONTH)
+                },
+                modifier = Modifier.size(28.dp),
+                enabled = !isNextMonthInFuture
+            ) {
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Next month",
+                    tint = if (isNextMonthInFuture)
+                        MaterialTheme.colorScheme.outlineVariant
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Row 3: Two summary cards
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Cash flow card
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Text(
+                        text = "CASH FLOW",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 0.06.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    CompactRow("Balance", summary.balance.formatAsCurrency())
+                    Spacer(modifier = Modifier.height(4.dp))
+                    CompactRow(
+                        label = "Income",
+                        value = summary.totalIncome.formatAsCurrency(),
+                        valueColor = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    CompactRow(
+                        label = "Expense",
+                        value = summary.totalExpense.formatAsCurrency(),
+                        valueColor = MaterialTheme.colorScheme.error
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text(
+                                text = "Owe to you",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = summary.totalLent.formatAsCurrency(),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "You owe",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = summary.totalBorrowed.formatAsCurrency(),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Net Worth card
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Text(
+                        text = "NET WORTH",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 0.06.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    CompactRow("Net worth", summary.netWorth.formatAsCurrency())
+                    Spacer(modifier = Modifier.height(4.dp))
+                    CompactRow(
+                        label = "Assets",
+                        value = summary.totalAssets.formatAsCurrency(),
+                        valueColor = MaterialTheme.colorScheme.tertiary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    CompactRow(
+                        label = "Liabilities",
+                        value = summary.totalLiabilities.formatAsCurrency(),
+                        valueColor = MaterialTheme.colorScheme.error
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Health score",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$healthScore%",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { healthScore / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SummaryColumn(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.height(IntrinsicSize.Min)
+private fun CompactRow(
+    label: String,
+    value: String,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(4.dp))
-
-        AnimatedContent(
-            targetState = value,
-            transitionSpec = {
-                (fadeIn(animationSpec = tween(220, delayMillis = 90)) + 
-                 scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
-                .togetherWith(fadeOut(animationSpec = tween(90)))
-            },
-            label = "SummaryAnimation"
-        ) { targetValue ->
-            Text(
-                text = targetValue,
-                style = if (targetValue.length > 12) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = valueColor,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Visible
-            )
-        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = valueColor
+        )
     }
 }
 
 @Composable
-private fun DebtSummaryItem(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.ExtraBold, color = color)
+fun DashboardInfoItem(label: String, value: String) {
+    Column {
+        Text(
+            text = label, 
+            style = MaterialTheme.typography.titleMedium, 
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value, 
+            style = MaterialTheme.typography.titleLarge, 
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
-private data class DistributionItem(
+data class DistributionItem(
     val name: String,
     val amount: Double,
     val category: Category,
