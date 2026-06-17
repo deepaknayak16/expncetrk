@@ -28,6 +28,7 @@ import com.example.expncetracker.exptkr.ui.components.getIconByName
 @Composable
 fun TransactionListItem(
     transaction: Transaction,
+    modifier: Modifier = Modifier,
     onDelete: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -71,7 +72,7 @@ fun TransactionListItem(
     }
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = onClick != null || onEdit != null) { 
                 if (onClick != null) onClick() else onEdit?.invoke() 
@@ -100,7 +101,7 @@ fun TransactionListItem(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -119,7 +120,7 @@ fun TransactionListItem(
                     }
                     Text(
                         text = detailText,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

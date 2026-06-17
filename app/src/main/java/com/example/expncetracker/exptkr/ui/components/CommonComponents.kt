@@ -431,7 +431,8 @@ fun SectionHeader(
     title: String,
     actionLabel: String? = null,
     onActionClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -440,7 +441,7 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = style,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )

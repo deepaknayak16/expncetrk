@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
+import com.example.expncetracker.exptkr.ui.components.EmptyState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +54,16 @@ fun GoalsScreen(viewModel: GoalsViewModel) {
             if (goals.isEmpty()) {
                 item {
                     Box(Modifier.fillParentMaxHeight(0.7f), contentAlignment = Alignment.Center) {
-                        Text("No goals set. Start saving for something big!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        EmptyState(
+                            icon = Icons.Default.Flag,
+                            title = "No goals yet",
+                            description = "Set savings goals to track your progress",
+                            action = {
+                                Button(onClick = { viewModel.triggerAddGoal() }) {
+                                    Text("Add First Goal")
+                                }
+                            }
+                        )
                     }
                 }
             } else {
