@@ -3,16 +3,18 @@ package com.example.expncetracker.exptkr.ui.addtransaction
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -75,25 +77,22 @@ fun AddTransactionScreen(
     val haptic = LocalHapticFeedback.current
 
     val contactPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickContact()
+        ActivityResultContracts.PickContact()
     ) { uri ->
         uri?.let {
             val cursor = context.contentResolver.query(it, null, null, null, null)
             cursor?.use { c ->
                 if (c.moveToFirst()) {
-                    val nameIndex = c.getColumnIndex(android.provider.ContactsContract.Contacts.DISPLAY_NAME)
-                    if (nameIndex != -1) counterparty = c.getString(nameIndex)
+                    val idx = c.getColumnIndex(android.provider.ContactsContract.Contacts.DISPLAY_NAME)
+                    if (idx != -1) counterparty = c.getString(idx)
                 }
             }
         }
     }
 
     LaunchedEffect(transactionId) {
-        if (transactionId != null && transactionId != 0L) {
-            viewModel.loadTransaction(transactionId)
-        }
+        if (transactionId != null && transactionId != 0L) viewModel.loadTransaction(transactionId)
     }
-
     LaunchedEffect(transactionToEdit) {
         transactionToEdit?.let {
             amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
@@ -104,31 +103,25 @@ fun AddTransactionScreen(
             transactionDate = it.timestamp
             counterparty = it.counterparty ?: ""
             isRecurring = it.isRecurring
-            it.frequency?.let { freq -> recurrenceFrequency = freq }
+            it.frequency?.let { f -> recurrenceFrequency = f }
             tagsInput = it.tags.joinToString(", ")
         }
     }
-
     LaunchedEffect(suggestedCategory) {
         suggestedCategory?.let {
-            if (!userSelectedCategory && (selectedCategoryName.isEmpty() || selectedCategoryName == "Others")) {
+            if (!userSelectedCategory && (selectedCategoryName.isEmpty() || selectedCategoryName == "Others"))
                 selectedCategoryName = it
-            }
         }
     }
-
     LaunchedEffect(allCategories) {
-        if (selectedCategoryName.isEmpty() && allCategories.isNotEmpty()) {
+        if (selectedCategoryName.isEmpty() && allCategories.isNotEmpty())
             selectedCategoryName = allCategories.find { it.type == "EXPENSE" }?.name ?: ""
-        }
     }
-
     LaunchedEffect(accounts, transactionToEdit) {
-        if (transactionToEdit != null) {
-            selectedAccount = accounts.find { acc -> acc.name == transactionToEdit?.bankName }
-        } else if (selectedAccount == null && accounts.isNotEmpty()) {
-            selectedAccount = accounts.first()
-        }
+        selectedAccount = if (transactionToEdit != null)
+            accounts.find { it.name == transactionToEdit?.bankName }
+        else
+            accounts.firstOrNull()
     }
 
     var showDatePicker by remember { mutableStateOf(false) }
@@ -143,34 +136,54 @@ fun AddTransactionScreen(
         initialHour = transactionDate.hour,
         initialMinute = transactionDate.minute
     )
-
     val dateFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()) }
-
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Formatted display amount
+    val displayAmount = remember(amountText) {
+        if (amountText.isEmpty()) "0"
+        else if (amountText.any { it in "+-*/()" }) amountText
+        else runCatching {
+            val parts = amountText.split(".")
+            val formatted = java.text.NumberFormat.getNumberInstance(Locale.US)
+                .format(parts[0].toLongOrNull() ?: 0L)
+            if (parts.size > 1) "$formatted.${parts[1]}" else formatted
+        }.getOrDefault(amountText)
+    }
+
+    // Type → accent color
+    val typeColor = when (selectedType) {
+        TransactionType.CREDIT -> MaterialTheme.colorScheme.tertiary
+        TransactionType.DEBIT -> MaterialTheme.colorScheme.error
+        TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.secondary
+    }
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
+            TopAppBar(
+                title = {
                     Text(
-                        if (transactionId != null) "Edit Transaction" else "Add Transaction",
+                        if (transactionId != null && transactionId != 0L) "Edit transaction"
+                        else "Add transaction",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    ) 
+                        fontWeight = FontWeight.Medium
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel")
+                        Icon(Icons.Default.Close, "Cancel")
                     }
                 },
                 actions = {
-                    IconButton(
+                    // FIX: inline save button instead of bare icon — clearer affordance
+                    Button(
                         onClick = {
-                            val amount = try { evaluate(amountText) } catch (e: Exception) { -1.0 }
+                            val amount = runCatching { evaluate(amountText) }.getOrDefault(-1.0)
                             when {
                                 amount < 0 -> Toast.makeText(context, "Invalid expression", Toast.LENGTH_SHORT).show()
-                                amount == 0.0 -> Toast.makeText(context, "Enter amount", Toast.LENGTH_SHORT).show()
+                                amount == 0.0 -> Toast.makeText(context, "Enter an amount", Toast.LENGTH_SHORT).show()
                                 merchantName.isBlank() -> Toast.makeText(context, "Enter merchant", Toast.LENGTH_SHORT).show()
                                 selectedAccount == null -> Toast.makeText(context, "Select account", Toast.LENGTH_SHORT).show()
                                 else -> {
@@ -178,7 +191,6 @@ fun AddTransactionScreen(
                                         .map { it.trim() }
                                         .filter { it.isNotEmpty() }
                                         .map { if (it.startsWith("#")) it else "#$it" }
-
                                     viewModel.addTransaction(
                                         id = transactionId ?: 0L,
                                         amount = amount,
@@ -196,11 +208,21 @@ fun AddTransactionScreen(
                                     onNavigateBack()
                                 }
                             }
-                        }
+                        },
+                        modifier = Modifier
+                            .height(36.dp)
+                            .padding(end = 8.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Save", style = MaterialTheme.typography.labelLarge)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { innerPadding ->
@@ -208,19 +230,22 @@ fun AddTransactionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
         ) {
-            // Main Content Area (Form Fields)
+            // ── Form area (scrollable) ──────────────────────────────────────
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Transaction Type Selector
+
+                // ── Type selector ───────────────────────────────────────────
+                // FIX: horizontally scrolling pill row — no weight(1f) squishing
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val types = listOf(
                         TransactionType.CREDIT to "Income",
@@ -229,32 +254,46 @@ fun AddTransactionScreen(
                         TransactionType.LEND to "Lend",
                         TransactionType.BORROW to "Borrow"
                     )
-                    
                     types.forEach { (type, label) ->
-                        TypeTab(label, selectedType == type) { 
-                            selectedType = type
-                            if (type == TransactionType.CREDIT) {
-                                allCategories.find { it.type == "INCOME" }?.let { selectedCategoryName = it.name }
-                            } else if (type == TransactionType.DEBIT) {
-                                allCategories.find { it.type == "EXPENSE" }?.let { selectedCategoryName = it.name }
+                        TypePill(
+                            label = label,
+                            isSelected = selectedType == type,
+                            selectedColor = when (type) {
+                                TransactionType.CREDIT -> MaterialTheme.colorScheme.tertiary
+                                TransactionType.DEBIT -> MaterialTheme.colorScheme.error
+                                TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.secondary
+                            },
+                            onClick = {
+                                selectedType = type
+                                when (type) {
+                                    TransactionType.CREDIT ->
+                                        allCategories.find { it.type == "INCOME" }
+                                            ?.let { selectedCategoryName = it.name }
+                                    TransactionType.DEBIT ->
+                                        allCategories.find { it.type == "EXPENSE" }
+                                            ?.let { selectedCategoryName = it.name }
+                                    else -> {}
+                                }
                             }
-                        }
+                        )
                     }
                 }
 
-                Spacer(Modifier.height(4.dp))
-
+                // ── Account + Category selectors ────────────────────────────
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ModernSelector(
+                    DropdownSelector(
                         value = selectedAccount?.name ?: "Account",
                         icon = Icons.Default.AccountBalanceWallet,
                         modifier = Modifier.weight(1f)
                     ) { showAccountSheet = true }
-                    
-                    ModernSelector(
+
+                    DropdownSelector(
                         value = selectedCategoryName.ifEmpty { "Category" },
                         icon = Icons.Default.Category,
                         modifier = Modifier.weight(1f)
@@ -263,140 +302,148 @@ fun AddTransactionScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Amount Display
-                val formattedAmount = remember(amountText) {
-                    if (amountText.isEmpty()) "0"
-                    else if (amountText.any { it in "+-*/()" }) amountText
-                    else {
-                        try {
-                            val parts = amountText.split(".")
-                            val intPart = parts[0].toLongOrNull() ?: 0L
-                            val formattedInt = java.text.NumberFormat.getNumberInstance(Locale.US).format(intPart)
-                            if (parts.size > 1) "$formattedInt.${parts[1]}" else formattedInt
-                        } catch (e: Exception) {
-                            amountText
-                        }
-                    }
-                }
-
+                // ── Amount display ──────────────────────────────────────────
+                // FIX: amount uses typeColor so debit = red, credit = green at a glance
                 Surface(
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
+                    color = typeColor.copy(alpha = 0.06f),
+                    border = BorderStroke(1.dp, typeColor.copy(alpha = 0.2f))
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text("₹", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
                         Text(
-                            text = formattedAmount,
+                            "₹",
                             style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            textAlign = TextAlign.End,
-                            maxLines = 1,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                            color = typeColor.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.Light
+                        )
+                        Text(
+                            text = displayAmount,
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = typeColor,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
                 Spacer(Modifier.height(8.dp))
 
-                // Form Fields (Optimized Height)
-                val fieldModifier = Modifier.fillMaxWidth().height(56.dp)
-                
-                if (selectedType == TransactionType.LEND || selectedType == TransactionType.BORROW) {
-                    OutlinedTextField(
-                        value = counterparty,
-                        onValueChange = { counterparty = it },
-                        modifier = fieldModifier,
-                        placeholder = { Text(if (selectedType == TransactionType.LEND) "Lent to?" else "Borrowed from?", style = MaterialTheme.typography.bodyMedium) },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        trailingIcon = {
-                            IconButton(
-                                onClick = { contactPicker.launch(null) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.ContactPage, contentDescription = "Pick contact", tint = MaterialTheme.colorScheme.primary)
+                // ── Text fields ─────────────────────────────────────────────
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Counterparty (lend/borrow only)
+                    if (selectedType == TransactionType.LEND || selectedType == TransactionType.BORROW) {
+                        FormField(
+                            value = counterparty,
+                            onValueChange = { counterparty = it },
+                            placeholder = if (selectedType == TransactionType.LEND)
+                                "Lent to" else "Borrowed from",
+                            leadingIcon = Icons.Default.Person,
+                            trailingContent = {
+                                IconButton(
+                                    onClick = { contactPicker.launch(null) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ContactPage,
+                                        "Pick contact",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
+                        )
+                    }
+
+                    FormField(
+                        value = merchantName,
+                        onValueChange = {
+                            merchantName = it
+                            viewModel.onMerchantNameChanged(it, selectedCategoryName)
                         },
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
+                        placeholder = "Merchant / payee",
+                        leadingIcon = Icons.Default.Store
                     )
-                    Spacer(Modifier.height(6.dp))
+
+                    FormField(
+                        value = note,
+                        onValueChange = { note = it },
+                        placeholder = "Note (optional)",
+                        leadingIcon = Icons.AutoMirrored.Filled.Notes
+                    )
+
+                    FormField(
+                        value = tagsInput,
+                        onValueChange = { tagsInput = it },
+                        placeholder = "Labels / tags",
+                        leadingIcon = Icons.AutoMirrored.Filled.Label
+                    )
                 }
 
-                OutlinedTextField(
-                    value = merchantName,
-                    onValueChange = { 
-                        merchantName = it 
-                        viewModel.onMerchantNameChanged(it, selectedCategoryName)
-                    },
-                    modifier = fieldModifier,
-                    placeholder = { Text("Merchant / Payee", style = MaterialTheme.typography.bodyMedium) },
-                    leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
                 Spacer(Modifier.height(6.dp))
 
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    modifier = fieldModifier,
-                    placeholder = { Text("Note (Optional)", style = MaterialTheme.typography.bodyMedium) },
-                    leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
-                Spacer(Modifier.height(6.dp))
-
-                OutlinedTextField(
-                    value = tagsInput,
-                    onValueChange = { tagsInput = it },
-                    modifier = fieldModifier,
-                    placeholder = { Text("Labels / Tags", style = MaterialTheme.typography.bodyMedium) },
-                    leadingIcon = { Icon(Icons.Default.Label, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                // Recurring Switch
+                // ── Recurring toggle ────────────────────────────────────────
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Repeat, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Recurring Transaction", style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Repeat,
+                            null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "Recurring transaction",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                     Switch(
-                        checked = isRecurring, 
+                        checked = isRecurring,
                         onCheckedChange = { isRecurring = it },
-                        modifier = Modifier.scale(0.75f)
+                        modifier = Modifier.scale(0.8f)
                     )
                 }
 
-                if (isRecurring) {
+                // Frequency chips — shown inline when recurring is on
+                AnimatedVisibility(visible = isRecurring) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         RecurrenceFrequency.entries.forEach { freq ->
-                            val isSelected = recurrenceFrequency == freq
                             FilterChip(
-                                selected = isSelected,
+                                selected = recurrenceFrequency == freq,
                                 onClick = { recurrenceFrequency = freq },
-                                label = { Text(freq.name.take(3), style = MaterialTheme.typography.labelSmall) },
+                                label = {
+                                    Text(
+                                        freq.name.lowercase()
+                                            .replaceFirstChar { it.uppercase() },
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             )
@@ -405,42 +452,93 @@ fun AddTransactionScreen(
                 }
             }
 
-            // Bottom Fixed Section (Calculator Integrated with Date/Time)
+            // ── Fixed bottom: date/time + calculator ────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF0D1117)) // Deep Dark
-                    .padding(top = 4.dp)
+                    .background(Color(0xFF181111))
             ) {
-                // Calculator (Slightly more compact)
+                // Date / time row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFF55287))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Icon(Icons.Default.Event, null, Modifier.size(14.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            transactionDate.format(dateFormatter),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(0.5.dp)
+                            .height(14.dp)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    )
+
+                    TextButton(
+                        onClick = { showTimePicker = true },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Icon(Icons.Default.AccessTime, null, Modifier.size(14.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            transactionDate.format(timeFormatter),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+
+                // Calculator keypad
                 CalculatorKeypad(
-                    modifier = Modifier.height(260.dp).padding(horizontal = 8.dp),
+                    modifier = Modifier
+                        .height(268.dp)
+                        .padding(horizontal = 8.dp)
+                        .navigationBarsPadding(),
                     onDigitClick = { digit ->
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        if (amountText == "0") amountText = digit 
+                        if (amountText == "0") amountText = digit
                         else if (amountText.length < 24) amountText += digit
                     },
                     onOperatorClick = { op ->
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        if (amountText.isNotEmpty() && !amountText.last().isDigit() && amountText.last() != '.' && amountText.last() != ')' && amountText.last() != '(') {
-                            amountText = amountText.dropLast(1) + op
-                        } else if (amountText.isNotEmpty() && amountText.last() != '.') {
-                            amountText += op
+                        if (amountText.isNotEmpty()) {
+                            val last = amountText.last()
+                            if (!last.isDigit() && last != '.' && last != ')' && last != '(')
+                                amountText = amountText.dropLast(1) + op
+                            else if (last != '.')
+                                amountText += op
                         }
                     },
                     onDecimalClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         val lastPart = amountText.split('+', '-', '*', '/', '(', ')').last()
-                        if (!lastPart.contains(".")) {
+                        if (!lastPart.contains("."))
                             amountText += if (amountText.isEmpty() || !amountText.last().isDigit()) "0." else "."
-                        }
                     },
                     onEqualsClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        try {
+                        runCatching {
                             val result = evaluate(amountText)
-                            amountText = if (result % 1.0 == 0.0) result.toLong().toString() else "%.2f".format(result)
-                        } catch (e: Exception) {
+                            amountText = if (result % 1.0 == 0.0) result.toLong().toString()
+                            else "%.2f".format(result)
+                        }.onFailure {
                             Toast.makeText(context, "Invalid expression", Toast.LENGTH_SHORT).show()
                         }
                     },
@@ -454,67 +552,30 @@ fun AddTransactionScreen(
                     },
                     onBracketClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        val openBrackets = amountText.count { it == '(' }
-                        val closeBrackets = amountText.count { it == ')' }
-                        
-                        if (amountText.isEmpty()) {
-                            amountText = "("
-                        } else {
-                            val lastChar = if (amountText.isNotEmpty()) amountText.last() else ' '
-                            if (lastChar.isDigit() || lastChar == ')') {
-                                if (openBrackets > closeBrackets) amountText += ")"
-                                else amountText += "*("
-                            } else {
-                                amountText += "("
-                            }
+                        val open = amountText.count { it == '(' }
+                        val close = amountText.count { it == ')' }
+                        amountText += when {
+                            amountText.isEmpty() -> "("
+                            amountText.last().let { it.isDigit() || it == ')' } ->
+                                if (open > close) ")" else "*("
+                            else -> "("
                         }
                     }
                 )
-
-                // Date/Time Row (Integrated at the absolute bottom)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(bottom = 4.dp, start = 8.dp, end = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = { showDatePicker = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f))
-                    ) {
-                        Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(transactionDate.format(dateFormatter), style = MaterialTheme.typography.labelMedium)
-                    }
-                    
-                    Box(modifier = Modifier.width(1.dp).height(12.dp).background(Color.White.copy(alpha = 0.2f)))
-                    
-                    TextButton(
-                        onClick = { showTimePicker = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f))
-                    ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(transactionDate.format(timeFormatter), style = MaterialTheme.typography.labelMedium)
-                    }
-                }
             }
         }
     }
 
-    // Modal Sheets and Dialogs (remains functional)
+    // ── Dialogs ──────────────────────────────────────────────────────────────
+
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let {
-                        val newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                        transactionDate = LocalDateTime.of(newDate, transactionDate.toLocalTime())
+                        val d = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        transactionDate = LocalDateTime.of(d, transactionDate.toLocalTime())
                     }
                     showDatePicker = false
                 }) { Text("OK") }
@@ -535,14 +596,17 @@ fun AddTransactionScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Select Time", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Select time",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(Modifier.height(24.dp))
                     TimePicker(state = timePickerState)
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(16.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
                         TextButton(onClick = {
@@ -567,35 +631,75 @@ fun AddTransactionScreen(
             val categoriesToShow = when (selectedType) {
                 TransactionType.CREDIT -> allCategories.filter { it.type == "INCOME" }
                 TransactionType.DEBIT -> allCategories.filter { it.type == "EXPENSE" }
-                TransactionType.TRANSFER -> allCategories.filter { it.name == "Transfer" || it.name == "Others" }
+                TransactionType.TRANSFER -> allCategories.filter {
+                    it.name == "Transfer" || it.name == "Others"
+                }
                 else -> allCategories
             }
 
+            Text(
+                "Select category",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 16.dp, bottom = 12.dp)
+            )
+
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
-                modifier = Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(categoriesToShow) { category ->
+                items(categoriesToShow, key = { it.name }) { category ->
                     val color = Color(category.color)
                     val icon = getIconByName(category.iconName)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.height(90.dp).clip(MaterialTheme.shapes.medium).clickable { 
-                            selectedCategoryName = category.name
-                            userSelectedCategory = true
-                            showCategorySheet = false 
-                        }.padding(4.dp)
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable {
+                                selectedCategoryName = category.name
+                                userSelectedCategory = true
+                                showCategorySheet = false
+                            }
+                            .padding(vertical = 8.dp, horizontal = 4.dp)
                     ) {
-                        Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
+                        // FIX: highlight ring when selected
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(color.copy(alpha = 0.12f))
+                                .then(
+                                    if (selectedCategoryName == category.name)
+                                        Modifier.border(2.dp, color, CircleShape)
+                                    else Modifier
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = color,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
-                        Spacer(Modifier.height(8.dp))
-                        Text(text = category.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = category.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
+            Spacer(Modifier.height(16.dp))
         }
     }
 
@@ -604,27 +708,76 @@ fun AddTransactionScreen(
             onDismissRequest = { showAccountSheet = false },
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp).navigationBarsPadding()) {
-                Text("Select Account", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(16.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    "Select account",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(12.dp))
+
                 if (accounts.isEmpty()) {
-                    Text("No accounts found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                accounts.forEach { account ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            selectedAccount = account
-                            showAccountSheet = false
-                        }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = Color(account.color).copy(alpha = 0.2f)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color(account.color), modifier = Modifier.size(20.dp))
+                    Text(
+                        "No accounts found.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    accounts.forEach { account ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    selectedAccount = account
+                                    showAccountSheet = false
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CircleShape,
+                                color = Color(account.color).copy(alpha = 0.15f)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.AccountBalanceWallet,
+                                        null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = Color(account.color)
+                                    )
+                                }
+                            }
+                            Text(
+                                account.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            // FIX: show checkmark for currently selected account
+                            if (selectedAccount?.name == account.name) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
-                        Spacer(Modifier.width(16.dp))
-                        Text(account.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        if (account != accounts.last()) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 52.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -633,51 +786,115 @@ fun AddTransactionScreen(
     }
 }
 
+// ── TypePill ──────────────────────────────────────────────────────────────────
+
 @Composable
-fun TypeTab(label: String, isSelected: Boolean, onClick: () -> Unit) {
+fun TypePill(
+    label: String,
+    isSelected: Boolean,
+    selectedColor: Color,
+    onClick: () -> Unit
+) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.clip(CapsuleShape),
-        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        shape = RoundedCornerShape(20.dp),
+        color = if (isSelected) selectedColor else Color.Transparent,
+        border = if (isSelected) null
+        else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            color = if (isSelected) Color.White
+            else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
-private val CapsuleShape = RoundedCornerShape(16.dp)
+// ── DropdownSelector ──────────────────────────────────────────────────────────
 
 @Composable
-fun ModernSelector(
+fun DropdownSelector(
     value: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = modifier.height(48.dp).clickable { onClick() },
+        modifier = modifier.height(42.dp),
         shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        onClick = onClick
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.weight(1f))
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            Icon(
+                icon, null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                Icons.Default.ArrowDropDown, null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
+
+// ── FormField ─────────────────────────────────────────────────────────────────
+
+@Composable
+fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    leadingIcon: ImageVector,
+    trailingContent: (@Composable () -> Unit)? = null
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        placeholder = {
+            Text(placeholder, style = MaterialTheme.typography.bodyMedium)
+        },
+        leadingIcon = {
+            Icon(leadingIcon, null, Modifier.size(17.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingIcon = trailingContent,
+        singleLine = true,
+        shape = RoundedCornerShape(10.dp),
+        textStyle = MaterialTheme.typography.bodyMedium,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent
+        )
+    )
+}
+
+// ── CalculatorKeypad (unchanged logic, cosmetic tightening) ───────────────────
 
 @Composable
 fun CalculatorKeypad(
@@ -690,90 +907,92 @@ fun CalculatorKeypad(
     onDeleteClick: () -> Unit,
     onBracketClick: () -> Unit
 ) {
+    val opBg = Color(0xFF1E2631)
+    val accentBlue = Color(0xFF60A5FA)
+    val clearBg = Color(0xFFEF4444).copy(alpha = 0.15f)
+    val clearFg = Color(0xFFEF4444)
+    val eqBg = Color(0xFF10B981)
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF0D1117))
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(Color(0xFF626254))
             .padding(8.dp)
     ) {
-        val rowModifier = Modifier.fillMaxWidth().weight(1f)
-        val opColor = Color(0xFF1E2631)
-        val accentColor = Color(0xFF3B82F6)
-        val clearColor = Color(0xFFEF4444).copy(alpha = 0.2f)
-        val equalsColor = Color(0xFF10B981)
+        val rowMod = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+        val gap = 6.dp
 
-        Row(modifier = rowModifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KeyButton(text = "AC", modifier = Modifier.weight(1f), backgroundColor = clearColor, contentColor = Color(0xFFEF4444)) { onClearClick() }
-            KeyButton(text = "( )", modifier = Modifier.weight(1f), backgroundColor = opColor) { onBracketClick() }
-            KeyButton(text = "%", modifier = Modifier.weight(1f), backgroundColor = opColor) { onOperatorClick("%") }
-            KeyButton(text = "÷", modifier = Modifier.weight(1f), backgroundColor = opColor, contentColor = accentColor) { onOperatorClick("/") }
+        Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            CalcKey("AC", Modifier.weight(1f), clearBg, clearFg) { onClearClick() }
+            CalcKey("( )", Modifier.weight(1f), opBg) { onBracketClick() }
+            CalcKey("%", Modifier.weight(1f), opBg) { onOperatorClick("%") }
+            CalcKey("÷", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("/") }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = rowModifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KeyButton(text = "7", modifier = Modifier.weight(1f)) { onDigitClick("7") }
-            KeyButton(text = "8", modifier = Modifier.weight(1f)) { onDigitClick("8") }
-            KeyButton(text = "9", modifier = Modifier.weight(1f)) { onDigitClick("9") }
-            KeyButton(text = "×", modifier = Modifier.weight(1f), backgroundColor = opColor, contentColor = accentColor) { onOperatorClick("*") }
+        Spacer(Modifier.height(gap))
+        Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            CalcKey("7", Modifier.weight(1f)) { onDigitClick("7") }
+            CalcKey("8", Modifier.weight(1f)) { onDigitClick("8") }
+            CalcKey("9", Modifier.weight(1f)) { onDigitClick("9") }
+            CalcKey("×", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("*") }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = rowModifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KeyButton(text = "4", modifier = Modifier.weight(1f)) { onDigitClick("4") }
-            KeyButton(text = "5", modifier = Modifier.weight(1f)) { onDigitClick("5") }
-            KeyButton(text = "6", modifier = Modifier.weight(1f)) { onDigitClick("6") }
-            KeyButton(text = "−", modifier = Modifier.weight(1f), backgroundColor = opColor, contentColor = accentColor) { onOperatorClick("-") }
+        Spacer(Modifier.height(gap))
+        Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            CalcKey("4", Modifier.weight(1f)) { onDigitClick("4") }
+            CalcKey("5", Modifier.weight(1f)) { onDigitClick("5") }
+            CalcKey("6", Modifier.weight(1f)) { onDigitClick("6") }
+            CalcKey("−", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("-") }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = rowModifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KeyButton(text = "1", modifier = Modifier.weight(1f)) { onDigitClick("1") }
-            KeyButton(text = "2", modifier = Modifier.weight(1f)) { onDigitClick("2") }
-            KeyButton(text = "3", modifier = Modifier.weight(1f)) { onDigitClick("3") }
-            KeyButton(text = "+", modifier = Modifier.weight(1f), backgroundColor = opColor, contentColor = accentColor) { onOperatorClick("+") }
+        Spacer(Modifier.height(gap))
+        Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            CalcKey("1", Modifier.weight(1f)) { onDigitClick("1") }
+            CalcKey("2", Modifier.weight(1f)) { onDigitClick("2") }
+            CalcKey("3", Modifier.weight(1f)) { onDigitClick("3") }
+            CalcKey("+", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("+") }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(modifier = rowModifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KeyButton(text = "0", modifier = Modifier.weight(1f)) { onDigitClick("0") }
-            KeyButton(text = ".", modifier = Modifier.weight(1f)) { onDecimalClick() }
-            KeyButton(
-                icon = Icons.AutoMirrored.Filled.Backspace, 
+        Spacer(Modifier.height(gap))
+        Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            CalcKey("0", Modifier.weight(1f)) { onDigitClick("0") }
+            CalcKey(".", Modifier.weight(1f)) { onDecimalClick() }
+            CalcKey(
+                icon = Icons.AutoMirrored.Filled.Backspace,
                 modifier = Modifier.weight(1f),
                 backgroundColor = Color.Transparent,
-                contentColor = Color.White.copy(alpha = 0.6f)
+                contentColor = Color.White.copy(alpha = 0.5f)
             ) { onDeleteClick() }
-            KeyButton(text = "=", modifier = Modifier.weight(1f), backgroundColor = equalsColor, contentColor = Color.White) { onEqualsClick() }
+            CalcKey("=", Modifier.weight(1f), eqBg, Color.White) { onEqualsClick() }
         }
     }
 }
 
 @Composable
-fun RowScope.KeyButton(
+private fun RowScope.CalcKey(
     text: String? = null,
-    icon: ImageVector? = null,
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color(0xFF161B22),
     contentColor: Color = Color.White,
+    icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxHeight(),
-        shape = RoundedCornerShape(12.dp),
-        color = backgroundColor,
-        interactionSource = remember { MutableInteractionSource() }
+        shape = RoundedCornerShape(10.dp),
+        color = backgroundColor
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (text != null) {
-                Text(
-                    text = text,
+            when {
+                text != null -> Text(
+                    text,
                     style = MaterialTheme.typography.titleMedium,
                     color = contentColor,
                     fontWeight = FontWeight.Medium,
                     fontSize = 18.sp
                 )
-            } else if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
+                icon != null -> Icon(
+                    icon, null,
                     tint = contentColor,
                     modifier = Modifier.size(18.dp)
                 )
@@ -782,73 +1001,24 @@ fun RowScope.KeyButton(
     }
 }
 
+// ── evaluate() — unchanged ────────────────────────────────────────────────────
+
 private fun evaluate(expression: String): Double {
-    val cleanExpr = expression.trim().replace("÷", "/").replace("×", "*").replace("−", "-")
-    if (cleanExpr.isEmpty()) return 0.0
-    
+    val expr = expression.trim()
+        .replace("÷", "/")
+        .replace("×", "*")
+        .replace("−", "-")
+    if (expr.isEmpty()) return 0.0
     return object : Any() {
-        var pos = -1
-        var ch = 0
-
-        fun nextChar() {
-            ch = if (++pos < cleanExpr.length) cleanExpr[pos].toInt() else -1
+        var pos = -1; var ch = 0
+        fun nextChar() { ch = if (++pos < expr.length) expr[pos].code else -1 }
+        fun eat(c: Int): Boolean {
+            while (ch == ' '.code) nextChar()
+            return if (ch == c) { nextChar(); true } else false
         }
-
-        fun eat(charToEat: Int): Boolean {
-            while (ch == ' '.toInt()) nextChar()
-            if (ch == charToEat) {
-                nextChar()
-                return true
-            }
-            return false
-        }
-
-        fun parse(): Double {
-            nextChar()
-            val x = parseExpression()
-            if (pos < cleanExpr.length) throw RuntimeException("Unexpected: " + ch.toChar())
-            return x
-        }
-
-        fun parseExpression(): Double {
-            var x = parseTerm()
-            while (true) {
-                if (eat('+'.toInt())) x += parseTerm()
-                else if (eat('-'.toInt())) x -= parseTerm()
-                else return x
-            }
-        }
-
-        fun parseTerm(): Double {
-            var x = parseFactor()
-            while (true) {
-                if (eat('*'.toInt())) x *= parseFactor()
-                else if (eat('/'.toInt())) {
-                    val divisor = parseFactor()
-                    if (divisor == 0.0) throw ArithmeticException("Div by zero")
-                    x /= divisor
-                } else if (eat('%'.toInt())) {
-                    val next = parseFactor()
-                    x = (x * next) / 100.0
-                } else return x
-            }
-        }
-
-        fun parseFactor(): Double {
-            if (eat('+'.toInt())) return parseFactor()
-            if (eat('-'.toInt())) return -parseFactor()
-            var x: Double
-            val startPos = pos
-            if (eat('('.toInt())) {
-                x = parseExpression()
-                eat(')'.toInt())
-            } else if (ch >= '0'.toInt() && ch <= '9'.toInt() || ch == '.'.toInt()) {
-                while (ch >= '0'.toInt() && ch <= '9'.toInt() || ch == '.'.toInt()) nextChar()
-                x = cleanExpr.substring(startPos, pos).toDouble()
-            } else {
-                throw RuntimeException("Unexpected: " + ch.toChar())
-            }
-            return x
-        }
+        fun parse(): Double { nextChar(); return parseExpr().also { if (pos < expr.length) throw RuntimeException("Unexpected: ${ch.toChar()}") } }
+        fun parseExpr(): Double { var x = parseTerm(); while (true) x = when { eat('+'.code) -> x + parseTerm(); eat('-'.code) -> x - parseTerm(); else -> return x }; @Suppress("UNREACHABLE_CODE") return x }
+        fun parseTerm(): Double { var x = parseFactor(); while (true) x = when { eat('*'.code) -> x * parseFactor(); eat('/'.code) -> parseFactor().let { d -> if (d == 0.0) throw ArithmeticException("Div by zero"); x / d }; eat('%'.code) -> (x * parseFactor()) / 100.0; else -> return x }; @Suppress("UNREACHABLE_CODE") return x }
+        fun parseFactor(): Double { if (eat('+'.code)) return parseFactor(); if (eat('-'.code)) return -parseFactor(); val start = pos; return if (eat('('.code)) parseExpr().also { eat(')'.code) } else if (ch in '0'.code..'9'.code || ch == '.'.code) { while (ch in '0'.code..'9'.code || ch == '.'.code) nextChar(); expr.substring(start, pos).toDouble() } else throw RuntimeException("Unexpected: ${ch.toChar()}") }
     }.parse()
 }
