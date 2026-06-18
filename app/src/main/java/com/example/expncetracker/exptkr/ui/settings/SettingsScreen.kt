@@ -244,66 +244,6 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 }
             }
 
-            // Danger Zone
-            item {
-                var showConfirmDialog by remember { mutableStateOf(false) }
-                var deleteInput by remember { mutableStateOf("") }
-                
-                if (showConfirmDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showConfirmDialog = false },
-                        title = { Text("Load Demo Data?") },
-                        text = { 
-                            Column {
-                                Text("This will replace all your current transactions with mock sample data. This action cannot be undone.")
-                                Spacer(Modifier.height(16.dp))
-                                Text("Type 'DELETE' to confirm:", style = MaterialTheme.typography.labelSmall)
-                                OutlinedTextField(
-                                    value = deleteInput,
-                                    onValueChange = { deleteInput = it.uppercase() },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-                            }
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    viewModel.loadMockData()
-                                    showConfirmDialog = false
-                                    deleteInput = ""
-                                },
-                                enabled = deleteInput == "DELETE",
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                            ) {
-                                Text("Replace with Demo Data")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { 
-                                showConfirmDialog = false
-                                deleteInput = ""
-                            }) {
-                                Text("Cancel")
-                            }
-                        }
-                    )
-                }
-
-                SectionHeader(title = "Danger Zone", color = MaterialTheme.colorScheme.error)
-                Button(
-                    onClick = { showConfirmDialog = true },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f), contentColor = MaterialTheme.colorScheme.error),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
-                ) {
-                    Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text("Load Demo Data", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                }
-            }
-
             // App Info Section
             item {
                 SectionHeader(title = "About")
@@ -312,10 +252,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         label = "Version",
                         subtitle = BuildConfig.VERSION_NAME,
                         icon = Icons.Default.Info,
-                        trailingContent = {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        },
-                        onClick = { }
+                        onClick = null
                     )
                 }
             }

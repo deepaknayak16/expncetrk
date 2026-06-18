@@ -326,13 +326,15 @@ fun AddTransactionScreen(
                                 selectedType = type
                                 when (type) {
                                     TransactionType.CREDIT ->
-                                        allCategories.find { it.type == "INCOME" }
-                                            ?.let { selectedCategoryName = it.name }
+                                        selectedCategoryName = allCategories.find { it.type == "INCOME" }?.name ?: ""
                                     TransactionType.DEBIT ->
-                                        allCategories.find { it.type == "EXPENSE" }
-                                            ?.let { selectedCategoryName = it.name }
-                                    else -> {}
+                                        selectedCategoryName = allCategories.find { it.type == "EXPENSE" }?.name ?: ""
+                                    TransactionType.TRANSFER ->
+                                        selectedCategoryName = allCategories.find { it.name == "Transfer" }?.name ?: "Others"
+                                    else ->
+                                        selectedCategoryName = "Others"
                                 }
+                                userSelectedCategory = false
                             }
                         )
                     }

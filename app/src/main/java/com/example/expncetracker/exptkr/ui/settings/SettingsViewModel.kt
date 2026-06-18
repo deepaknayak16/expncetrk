@@ -16,7 +16,6 @@ import com.example.expncetracker.exptkr.data.export.PdfExporter
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.domain.usecase.sync.RestoreBackupFromGoogleDriveUseCase
 import com.example.expncetracker.exptkr.domain.usecase.sync.SyncBackupToGoogleDriveUseCase
-import com.example.expncetracker.exptkr.domain.usecase.LoadSampleDataUseCase
 import com.example.expncetracker.exptkr.security.BiometricAuthManager
 import com.example.expncetracker.exptkr.security.BiometricStatus
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -35,7 +34,6 @@ class SettingsViewModel @Inject constructor(
     private val syncBackupToGoogleDriveUseCase: SyncBackupToGoogleDriveUseCase,
     private val restoreBackupFromGoogleDriveUseCase: RestoreBackupFromGoogleDriveUseCase,
     private val transactionRepository: TransactionRepository,
-    private val loadSampleDataUseCase: LoadSampleDataUseCase,
     private val googleSignInClient: GoogleSignInClient,
     private val googleDriveSyncManager: GoogleDriveSyncManager,
     private val biometricAuthManager: BiometricAuthManager,
@@ -196,17 +194,6 @@ class SettingsViewModel @Inject constructor(
                 preferences[BUDGET_THRESHOLD_KEY] = threshold
             }
             _uiState.update { it.copy(budgetThreshold = threshold) }
-        }
-    }
-
-    fun loadMockData() {
-        viewModelScope.launch {
-            try {
-                loadSampleDataUseCase.execute()
-                _statusEvent.send("Demo data loaded successfully")
-            } catch (e: Exception) {
-                _statusEvent.send("Failed to load demo data: ${e.message}")
-            }
         }
     }
 }

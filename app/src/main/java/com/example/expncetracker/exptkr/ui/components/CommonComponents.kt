@@ -362,12 +362,12 @@ fun SettingsPreferenceItem(
     icon: ImageVector,
     enabled: Boolean = true,
     trailingContent: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        onClick = onClick,
-        enabled = enabled,
+        onClick = onClick ?: {},
+        enabled = enabled && onClick != null,
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer { alpha = if (enabled) 1f else 0.5f },
@@ -411,7 +411,7 @@ fun SettingsPreferenceItem(
             }
             if (trailingContent != null) {
                 trailingContent()
-            } else {
+            } else if (onClick != null) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
