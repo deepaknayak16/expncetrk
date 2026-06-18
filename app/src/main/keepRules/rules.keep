@@ -4,6 +4,10 @@
 # For more details, see
 #   https://d.android.com/r/tools/r8/keep-rules
 
+# SQLCipher keep rules
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
 # class:

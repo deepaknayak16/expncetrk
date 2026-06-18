@@ -44,7 +44,7 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(categoryName.hashCode() + System.currentTimeMillis().toInt(), notification)
+        notificationManager.notify(categoryName.hashCode(), notification)
     }
 
     companion object {

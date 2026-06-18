@@ -39,8 +39,7 @@ class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
             val transactions = dtoList.map { it.toDomain() }
 
             if (transactions.isNotEmpty()) {
-                repository.clearAllTransactions()
-                repository.insertTransactions(transactions)
+                repository.replaceTransactions(transactions)
             }
 
             tempFile.delete()

@@ -1,9 +1,11 @@
 package com.example.expncetracker.exptkr.data.repository
 
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.mapper.toDomain
 import com.example.expncetracker.exptkr.data.mapper.toEntity
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,7 +14,8 @@ import javax.inject.Singleton
 
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
-    private val transactionDao: TransactionDao
+    private val transactionDao: TransactionDao,
+    private val accountDao: AccountDao
 ) : TransactionRepository {
 
     override fun getAllTransactions(): Flow<List<Transaction>> =
@@ -39,8 +42,19 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun insertTransactions(transactions: List<Transaction>) =
         transactionDao.insertTransactions(transactions.map { it.toEntity() })
 
-    override suspend fun deleteTransactionById(id: Long) =
+    override suspend fun deleteTransactionById(id: Long) {
+        val transaction = transactionDao.getTransactionById(id)?.toDomain() ?: return
         transactionDao.deleteById(id)
+
+        val delta = when (transaction.type) {
+            TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
+            TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
+            else -> 0.0
+        }
+        if (delta != 0.0) {
+            accountDao.adjustBalance(transaction.bankName, delta)
+        }
+    }
 
     override suspend fun getLatestTransactionTimestamp(): Long =
         transactionDao.getLatestTransactionTimestamp() ?: 0L
@@ -56,6 +70,9 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun clearAllTransactions() =
         transactionDao.clearAll()
+
+    override suspend fun replaceTransactions(transactions: List<Transaction>) =
+        transactionDao.replaceTransactions(transactions.map { it.toEntity() })
 
     override suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>) =
         transactionDao.splitTransaction(parentId, subTransactions.map { it.toEntity() })

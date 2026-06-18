@@ -15,28 +15,14 @@ class ParserRegistry @Inject constructor(
         
         // Find a specific parser that matches the sender
         val specificParser = parsers.firstOrNull { parser ->
-            // This assumes BaseBankParser or similar has a way to identify its bank
-            // For now we'll check against a map or similar, or just try them.
-            // A better way is to have BankParser return its bank name or match criteria.
-            // Let's refine this.
-            norm.contains(getBankKey(parser))
+            norm.contains(parser.bankKey)
         }
         
         return if (specificParser != null) {
             specificParser.parse(body, timestamp) 
-                ?: genericParser.parse(body, timestamp)?.copy(bankName = getBankKey(specificParser))
+                ?: genericParser.parse(body, timestamp)?.copy(bankName = specificParser.bankKey)
         } else {
             genericParser.parse(body, timestamp)?.copy(bankName = sender)
-        }
-    }
-
-    private fun getBankKey(parser: BankParser): String {
-        return when (parser) {
-            is HdfcParser -> "HDFC"
-            is SbiParser -> "SBI"
-            is IciciParser -> "ICICI"
-            is AxisParser -> "AXIS"
-            else -> "!__NO_MATCH__!"
         }
     }
 }

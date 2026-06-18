@@ -20,7 +20,11 @@ class RecurringTransactionWorker @AssistedInject constructor(
             processRecurringTransactionsUseCase.execute()
             Result.success()
         } catch (e: Exception) {
-            Result.retry()
+            if (runAttemptCount < 3) {
+                Result.retry()
+            } else {
+                Result.failure()
+            }
         }
     }
 

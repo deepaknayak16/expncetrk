@@ -6,6 +6,7 @@ import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 
 class GenericParser(private val bankName: String = "Bank") : BankParser {
+    override val bankKey: String = "GENERIC"
     
     private val amountPattern = "(?:Rs|INR|Amt|Amount)\\.?\\s*([0-9,.]+)"
     private val debitKeywords = "(?:debited|spent|withdrawn|transferred|paid|payment|sent)"

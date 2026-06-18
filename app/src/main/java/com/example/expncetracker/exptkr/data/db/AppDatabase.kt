@@ -95,14 +95,9 @@ abstract class AppDatabase : RoomDatabase() {
                 db.openHelper.writableDatabase
                 db
             } catch (e: Exception) {
-                // If decryption fails or file is corrupted, delete and recreate
-                if (e.message?.contains("file is not a database", ignoreCase = true) == true ||
-                    e is android.database.sqlite.SQLiteException) {
-                    appContext.deleteDatabase(databaseName)
-                    createDb()
-                } else {
-                    throw e
-                }
+                // If decryption fails or file is corrupted, do NOT delete.
+                // Re-throw the exception so it can be handled or displayed to the user.
+                throw e
             }
         }
     }

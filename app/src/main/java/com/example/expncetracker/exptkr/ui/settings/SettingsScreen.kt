@@ -209,7 +209,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     
                     AnimatedVisibility(
                         visible = uiState.isExporting,
-                        enter = expandVertically(),
+                        enter = expandVertically()  ,
                         exit = shrinkVertically()
                     ) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp))
@@ -241,6 +241,13 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                             onClick = { viewModel.toggleBiometric(!uiState.isBiometricEnabled) }
                         )
                     }
+
+                    SettingsPreferenceItem(
+                        label = "Reset SMS Sync",
+                        subtitle = "Re-enable automatic SMS tracking",
+                        icon = Icons.Default.Sms,
+                        onClick = { viewModel.resetSmsPermission() }
+                    )
                 }
             }
 

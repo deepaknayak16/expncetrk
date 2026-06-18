@@ -1,7 +1,5 @@
 package com.example.expncetracker.exptkr.ui.addtransaction
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
@@ -84,6 +82,8 @@ class AddTransactionViewModel @Inject constructor(
         tags: List<String> = emptyList(),
         timestamp: java.time.LocalDateTime = java.time.LocalDateTime.now()
     ) {
+        if (amount <= 0 || category.isBlank() || description.isNullOrBlank()) return
+
         viewModelScope.launch {
             val existing = _transactionToEdit.value
             if (existing?.smsId != null) {

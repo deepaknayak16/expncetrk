@@ -8,6 +8,7 @@ import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 
 abstract class BaseBankParser(private val bankName: String) : BankParser {
+    override val bankKey: String = bankName.uppercase()
 
     abstract val amountRegex: Regex
     abstract val debitRegex: Regex

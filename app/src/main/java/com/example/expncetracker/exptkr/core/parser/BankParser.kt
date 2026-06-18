@@ -12,5 +12,6 @@ data class ParsedSms(
 )
 
 interface BankParser {
+    val bankKey: String
     fun parse(smsBody: String, timestamp: Long): ParsedSms?
 }

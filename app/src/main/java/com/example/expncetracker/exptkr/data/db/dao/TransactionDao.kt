@@ -53,6 +53,12 @@ interface TransactionDao {
     suspend fun clearAll()
 
     @androidx.room.Transaction
+    suspend fun replaceTransactions(transactions: List<TransactionEntity>) {
+        clearAll()
+        insertTransactions(transactions)
+    }
+
+    @androidx.room.Transaction
     suspend fun splitTransaction(parentId: Long, children: List<TransactionEntity>) {
         deleteById(parentId)
         insertTransactions(children)

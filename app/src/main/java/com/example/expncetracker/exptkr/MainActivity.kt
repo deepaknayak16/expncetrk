@@ -70,14 +70,11 @@ class MainActivity : FragmentActivity() {
             val startRoute = remember { intent.getStringExtra("navigate_to") }
 
             LaunchedEffect(Unit) {
-                val channel = NotificationChannel(
-                    "quick_actions_channel",
-                    "Quick Actions",
-                    NotificationManager.IMPORTANCE_LOW
-                )
-                val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                nm.createNotificationChannel(channel)
-                AppNotificationManager.showQuickActionsNotification(this@MainActivity)
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    AppNotificationManager.showQuickActionsNotification(this@MainActivity)
+                }
             }
 
             var showPermissionRationale by remember(isRationaleShown, isSmsPermanentlyDenied) {
@@ -91,10 +88,13 @@ class MainActivity : FragmentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result ->
-                if (result[Manifest.permission.READ_SMS] == true) {
-                    Toast.makeText(this@MainActivity, "SMS permission granted", Toast.LENGTH_SHORT).show()
+                if (result[Manifest.permission.READ_SMS] == true || result[Manifest.permission.RECEIVE_SMS] == true) {
+                    Toast.makeText(this@MainActivity, "SMS permissions granted", Toast.LENGTH_SHORT).show()
                     scope.launch {
-                        dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true }
+                        dataStore.edit { 
+                            it[PERMISSION_RATIONALE_SHOWN_KEY] = true 
+                            it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] = false
+                        }
                     }
                 }
                 if (result[Manifest.permission.POST_NOTIFICATIONS] == true) {

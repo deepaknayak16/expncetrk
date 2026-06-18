@@ -196,4 +196,14 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(budgetThreshold = threshold) }
         }
     }
+
+    fun resetSmsPermission() {
+        viewModelScope.launch {
+            context.dataStore.edit { preferences ->
+                preferences[com.example.expncetracker.exptkr.core.common.PERMISSION_RATIONALE_SHOWN_KEY] = false
+                preferences[com.example.expncetracker.exptkr.core.common.SMS_PERMISSION_PERMANENTLY_DENIED_KEY] = false
+            }
+            _statusEvent.send("SMS sync permission reset")
+        }
+    }
 }
