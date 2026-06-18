@@ -1111,8 +1111,9 @@ private fun RowScope.LendBorrowItem(label: String, value: String, alignEnd: Bool
 @Composable
 fun DistributionSection(
     distribution: Map<String, Double>,
-    allCategories: List<CategoryEntity>,
-    modifier: Modifier = Modifier
+    allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
+    modifier: Modifier = Modifier,
+    onCategoryClick: ((String) -> Unit)? = null
 ) {
     val isDarkTheme = MaterialTheme.isDark
     val distributionData = remember(
@@ -1194,6 +1195,9 @@ fun DistributionSection(
                             .width(barWidth)
                             .height(18.dp)
                             .clip(RoundedCornerShape(8.dp))
+                            .clickable(enabled = onCategoryClick != null) {
+                                onCategoryClick?.invoke(item.name)
+                            }
                             .background(
                                 MaterialTheme.colorScheme.surfaceVariant
                                     .copy(alpha = 0.15f)

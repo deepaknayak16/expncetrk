@@ -13,7 +13,8 @@ import javax.inject.Inject
 
 class GetSummaryUseCase @Inject constructor(
     private val repository: TransactionRepository,
-    private val accountDao: AccountDao
+    private val accountDao: AccountDao,
+    private val budgetDao: com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 ) {
     operator fun invoke(filter: DateFilter): Flow<FinancialSummary> {
         val now = LocalDateTime.now()
@@ -28,10 +29,15 @@ class GetSummaryUseCase @Inject constructor(
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+        return invoke(startMillis, endMillis)
+    }
+
+    operator fun invoke(startMillis: Long, endMillis: Long): Flow<FinancialSummary> {
         return combine(
             repository.getTransactionsInRange(startMillis, endMillis),
-            accountDao.getAllAccounts()
-        ) { txList, accounts ->
+            accountDao.getAllAccounts(),
+            budgetDao.getAllBudgets()
+        ) { txList, accounts, budgets ->
             var income = 0.0
             var expense = 0.0
             var lent = 0.0
@@ -64,6 +70,8 @@ class GetSummaryUseCase @Inject constructor(
             val totalAssets = accountAssets + lent
             val totalLiabilities = accountLiabilities + borrowed
             val netWorth = totalAccountBalance + lent - borrowed
+            
+            val totalBudget = budgets.sumOf { it.limitAmount }
 
             FinancialSummary(
                 totalIncome = income,
@@ -74,6 +82,7 @@ class GetSummaryUseCase @Inject constructor(
                 totalAssets = totalAssets,
                 totalLiabilities = totalLiabilities,
                 netWorth = netWorth,
+                budget = if (totalBudget > 0) totalBudget else null,
                 categoryDistribution = map
             )
         }

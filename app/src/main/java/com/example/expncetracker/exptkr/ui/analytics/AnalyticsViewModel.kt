@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.domain.usecase.GetDailyTotalsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
@@ -14,6 +18,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.WeekFields
 import java.util.Locale
 import javax.inject.Inject
@@ -25,32 +30,53 @@ class AnalyticsViewModel @Inject constructor(
     private val getTrendsUseCase: GetTrendsUseCase,
     private val getDailyTotalsUseCase: GetDailyTotalsUseCase,
     private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
-    categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+    private val categoryDao: CategoryDao,
+    private val transactionRepository: TransactionRepository
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.WEEK)
     val selectedFilter: StateFlow<DateFilter> = _selectedFilter.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
-    val isRefreshing = _isRefreshing.asStateFlow()
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val _refreshTrigger = MutableStateFlow(0)
 
     private val _statusEvent = Channel<String>(Channel.BUFFERED)
-    val statusEvent = _statusEvent.receiveAsFlow()
+    val statusEvent: Flow<String> = _statusEvent.receiveAsFlow()
 
-    private val _weekRange = MutableStateFlow(Pair(LocalDate.now(), LocalDate.now()))
+    private val _weekRange = MutableStateFlow(Pair(
+        LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L),
+        LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(6)
+    ))
+
+    private val _prevRange = MutableStateFlow<Pair<LocalDate, LocalDate>?>(null)
     
-    val categories = categoryDao.getAllCategories()
+    private val _trendDays = MutableStateFlow(30)
+
+    val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val summary: StateFlow<FinancialSummary?> = combine(_selectedFilter, _refreshTrigger) { filter, _ -> filter }
-        .flatMapLatest { getSummaryUseCase(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val summary: StateFlow<FinancialSummary?> = combine(_weekRange, _refreshTrigger) { range, _ -> range }
+        .flatMapLatest { range ->
+            val startMillis = range.first.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val endMillis = range.second.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            getSummaryUseCase(startMillis, endMillis)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val trends: StateFlow<List<SpendingTrend>> = combine(_selectedFilter, _refreshTrigger) { filter, _ -> filter }
-        .flatMapLatest { filter ->
-            getTrendsUseCase(filter.toMonths())
+    val previousSummary: StateFlow<FinancialSummary?> = combine(_prevRange, _refreshTrigger) { range, _ -> range }
+        .flatMapLatest { range ->
+            if (range == null) flowOf(null)
+            else {
+                val startMillis = range.first.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val endMillis = range.second.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                getSummaryUseCase(startMillis, endMillis)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val trends: StateFlow<List<SpendingTrend>> = combine(_trendDays, _refreshTrigger) { days, _ -> days }
+        .flatMapLatest { days ->
+            getTrendsUseCase(days)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val dailyTotals: StateFlow<Map<LocalDate, Double>> = combine(_weekRange, _refreshTrigger) { range, _ -> range }
@@ -58,21 +84,30 @@ class AnalyticsViewModel @Inject constructor(
             getDailyTotalsUseCase(range.first, range.second)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+    private val _currentTransactions = combine(_weekRange, _refreshTrigger) { range, _ -> range }
+        .flatMapLatest { range ->
+            val startMillis = range.first.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val endMillis = range.second.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            transactionRepository.getTransactionsInRange(startMillis, endMillis)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun setFilter(filter: DateFilter) {
         _selectedFilter.value = filter
+        // Reset range to current based on filter
+        val today = LocalDate.now()
         _weekRange.value = when (filter) {
+            DateFilter.DAY -> Pair(today, today)
             DateFilter.WEEK -> Pair(
-                LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L),
-                LocalDate.now().with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(6)
+                today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L),
+                today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(6)
             )
-            DateFilter.DAY -> Pair(LocalDate.now(), LocalDate.now())
             DateFilter.MONTH -> Pair(
-                LocalDate.now().withDayOfMonth(1),
-                LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth())
+                today.withDayOfMonth(1),
+                today.withDayOfMonth(today.lengthOfMonth())
             )
             DateFilter.YEAR -> Pair(
-                LocalDate.now().withDayOfYear(1),
-                LocalDate.now().withDayOfYear(LocalDate.now().lengthOfYear())
+                today.withDayOfYear(1),
+                today.withDayOfYear(today.lengthOfYear())
             )
         }
     }
@@ -81,11 +116,40 @@ class AnalyticsViewModel @Inject constructor(
         _weekRange.value = Pair(start, end)
     }
 
+    fun loadPreviousPeriod(currentStart: LocalDate, filter: DateFilter) {
+        val range = when (filter) {
+            DateFilter.DAY -> {
+                val d = currentStart.minusDays(1)
+                Pair(d, d)
+            }
+            DateFilter.WEEK -> {
+                val s = currentStart.minusWeeks(1)
+                Pair(s, s.plusDays(6))
+            }
+            DateFilter.MONTH -> {
+                val s = currentStart.minusMonths(1).withDayOfMonth(1)
+                Pair(s, s.withDayOfMonth(s.lengthOfMonth()))
+            }
+            DateFilter.YEAR -> {
+                val s = currentStart.minusYears(1).withDayOfYear(1)
+                Pair(s, s.withDayOfYear(s.lengthOfYear()))
+            }
+        }
+        _prevRange.value = range
+    }
+
+    fun loadTrends(days: Int) {
+        _trendDays.value = days
+    }
+
+    fun getTransactionsForCategory(categoryName: String): List<Transaction> {
+        return _currentTransactions.value.filter { it.categoryName == categoryName }
+    }
+
     fun refreshData() {
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                // Trigger a re-emission of all data flows
                 _refreshTrigger.value++
                 _statusEvent.send("Data refreshed")
             } catch (e: Exception) {

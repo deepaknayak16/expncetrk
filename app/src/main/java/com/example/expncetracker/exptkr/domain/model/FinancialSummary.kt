@@ -9,5 +9,6 @@ data class FinancialSummary(
     val totalAssets: Double = 0.0,
     val totalLiabilities: Double = 0.0,
     val netWorth: Double = 0.0,
+    val budget: Double? = null,
     val categoryDistribution: Map<String, Double>
 )

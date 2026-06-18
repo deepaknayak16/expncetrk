@@ -12,4 +12,11 @@ enum class DateFilter(val title: String) {
         MONTH -> 6
         YEAR -> 12
     }
+
+    fun toDays(): Int = when (this) {
+        DAY -> 1
+        WEEK -> 7
+        MONTH -> 30
+        YEAR -> 365
+    }
 }
