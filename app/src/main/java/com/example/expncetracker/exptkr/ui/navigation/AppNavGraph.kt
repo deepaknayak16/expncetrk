@@ -211,11 +211,17 @@ fun AppNavGraph(startRoute: String? = null) {
                         onNavigateToAddTransaction = {
                             navController.navigate("add_transaction")
                         },
-                        onNavigateToStatementLedger = {
+                        onNavigateToTransactions = {
                             navController.navigate("transactions")
+                        },
+                        onNavigateToAnalytics = {
+                            navController.navigate("analytics")
                         },
                         onNavigateToEditTransaction = { id ->
                             navController.navigate("add_transaction?transactionId=$id")
+                        },
+                        onFilterChange = { filter ->
+                            vm.setFilter(filter)
                         }
                     )
                 }

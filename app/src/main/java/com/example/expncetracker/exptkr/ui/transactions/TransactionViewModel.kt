@@ -93,6 +93,7 @@ class TransactionViewModel @Inject constructor(
         val defaultStart = when (filter) {
             DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
             DateFilter.WEEK -> now.minusDays(7)
+            DateFilter.WEEK_RANGE -> now.minusDays(7)
             DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
             DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
         }

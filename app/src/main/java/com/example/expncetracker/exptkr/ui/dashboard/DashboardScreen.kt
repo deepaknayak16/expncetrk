@@ -43,6 +43,7 @@ import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
@@ -68,6 +69,8 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import androidx.compose.animation.core.*
+import com.example.expncetracker.exptkr.ui.transactions.TransactionDetailContent
+import java.time.LocalDateTime
 
 private const val MAX_RECENT_TRANSACTIONS = 25
 
@@ -77,14 +80,18 @@ private const val MAX_RECENT_TRANSACTIONS = 25
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToAddTransaction: () -> Unit = {},
-    onNavigateToStatementLedger: () -> Unit = {},
-    onNavigateToEditTransaction: (Long) -> Unit = {}
+    onNavigateToTransactions: () -> Unit = {},
+    onNavigateToAnalytics: () -> Unit = {},
+    onNavigateToEditTransaction: (Long) -> Unit = {},
+    onFilterChange: (DateFilter) -> Unit = { viewModel.setFilter(it) }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     val trends by viewModel.trends.collectAsState()
     val currentFilter by viewModel.selectedFilter.collectAsState()
     val context = LocalContext.current
+    
+    var selectedTxForDetail by remember { mutableStateOf<Transaction?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -138,17 +145,20 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     DashboardContent(
-                        summary = state.summary,
-                        recent = state.recentTransactions,
-                        categories = state.categories,
-                        recurring = state.recurringTransactions,
-                        goals = state.goals,
+                        viewModel = viewModel,
+                        summary = state.data.summary,
+                        recent = state.data.recentTransactions,
+                        categories = state.data.allCategories,
+                        recurring = state.data.recurringTransactions,
+                        goals = state.data.goals,
                         trends = trends,
                         currentFilter = currentFilter,
                         onNavigateToAddTransaction = onNavigateToAddTransaction,
-                        onSeeAllClick = onNavigateToStatementLedger,
-                        onTransactionClick = onNavigateToEditTransaction,
-                        onFilterChange = { viewModel.setFilter(it) },
+                        onSeeAllClick = onNavigateToTransactions,
+                        onTransactionClick = { txId ->
+                            selectedTxForDetail = state.data.recentTransactions.find { it.id == txId }
+                        },
+                        onFilterChange = onFilterChange,
                         onSyncClick = {
                             if (ContextCompat.checkSelfPermission(
                                     context, Manifest.permission.READ_SMS
@@ -166,6 +176,33 @@ fun DashboardScreen(
             }
         }
     }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    if (selectedTxForDetail != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedTxForDetail = null },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            TransactionDetailContent(
+                transaction = selectedTxForDetail!!,
+                onEdit = {
+                    onNavigateToEditTransaction(selectedTxForDetail!!.id)
+                    selectedTxForDetail = null
+                },
+                onDelete = {
+                    viewModel.deleteTransaction(selectedTxForDetail!!)
+                    selectedTxForDetail = null
+                },
+                onSplit = {
+                    selectedTxForDetail = null
+                },
+                onSettle = {
+                    viewModel.settleTransaction(selectedTxForDetail!!)
+                    selectedTxForDetail = null
+                }
+            )
+        }
+    }
 }
 
 // ─── DashboardContent ─────────────────────────────────────────────────────────
@@ -173,6 +210,7 @@ fun DashboardScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardContent(
+    viewModel: DashboardViewModel,
     summary: FinancialSummary,
     recent: List<Transaction>,
     categories: List<CategoryEntity>,
@@ -215,6 +253,7 @@ fun DashboardContent(
     ) {
         item(key = "header") {
             ModernDashboardHeader(
+                viewModel = viewModel,
                 userName = "Janak",
                 summary = summary,
                 recurringTransactions = recurring,
@@ -305,7 +344,7 @@ fun DashboardContent(
                         transaction = transaction,
                         categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
                         categoryColor = categoryEntity?.let { Color(it.color) },
-                        onClick = null,
+                        onClick = { onTransactionClick(transaction.id) },
                         modifier = Modifier.animateItem()
                     )
                 }
@@ -462,16 +501,21 @@ private fun SpendingTrendSection(trends: List<SpendingTrend>) {
 
 @Composable
 fun GoalProgressItem(goal: GoalEntity, modifier: Modifier = Modifier) {
-    val progress = if (goal.targetAmount > 0)
+    val targetProgress = if (goal.targetAmount > 0)
         (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
     else 0f
 
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        label = "goalProgress"
+    )
+
     Card(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder()
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
             modifier = Modifier.padding(6.dp),
@@ -499,7 +543,7 @@ fun GoalProgressItem(goal: GoalEntity, modifier: Modifier = Modifier) {
                     drawArc(
                         color = goalColor,
                         startAngle = -90f,
-                        sweepAngle = 360f * progress,
+                        sweepAngle = 360f * animatedProgress,
                         useCenter = false,
                         topLeft = Offset(inset, inset),
                         size = arcSize,
@@ -507,7 +551,7 @@ fun GoalProgressItem(goal: GoalEntity, modifier: Modifier = Modifier) {
                     )
                 }
                 Text(
-                    text = "${(progress * 100).toInt()}%",
+                    text = "${(targetProgress * 100).toInt()}%",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = onSurface,
@@ -520,7 +564,7 @@ fun GoalProgressItem(goal: GoalEntity, modifier: Modifier = Modifier) {
             Text(
                 text = goal.name,
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -528,8 +572,9 @@ fun GoalProgressItem(goal: GoalEntity, modifier: Modifier = Modifier) {
             )
             Text(
                 text = goal.currentAmount.formatAsCurrency(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                color = goalColor,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -593,6 +638,7 @@ enum class PaymentStatus {
 @Composable
 
 fun ModernDashboardHeader(
+    viewModel: DashboardViewModel,
     userName: String,
     summary: FinancialSummary,
     recurringTransactions: List<Transaction>,
@@ -608,8 +654,6 @@ fun ModernDashboardHeader(
         else -> "Good Night"
     }
 
-    var yearMonth by remember { mutableStateOf(YearMonth.now()) }
-
     var showRangePicker by remember { mutableStateOf(false) }
 
     val healthScore = remember(summary) {
@@ -619,17 +663,31 @@ fun ModernDashboardHeader(
     }
 
     val today = LocalDate.now()
-    val upcomingCount = remember(recurringTransactions) {
+    val upcomingTransactions = remember(recurringTransactions) {
         recurringTransactions.filter { tx ->
             tx.nextDueDate?.let { due ->
                 val dueDate = due.toLocalDate()
                 !dueDate.isBefore(today) && ChronoUnit.DAYS.between(today, dueDate) <= 7
             } ?: false
-        }.size
+        }
     }
+
+    val upcomingCount = upcomingTransactions.size
     
     val paymentStatus = remember(recurringTransactions) {
         getPaymentStatus(recurringTransactions)
+    }
+
+    val dominantType = remember(upcomingTransactions) {
+        if (upcomingTransactions.isEmpty()) TransactionType.DEBIT
+        else {
+            // Priority: Today's transactions first, then most frequent type
+            val todayTxs = upcomingTransactions.filter { 
+                it.nextDueDate?.toLocalDate() == LocalDate.now() 
+            }
+            val targetList = if (todayTxs.isNotEmpty()) todayTxs else upcomingTransactions
+            targetList.groupBy { it.type }.maxByOrNull { it.value.size }?.key ?: TransactionType.DEBIT
+        }
     }
 
     Column(
@@ -692,17 +750,19 @@ fun ModernDashboardHeader(
                     label = "flash"
                 )
 
+                val isIncomeType = dominantType == TransactionType.CREDIT || dominantType == TransactionType.BORROW
 
                 val containerColor =
                     when (paymentStatus) {
 
                         PaymentStatus.TODAY ->
-                            MaterialTheme.colorScheme.errorContainer
-                                .copy(alpha = flashAlpha)
+                            if (isIncomeType) Color(0xFFE8F5E9).copy(alpha = flashAlpha)
+                            else MaterialTheme.colorScheme.errorContainer.copy(alpha = flashAlpha)
 
 
                         PaymentStatus.SOON ->
-                            Color(0xFFFFE4E6)
+                            if (isIncomeType) Color(0xFFF1F8E9)
+                            else Color(0xFFFFE4E6)
 
 
                         else ->
@@ -713,9 +773,11 @@ fun ModernDashboardHeader(
                 val contentColor =
                     when (paymentStatus) {
                         PaymentStatus.TODAY ->
-                            MaterialTheme.colorScheme.error
+                            if (isIncomeType) Color(0xFF2E7D32)
+                            else MaterialTheme.colorScheme.error
                         PaymentStatus.SOON ->
-                            Color(0xFFDC2626)
+                            if (isIncomeType) Color(0xFF388E3C)
+                            else Color(0xFFDC2626)
                         PaymentStatus.NORMAL ->
                             MaterialTheme.colorScheme.onSurface
                     }
@@ -828,11 +890,15 @@ fun ModernDashboardHeader(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
+                    val currentViewDate by viewModel.selectedDate.collectAsState()
 
                     IconButton(
                         onClick = {
-                            yearMonth = yearMonth.minusMonths(1)
-                            onFilterChange(DateFilter.MONTH)
+                            val nextDate = when (currentFilter) {
+                                DateFilter.YEAR -> currentViewDate.minusYears(1)
+                                else -> currentViewDate.minusMonths(1)
+                            }
+                            viewModel.updateDate(nextDate)
                         },
                         modifier = Modifier.size(24.dp)
                     ) {
@@ -843,31 +909,42 @@ fun ModernDashboardHeader(
                         )
                     }
 
+                    val dateText = remember(currentViewDate, currentFilter) {
+                        if (currentFilter == DateFilter.YEAR) {
+                            currentViewDate.year.toString()
+                        } else {
+                            currentViewDate.format(DateTimeFormatter.ofPattern("MMM yyyy"))
+                        }
+                    }
+
                     Text(
-                        text = yearMonth.format(
-                            DateTimeFormatter.ofPattern(
-                                "MMM yyyy"
-                            )
-                        ),
+                        text = dateText,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .clickable {
-                                showRangePicker = true
+                                // Potentially show a month picker
                             }
                             .padding(horizontal = 4.dp)
                     )
 
-                    val isNextMonthInFuture = remember(yearMonth) {
-                        yearMonth.plusMonths(1).isAfter(YearMonth.now())
+                    val isNextMonthInFuture = remember(currentViewDate, currentFilter) {
+                        val next = when (currentFilter) {
+                            DateFilter.YEAR -> currentViewDate.plusYears(1)
+                            else -> currentViewDate.plusMonths(1)
+                        }
+                        next.isAfter(LocalDateTime.now())
                     }
 
                     IconButton(
                         onClick = {
-                            yearMonth = yearMonth.plusMonths(1)
-                            onFilterChange(DateFilter.MONTH)
+                            val nextDate = when (currentFilter) {
+                                DateFilter.YEAR -> currentViewDate.plusYears(1)
+                                else -> currentViewDate.plusMonths(1)
+                            }
+                            viewModel.updateDate(nextDate)
                         },
                         enabled = !isNextMonthInFuture,
                         modifier = Modifier.size(24.dp)
@@ -936,14 +1013,14 @@ fun ModernDashboardHeader(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             SummaryCard(modifier = Modifier.weight(1f)) {
-                CardSectionLabel("Cash flow" )
+                CardSectionLabel("Cash flow")
                 Spacer(Modifier.height(8.dp))
-                CompactRow("Balance", summary.balance.formatAsCurrency(), FontWeight.Bold)
+                CompactRow("Balance", summary.balance.formatAsCurrency(), FontWeight.ExtraBold, MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
-                CompactRow("Income", summary.totalIncome.formatAsCurrency(), FontWeight.Bold)
+                CompactRow("Income", summary.totalIncome.formatAsCurrency(), FontWeight.Bold, Color(0xFF2E7D32)) // Success Green
 
                 Spacer(Modifier.height(4.dp))
-                CompactRow("Expense", summary.totalExpense.formatAsCurrency())
+                CompactRow("Expense", summary.totalExpense.formatAsCurrency(), FontWeight.Bold, MaterialTheme.colorScheme.error)
 
                 CardDivider()
                 Row(
@@ -958,7 +1035,7 @@ fun ModernDashboardHeader(
             SummaryCard(modifier = Modifier.weight(1f)) {
                 CardSectionLabel("Net worth")
                 Spacer(Modifier.height(8.dp))
-                CompactRow("Net worth", summary.netWorth.formatAsCurrency(), FontWeight.Bold)
+                CompactRow("Net worth", summary.netWorth.formatAsCurrency(), FontWeight.ExtraBold, MaterialTheme.colorScheme.secondary)
                 Spacer(Modifier.height(4.dp))
                 CompactRow("Assets", summary.totalAssets.formatAsCurrency())
                 Spacer(Modifier.height(4.dp))
@@ -980,19 +1057,24 @@ fun ModernDashboardHeader(
                         text = "$healthScore%",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (healthScore > 70) MaterialTheme.colorScheme.tertiary
+                        color = if (healthScore > 70) Color(0xFF2E7D32)
                         else if (healthScore > 40) MaterialTheme.colorScheme.secondary
                         else MaterialTheme.colorScheme.error
                     )
                 }
                 Spacer(Modifier.height(6.dp))
+                val animatedHealth by animateFloatAsState(
+                    targetValue = healthScore / 100f,
+                    animationSpec = tween(1000),
+                    label = "healthScore"
+                )
                 LinearProgressIndicator(
-                    progress = { healthScore / 100f },
+                    progress = { animatedHealth },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
+                        .height(6.dp)
                         .clip(RoundedCornerShape(4.dp)),
-                    color = if (healthScore > 70) MaterialTheme.colorScheme.tertiary
+                    color = if (healthScore > 70) Color(0xFF2E7D32)
                     else if (healthScore > 40) MaterialTheme.colorScheme.secondary
                     else MaterialTheme.colorScheme.error,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -1068,7 +1150,7 @@ private fun CompactRow(
     label: String,
     value: String,
     fontWeight: FontWeight = FontWeight.Medium,
-
+    color: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1084,6 +1166,7 @@ private fun CompactRow(
             value,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = fontWeight,
+            color = color
         )
     }
 }

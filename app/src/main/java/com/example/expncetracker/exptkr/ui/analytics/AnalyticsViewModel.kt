@@ -101,6 +101,7 @@ class AnalyticsViewModel @Inject constructor(
                 today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L),
                 today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(6)
             )
+            DateFilter.WEEK_RANGE -> _weekRange.value // Keep existing if switching back
             DateFilter.MONTH -> Pair(
                 today.withDayOfMonth(1),
                 today.withDayOfMonth(today.lengthOfMonth())
@@ -114,6 +115,13 @@ class AnalyticsViewModel @Inject constructor(
 
     fun setWeekRange(start: LocalDate, end: LocalDate) {
         _weekRange.value = Pair(start, end)
+        _selectedFilter.value = DateFilter.WEEK_RANGE
+    }
+
+    fun setCustomRange(startMillis: Long, endMillis: Long) {
+        val start = java.time.Instant.ofEpochMilli(startMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        val end = java.time.Instant.ofEpochMilli(endMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        setWeekRange(start, end)
     }
 
     fun loadPreviousPeriod(currentStart: LocalDate, filter: DateFilter) {
@@ -123,6 +131,10 @@ class AnalyticsViewModel @Inject constructor(
                 Pair(d, d)
             }
             DateFilter.WEEK -> {
+                val s = currentStart.minusWeeks(1)
+                Pair(s, s.plusDays(6))
+            }
+            DateFilter.WEEK_RANGE -> {
                 val s = currentStart.minusWeeks(1)
                 Pair(s, s.plusDays(6))
             }

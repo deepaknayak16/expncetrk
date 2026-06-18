@@ -22,12 +22,18 @@ class GetSummaryUseCase @Inject constructor(
         val startDateTime = when (filter) {
             DateFilter.DAY -> today.atStartOfDay()
             DateFilter.WEEK -> today.minusDays(6).atStartOfDay()
+            DateFilter.WEEK_RANGE -> today.minusDays(6).atStartOfDay()
             DateFilter.MONTH -> today.withDayOfMonth(1).atStartOfDay()
             DateFilter.YEAR -> today.withDayOfYear(1).atStartOfDay()
         }
 
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = if (filter == DateFilter.YEAR) {
+            today.withDayOfYear(today.lengthOfYear()).atTime(23, 59, 59)
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } else {
+            now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        }
 
         return invoke(startMillis, endMillis)
     }

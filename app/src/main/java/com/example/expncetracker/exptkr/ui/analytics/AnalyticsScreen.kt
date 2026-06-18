@@ -118,6 +118,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             DateFilter.WEEK -> currentPeriodStart == today.with(
                 WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L
             )
+            DateFilter.WEEK_RANGE -> false
             DateFilter.MONTH -> currentPeriodStart.year == today.year &&
                     currentPeriodStart.monthValue == today.monthValue
             DateFilter.YEAR -> currentPeriodStart.year == today.year
@@ -160,6 +161,10 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         val day = currentPeriodStart.plusDays(value.toLong())
                         day.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
                     }
+                    DateFilter.WEEK_RANGE -> {
+                        val day = currentPeriodStart.plusDays(value.toLong())
+                        day.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+                    }
                     DateFilter.MONTH -> "W${(value.toInt() + 1)}"
                     DateFilter.YEAR -> DateTimeFormatter.ofPattern("MMM").format(
                         java.time.Month.of((value.toInt() + 1).coerceIn(1, 12))
@@ -171,6 +176,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     )
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var showRangePicker by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -185,6 +191,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         currentPeriodStart = when (selectedFilter) {
             DateFilter.DAY -> today
             DateFilter.WEEK -> today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L)
+            DateFilter.WEEK_RANGE -> currentPeriodStart
             DateFilter.MONTH -> today.withDayOfMonth(1)
             DateFilter.YEAR -> LocalDate.of(today.year, 1, 1)
         }
@@ -206,11 +213,11 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
         if (dailyTotals.isNotEmpty()) {
             // NEW: correct grouping per filter type
-            val groupedData: List<Float> = when (selectedFilter) {
-                DateFilter.DAY, DateFilter.WEEK ->
-                    dailyTotals.entries.sortedBy { it.key }.map { it.value.toFloat() }
+                        val groupedData: List<Float> = when (selectedFilter) {
+                            DateFilter.DAY, DateFilter.WEEK, DateFilter.WEEK_RANGE ->
+                                dailyTotals.entries.sortedBy { it.key }.map { it.value.toFloat() }
 
-                DateFilter.MONTH -> {
+                            DateFilter.MONTH -> {
                     // Group by week-of-month (4 buckets)
                     val weeks = (0..4).map { week ->
                         dailyTotals.entries
@@ -244,17 +251,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val dayFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
 
     if (showFilterSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showFilterSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            dragHandle = { BottomSheetDefaults.DragHandle() }
-        ) {
-            TimeFilterRow(
-                currentFilter = selectedFilter,
-                onFilterSelected = { viewModel.setFilter(it); showFilterSheet = false }
-            )
-            Spacer(Modifier.height(24.dp))
-        }
+        // Obsolete sheet removed
     }
 
     // NEW: Category drill-down sheet
@@ -335,114 +332,154 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             // ── 1. Summary header card ─────────────────────────────────────
             item(key = "summary_header") {
                 AnalyticsCard {
-                    // Date navigation
+                    // Unified Filter and Navigation Row
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = {
-                            currentPeriodStart = when (selectedFilter) {
-                                DateFilter.DAY -> currentPeriodStart.minusDays(1)
-                                DateFilter.WEEK -> currentPeriodStart.minusWeeks(1)
-                                DateFilter.MONTH -> currentPeriodStart.minusMonths(1).withDayOfMonth(1)
-                                DateFilter.YEAR -> LocalDate.of(currentPeriodStart.year - 1, 1, 1)
-                            }
-                        }) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                "Previous",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        // 1. Day
+                        FilterItemSimple(
+                            "Day",
+                            selectedFilter == DateFilter.DAY,
+                            onClick = { viewModel.setFilter(DateFilter.DAY) },
+                            modifier = Modifier.weight(0.7f)
+                        )
 
-                        val dateText = when (selectedFilter) {
-                            DateFilter.DAY -> currentPeriodStart.format(dayFormatter)
-                            DateFilter.WEEK -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
-                            DateFilter.MONTH -> currentPeriodStart.format(monthFormatter)
-                            DateFilter.YEAR -> currentPeriodStart.year.toString()
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            AnimatedContent(
-                                targetState = dateText,
-                                transitionSpec = { fadeIn(tween(160)).togetherWith(fadeOut(tween(160))) },
-                                label = "PeriodLabel"
-                            ) { text ->
-                                Text(
-                                    text = text,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.clickable { showDatePicker = true }
+                        // 2. Week
+                        FilterItemSimple(
+                            "Week",
+                            selectedFilter == DateFilter.WEEK,
+                            onClick = { viewModel.setFilter(DateFilter.WEEK) },
+                            modifier = Modifier.weight(0.7f)
+                        )
+
+                        // 3. Date Navigation (In place of Week Range)
+                        Row(
+                            modifier = Modifier.weight(2.5f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    currentPeriodStart = when (selectedFilter) {
+                                        DateFilter.DAY -> currentPeriodStart.minusDays(1)
+                                        DateFilter.WEEK -> currentPeriodStart.minusWeeks(1)
+                                        DateFilter.WEEK_RANGE -> currentPeriodStart.minusWeeks(1)
+                                        DateFilter.MONTH -> currentPeriodStart.minusMonths(1).withDayOfMonth(1)
+                                        DateFilter.YEAR -> LocalDate.of(currentPeriodStart.year - 1, 1, 1)
+                                    }
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
-                            // NEW: "Today" jump button when navigated away
-                            AnimatedVisibility(visible = !isViewingCurrentPeriod) {
-                                TextButton(
-                                    onClick = {
-                                        currentPeriodStart = when (selectedFilter) {
-                                            DateFilter.DAY -> today
-                                            DateFilter.WEEK -> today.with(
-                                                WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L
-                                            )
-                                            DateFilter.MONTH -> today.withDayOfMonth(1)
-                                            DateFilter.YEAR -> LocalDate.of(today.year, 1, 1)
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Today,
-                                        null,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Jump to today", style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val dateText = when (selectedFilter) {
+                                DateFilter.DAY -> currentPeriodStart.format(dayFormatter)
+                                DateFilter.WEEK -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
+                                DateFilter.WEEK_RANGE -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
+                                DateFilter.MONTH -> currentPeriodStart.format(monthFormatter)
+                                DateFilter.YEAR -> currentPeriodStart.year.toString()
+                            }
+
+                            Text(
+                                text = dateText,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable {
+                                        if (selectedFilter == DateFilter.WEEK_RANGE) showRangePicker = true
+                                        else showDatePicker = true
+                                    }
+                            )
+
                             val isNextDisabled = when (selectedFilter) {
                                 DateFilter.DAY -> !currentPeriodStart.isBefore(today)
                                 DateFilter.WEEK -> !currentPeriodStart.plusWeeks(1).isBefore(
                                     today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(1)
                                 )
+                                DateFilter.WEEK_RANGE -> false
                                 DateFilter.MONTH -> currentPeriodStart.year == today.year &&
                                         currentPeriodStart.monthValue >= today.monthValue
                                 DateFilter.YEAR -> currentPeriodStart.year >= today.year
                             }
+
                             IconButton(
                                 onClick = {
                                     currentPeriodStart = when (selectedFilter) {
                                         DateFilter.DAY -> currentPeriodStart.plusDays(1)
                                         DateFilter.WEEK -> currentPeriodStart.plusWeeks(1)
+                                        DateFilter.WEEK_RANGE -> currentPeriodStart.plusWeeks(1)
                                         DateFilter.MONTH -> currentPeriodStart.plusMonths(1).withDayOfMonth(1)
                                         DateFilter.YEAR -> LocalDate.of(currentPeriodStart.year + 1, 1, 1)
                                     }
                                 },
-                                enabled = !isNextDisabled
+                                enabled = !isNextDisabled,
+                                modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    "Next",
-                                    tint = if (isNextDisabled)
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    else
-                                        MaterialTheme.colorScheme.primary
+                                    null,
+                                    tint = if (isNextDisabled) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
-                            IconButton(onClick = { showFilterSheet = true }) {
-                                Icon(
-                                    Icons.Default.FilterList,
-                                    "Filter",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                        }
+
+                        // 4. Month
+                        FilterItemSimple(
+                            "Month",
+                            selectedFilter == DateFilter.MONTH,
+                            onClick = { viewModel.setFilter(DateFilter.MONTH) },
+                            modifier = Modifier.weight(0.8f)
+                        )
+
+                        // 5. Year
+                        FilterItemSimple(
+                            "Year",
+                            selectedFilter == DateFilter.YEAR,
+                            onClick = { viewModel.setFilter(DateFilter.YEAR) },
+                            modifier = Modifier.weight(0.7f)
+                        )
+                    }
+
+                    // Jump to today (Small text button below row if navigated away)
+                    AnimatedVisibility(visible = !isViewingCurrentPeriod && selectedFilter != DateFilter.WEEK_RANGE) {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            TextButton(
+                                onClick = {
+                                    currentPeriodStart = when (selectedFilter) {
+                                        DateFilter.DAY -> today
+                                        DateFilter.WEEK -> today.with(
+                                            WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L
+                                        )
+                                        DateFilter.MONTH -> today.withDayOfMonth(1)
+                                        DateFilter.YEAR -> LocalDate.of(today.year, 1, 1)
+                                        else -> today
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Today, null, modifier = Modifier.size(12.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Today", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(12.dp))
 
@@ -799,6 +836,40 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
     }
 
+    if (showRangePicker) {
+        val dateRangePickerState = rememberDateRangePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showRangePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val start = dateRangePickerState.selectedStartDateMillis
+                    val end = dateRangePickerState.selectedEndDateMillis
+                    if (start != null && end != null) {
+                        viewModel.setCustomRange(start, end)
+                    }
+                    showRangePicker = false
+                }) { Text("Confirm") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRangePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DateRangePicker(
+                state = dateRangePickerState,
+                modifier = Modifier.weight(1f),
+                title = { Text("Select Week Range", modifier = Modifier.padding(16.dp)) },
+                headline = { 
+                    Text(
+                        text = "Custom Range", 
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.titleLarge
+                    ) 
+                },
+                showModeToggle = false
+            )
+        }
+    }
+
     // ── Date picker ────────────────────────────────────────────────────────────
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -820,6 +891,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             DateFilter.WEEK -> selected.with(
                                 WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L
                             )
+                            DateFilter.WEEK_RANGE -> selected
                             DateFilter.MONTH -> selected.withDayOfMonth(1)
                             DateFilter.YEAR -> LocalDate.of(selected.year, 1, 1)
                         }
@@ -833,19 +905,45 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         ) {
             DatePicker(
                 state = datePickerState,
-                title = {
-                    Text(
-                        text = when (selectedFilter) {
-                            DateFilter.DAY -> "Select date"
-                            DateFilter.WEEK -> "Select week"
-                            DateFilter.MONTH -> "Select month"
-                            DateFilter.YEAR -> "Select year"
-                        },
-                        modifier = Modifier.padding(start = 24.dp, top = 16.dp)
-                    )
-                }
+                        title = {
+                            Text(
+                                text = when (selectedFilter) {
+                                    DateFilter.DAY -> "Select date"
+                                    DateFilter.WEEK -> "Select week"
+                                    DateFilter.WEEK_RANGE -> "Select range"
+                                    DateFilter.MONTH -> "Select month"
+                                    DateFilter.YEAR -> "Select year"
+                                },
+                                modifier = Modifier.padding(start = 24.dp, top = 16.dp)
+                            )
+                        }
             )
         }
+    }
+}
+
+@Composable
+private fun FilterItemSimple(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            modifier = Modifier.padding(vertical = 6.dp),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
     }
 }
 

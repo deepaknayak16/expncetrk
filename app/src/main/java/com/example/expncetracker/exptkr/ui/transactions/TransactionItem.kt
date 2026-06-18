@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.core.common.formatToDisplay
@@ -71,99 +72,111 @@ fun TransactionListItem(
         )
     }
 
+    val typeColor = when (transaction.type) {
+        TransactionType.CREDIT, TransactionType.BORROW -> Color(0xFF2E7D32) // Success Green
+        TransactionType.DEBIT, TransactionType.LEND -> MaterialTheme.colorScheme.error
+        TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = onClick != null || onEdit != null) { 
                 if (onClick != null) onClick() else onEdit?.invoke() 
             },
-        color = MaterialTheme.colorScheme.background
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                    .padding(vertical = 10.dp, horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(color.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = color.copy(alpha = 0.12f)
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = color,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = color,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = transaction.merchant,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    val detailText = buildString {
-                        append(transaction.categoryName)
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = transaction.categoryName,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
                         if (transaction.counterparty != null) {
-                            append(" • ${transaction.counterparty}")
+                            Text(
+                                text = " • ${transaction.counterparty}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-                        append(" • ${transaction.timestamp.formatToDisplay()}")
                     }
-                    Text(
-                        text = detailText,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
                 val prefix = when (transaction.type) {
                     TransactionType.CREDIT -> "+"
                     TransactionType.DEBIT -> "-"
-                    TransactionType.TRANSFER -> "⇄ "
-                    TransactionType.LEND -> "↗ "
-                    TransactionType.BORROW -> "↙ "
-                }
-                val amountColor = when (transaction.type) {
-                    TransactionType.CREDIT, TransactionType.BORROW -> if (isDarkTheme) DarkIncome else LightIncome
-                    TransactionType.DEBIT, TransactionType.LEND -> if (isDarkTheme) DarkExpense else LightExpense
-                    TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
+                    TransactionType.TRANSFER -> ""
+                    TransactionType.LEND -> "↗"
+                    TransactionType.BORROW -> "↙"
                 }
                 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$prefix${transaction.amount.formatAsCurrency()}",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = amountColor
+                        text = "$prefix ${transaction.amount.formatAsCurrency()}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = typeColor
                     )
-                    
-                    if (onDelete != null) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(
-                            onClick = { showDeleteConfirm = true },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                    Text(
+                        text = transaction.timestamp.formatToDisplay(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+                
+                if (onDelete != null) {
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.padding(start = 8.dp).size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
             )
         }
     }
