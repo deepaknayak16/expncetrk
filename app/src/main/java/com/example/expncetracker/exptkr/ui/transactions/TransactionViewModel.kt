@@ -166,9 +166,14 @@ class TransactionViewModel @Inject constructor(
     fun refreshTransactions() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            _refreshTrigger.value++
-            delay(300)
-            _isRefreshing.value = false
+            try {
+                importSmsTransactionsUseCase.execute()
+                _refreshTrigger.value++
+            } catch (e: Exception) {
+                // Ignore sync errors during background refresh
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 
@@ -192,7 +197,7 @@ class TransactionViewModel @Inject constructor(
                 transaction.smsId != null -> {
                     _statusEvent.send("SMS transactions cannot be deleted")
                 }
-                Duration.between(transaction.timestamp, LocalDateTime.now()).toMinutes() > 60 -> {
+                Duration.between(transaction.entryTimestamp, LocalDateTime.now()).toMinutes() > 60 -> {
                     _statusEvent.send("Manual transactions older than 1 hour cannot be deleted")
                 }
                 else -> {

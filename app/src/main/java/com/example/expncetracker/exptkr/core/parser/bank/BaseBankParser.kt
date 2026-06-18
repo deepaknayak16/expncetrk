@@ -1,11 +1,12 @@
 package com.example.expncetracker.exptkr.core.parser.bank
 
-import android.util.Log
 import com.example.expncetracker.BuildConfig
 import com.example.expncetracker.exptkr.core.parser.BankParser
 import com.example.expncetracker.exptkr.core.parser.ParsedSms
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+
+import com.example.expncetracker.exptkr.core.common.Logger
 
 abstract class BaseBankParser(private val bankName: String) : BankParser {
     override val bankKey: String = bankName.uppercase()
@@ -24,7 +25,7 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             val isCredit = creditRegex.containsMatchIn(cleanBody)
 
             if (isDebit && isCredit) {
-                if (BuildConfig.DEBUG) Log.w("BankParser", "Ambiguous SMS (both debit+credit): $cleanBody")
+                Logger.d("BankParser", "Ambiguous SMS (both debit+credit): $cleanBody")
                 return null // Let GenericParser handle it
             }
 
@@ -36,7 +37,7 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             
             if (amount < 0) return null
             if (amount == 0.0) {
-                if (BuildConfig.DEBUG) Log.d("BankParser", "Zero-amount transaction from $bankName: $smsBody")
+                Logger.d("BankParser", "Zero-amount transaction from $bankName: $smsBody")
                 return null
             }
 
@@ -47,7 +48,7 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
 
             ParsedSms(amount, type, merchant, bankName, time)
         } catch (e: Exception) {
-            if (BuildConfig.DEBUG) Log.d("BankParser", "Parse failed: ${e.message}")
+            Logger.e("BankParser", "Parse failed: ${e.message}", e)
             null
         }
     }

@@ -25,5 +25,6 @@ data class TransactionEntity(
     val parentTransactionId: Long? = null,
     val counterparty: String? = null,
     val isSettled: Boolean = false,
-    val tags: String? = null
+    val tags: String? = null,
+    val entryTimestamp: Long = System.currentTimeMillis()
 )

@@ -39,7 +39,8 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
                     frequency = null,
                     nextDueDate = null,
                     recurrenceEndDate = null,
-                    parentTransactionId = tx.id
+                    parentTransactionId = tx.id,
+                    entryTimestamp = now
                 )
                 repository.insertTransaction(newTransaction)
 

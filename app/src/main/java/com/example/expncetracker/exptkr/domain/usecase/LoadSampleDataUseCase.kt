@@ -18,8 +18,6 @@ class LoadSampleDataUseCase @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     suspend fun execute() {
-        repository.clearAllTransactions()
-
         val jsonString = context.assets.open("sample_transactions.json").bufferedReader().use {
             it.readText()
         }
@@ -50,9 +48,7 @@ class LoadSampleDataUseCase @Inject constructor(
             )
         }
 
-        samples.chunked(500).forEach { chunk ->
-            repository.insertTransactions(chunk)
-        }
+        repository.replaceTransactions(samples)
     }
 
     private fun mapCategory(categoryStr: String): Category {

@@ -46,17 +46,23 @@ class ExpenseWidget : GlanceAppWidget() {
         val endOfDay = now.withHour(23).withMinute(59).withSecond(59).withNano(999)
             .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
+        val startOfMonth = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
         // Fetching Data safely inside a suspend context
         val todayTransactions = transactionDao.getTransactionsInRange(startOfDay, endOfDay).first()
         val todaySpending = todayTransactions.filter { it.type == "DEBIT" }.sumOf { it.amount }
 
+        val monthTransactions = transactionDao.getTransactionsInRange(startOfMonth, endOfDay).first()
+        val monthSpending = monthTransactions.filter { it.type == "DEBIT" }.sumOf { it.amount }
+
         val budgets = budgetDao.getAllBudgets().first()
-        val totalBudget = budgets.sumOf { it.limitAmount }
-        val remainingBudget = totalBudget - todaySpending
+        val totalMonthlyBudget = budgets.sumOf { it.limitAmount }
+        val remainingMonthlyBudget = totalMonthlyBudget - monthSpending
 
         provideContent {
             GlanceTheme {
-                WidgetContent(todaySpending, remainingBudget)
+                WidgetContent(todaySpending, remainingMonthlyBudget)
             }
         }
     }

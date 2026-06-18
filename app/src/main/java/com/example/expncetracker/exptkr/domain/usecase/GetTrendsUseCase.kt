@@ -29,8 +29,8 @@ class GetTrendsUseCase @Inject constructor(
             // Actually, the original implementation was month-based.
             
             if (days <= 30) {
-                // Day-based for 1W/1M
-                for (i in 0 until days) {
+                // Day-based for 1W/1M - Ensure we cover the full range including the start day
+                for (i in 0..days) {
                     val date = now.minusDays(i.toLong()).toLocalDate()
                     val label = date.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM"))
                     trends[label] = 0.0
@@ -44,13 +44,16 @@ class GetTrendsUseCase @Inject constructor(
                     }
                 }
             } else {
-                // Month-based
-                val months = (days / 30).coerceAtLeast(1)
-                for (i in 0 until months) {
-                    val month = now.minusMonths(i.toLong())
-                    val label = "${month.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${month.year % 100}"
+                // Month-based - Ensure we cover all months in the range
+                val startMonth = startDateTime.toLocalDate().withDayOfMonth(1)
+                var currentMonth = now.toLocalDate().withDayOfMonth(1)
+                
+                while (!currentMonth.isBefore(startMonth)) {
+                    val label = "${currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${currentMonth.year % 100}"
                     trends[label] = 0.0
+                    currentMonth = currentMonth.minusMonths(1)
                 }
+
                 txList.forEach { tx ->
                     if (tx.type == TransactionType.DEBIT) {
                         val label = "${tx.timestamp.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${tx.timestamp.year % 100}"

@@ -47,7 +47,7 @@ class BudgetViewModel @Inject constructor(
     val categories = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _statusEvent = Channel<String>()
+    private val _statusEvent = Channel<String>(Channel.BUFFERED)
     val statusEvent = _statusEvent.receiveAsFlow()
     private val _refreshTrigger = MutableStateFlow(0)
     @OptIn(ExperimentalCoroutinesApi::class)

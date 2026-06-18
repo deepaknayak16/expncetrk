@@ -98,29 +98,25 @@ class AddTransactionViewModel @Inject constructor(
                 return@launch
             }
 
-            // Update Account Balance
-            // 1. If editing, reverse the old transaction from its ORIGINAL account
-            //    (the account may differ from the newly selected one).
+            // Update Account Balance atomically to prevent race conditions (M6 Fix)
             _transactionToEdit.value?.let { old ->
-                accountDao.getAllAccounts().first().find { it.name == old.bankName }?.let { oldAcc ->
-                    val reverted = when (old.type) {
-                        TransactionType.CREDIT, TransactionType.BORROW -> oldAcc.balance - old.amount
-                        TransactionType.DEBIT, TransactionType.LEND -> oldAcc.balance + old.amount
-                        TransactionType.TRANSFER -> oldAcc.balance
-                    }
-                    accountDao.updateAccount(oldAcc.copy(balance = reverted))
+                val reverseDelta = when (old.type) {
+                    TransactionType.CREDIT, TransactionType.BORROW -> -old.amount
+                    TransactionType.DEBIT, TransactionType.LEND -> old.amount
+                    else -> 0.0
+                }
+                if (reverseDelta != 0.0) {
+                    accountDao.adjustBalance(old.bankName, reverseDelta)
                 }
             }
 
-            // 2. Apply the new transaction to the selected account.
-            //    Re-fetch so the reversal above is reflected when old and new account match.
-            accountDao.getAllAccounts().first().find { it.name == bankName }?.let { acc ->
-                val newBalance = when (type) {
-                    TransactionType.CREDIT, TransactionType.BORROW -> acc.balance + amount
-                    TransactionType.DEBIT, TransactionType.LEND -> acc.balance - amount
-                    TransactionType.TRANSFER -> acc.balance
-                }
-                accountDao.updateAccount(acc.copy(balance = newBalance))
+            val newDelta = when (type) {
+                TransactionType.CREDIT, TransactionType.BORROW -> amount
+                TransactionType.DEBIT, TransactionType.LEND -> -amount
+                else -> 0.0
+            }
+            if (newDelta != 0.0) {
+                accountDao.adjustBalance(bankName, newDelta)
             }
 
             // Calculate next due date if it is recurring
@@ -143,7 +139,8 @@ class AddTransactionViewModel @Inject constructor(
                 nextDueDate = nextDueDate,
                 recurrenceEndDate = recurrenceEndDate,
                 counterparty = counterparty,
-                tags = tags
+                tags = tags,
+                entryTimestamp = _transactionToEdit.value?.entryTimestamp ?: java.time.LocalDateTime.now()
             )
             if (id != 0L) {
                 repository.updateTransaction(transaction)

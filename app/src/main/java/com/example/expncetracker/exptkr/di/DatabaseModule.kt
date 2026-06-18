@@ -25,8 +25,12 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        // Load the native SQLCipher library
-        System.loadLibrary("sqlcipher")
+        // Load the native SQLCipher library safely
+        try {
+            System.loadLibrary("sqlcipher")
+        } catch (e: UnsatisfiedLinkError) {
+            // Ignore if already loaded or handle appropriately
+        }
 
         // Create/Retrieve passphrase for encrypted database from Android Keystore
         val passphrase = SecurityUtils.getOrCreatePassphrase(context)
@@ -34,6 +38,7 @@ object DatabaseModule {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
             .openHelperFactory(factory) // Enable SQLCipher encryption
+            .addMigrations(AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6) // Add known migrations
             .build()
     }
 

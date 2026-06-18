@@ -53,7 +53,11 @@ class DashboardViewModel @Inject constructor(
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
     val trends: StateFlow<List<SpendingTrend>> = _selectedFilter.flatMapLatest { filter ->
-        getTrendsUseCase(filter.toDays())
+        val rangeDays = when (filter) {
+            DateFilter.DAY, DateFilter.WEEK -> filter.toDays()
+            else -> filter.toMonths() * 30 + 1 // Ensure > 30 for monthly aggregation
+        }
+        getTrendsUseCase(rangeDays)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun syncTransactions() {

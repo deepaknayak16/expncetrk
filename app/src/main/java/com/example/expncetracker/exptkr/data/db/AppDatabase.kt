@@ -39,7 +39,7 @@ import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
         CategoryEntity::class,
         GoalEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,6 +55,20 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty TEXT")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN entryTimestamp INTEGER NOT NULL DEFAULT 0")
+                // Update existing records to use their transaction timestamp as a fallback
+                db.execSQL("UPDATE transactions SET entryTimestamp = timestamp WHERE entryTimestamp = 0")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
@@ -65,40 +79,20 @@ abstract class AppDatabase : RoomDatabase() {
             val appContext = context.applicationContext
             val databaseName = Constants.DATABASE_NAME
 
-            fun createDb(): AppDatabase {
-                // Load the native SQLCipher library
-                try {
-                    System.loadLibrary("sqlcipher")
-                } catch (e: UnsatisfiedLinkError) {
-                    // Ignore if already loaded or not needed
-                }
-
-                val passphrase = SecurityUtils.getOrCreatePassphrase(appContext)
-                val factory = SupportOpenHelperFactory(passphrase)
-                
-                val MIGRATION_4_5 = object : Migration(4, 5) {
-                    override fun migrate(db: SupportSQLiteDatabase) {
-                        db.execSQL("ALTER TABLE transactions ADD COLUMN counterparty TEXT")
-                    }
-                }
-
-                return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
-                    .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_4_5)
-                    .fallbackToDestructiveMigration()
-                    .build()
+            // Load the native SQLCipher library safely
+            try {
+                System.loadLibrary("sqlcipher")
+            } catch (e: UnsatisfiedLinkError) {
+                // Ignore if already loaded
             }
 
-            return try {
-                val db = createDb()
-                // Trigger a database open to verify the passphrase/integrity
-                db.openHelper.writableDatabase
-                db
-            } catch (e: Exception) {
-                // If decryption fails or file is corrupted, do NOT delete.
-                // Re-throw the exception so it can be handled or displayed to the user.
-                throw e
-            }
+            val passphrase = SecurityUtils.getOrCreatePassphrase(appContext)
+            val factory = SupportOpenHelperFactory(passphrase)
+
+            return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
+                .openHelperFactory(factory)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                .build()
         }
     }
 }

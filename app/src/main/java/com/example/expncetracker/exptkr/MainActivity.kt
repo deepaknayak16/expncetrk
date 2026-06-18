@@ -57,6 +57,13 @@ class MainActivity : FragmentActivity() {
         val notificationRationaleFlow = preferencesFlow.map { it[NOTIFICATION_PERMISSION_SHOWN_KEY] ?: false }
         val smsPermanentlyDeniedFlow = preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }
 
+        // D1 Fix: Show notification once in lifecycle, not on every recomposition
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ) {
+            AppNotificationManager.showQuickActionsNotification(this)
+        }
+
         setContent {
             val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
             val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
@@ -68,14 +75,6 @@ class MainActivity : FragmentActivity() {
             var hasAskedNotificationThisSession by remember { mutableStateOf(false) }
 
             val startRoute = remember { intent.getStringExtra("navigate_to") }
-
-            LaunchedEffect(Unit) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    AppNotificationManager.showQuickActionsNotification(this@MainActivity)
-                }
-            }
 
             var showPermissionRationale by remember(isRationaleShown, isSmsPermanentlyDenied) {
                 mutableStateOf(

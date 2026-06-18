@@ -47,19 +47,11 @@ class SmsReader @Inject constructor(
                             address.uppercase().contains(prefix.uppercase()) 
                         }
 
-                        val isBankByBody = Constants.BANK_SENDERS.any { prefix ->
-                            body.uppercase().contains(prefix.uppercase())
+                        val isWalletBySender = Constants.WALLET_SENDERS.any { prefix ->
+                            address.uppercase().contains(prefix.uppercase())
                         }
 
-                        val isWallet = Constants.WALLET_SENDERS.any { prefix ->
-                            address.uppercase().contains(prefix.uppercase()) || body.uppercase().contains(prefix.uppercase())
-                        }
-                        val allAllowedSenders = Constants.BANK_SENDERS + Constants.WALLET_SENDERS
-                        val isAllowedSender = allAllowedSenders.any { prefix ->
-                            address.uppercase().contains(prefix.uppercase()) || body.uppercase().contains(prefix.uppercase())
-                        }
-
-                        val isRelevant = isBankBySender || isBankByBody || isWallet
+                        val isRelevant = isBankBySender || isWalletBySender
 
                         if (isRelevant) {
                             smsList.add(

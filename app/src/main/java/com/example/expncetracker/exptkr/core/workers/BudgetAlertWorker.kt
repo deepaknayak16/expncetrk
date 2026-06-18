@@ -38,7 +38,6 @@ class BudgetAlertWorker @AssistedInject constructor(
 
             val request = PeriodicWorkRequestBuilder<BudgetAlertWorker>(1, TimeUnit.DAYS)
                 .setConstraints(constraints)
-                .setInitialDelay(1, TimeUnit.HOURS) // Don't disturb on first launch
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(

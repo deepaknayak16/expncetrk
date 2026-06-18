@@ -19,7 +19,8 @@ data class Transaction(
     val parentTransactionId: Long? = null,
     val counterparty: String? = null,
     val isSettled: Boolean = false,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val entryTimestamp: LocalDateTime = LocalDateTime.now()
 ) {
     init {
         require(amount >= 0) { "Amount cannot be negative" }
