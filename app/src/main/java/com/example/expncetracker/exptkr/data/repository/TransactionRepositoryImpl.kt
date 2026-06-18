@@ -1,5 +1,7 @@
 package com.example.expncetracker.exptkr.data.repository
 
+import androidx.room.withTransaction
+import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.mapper.toDomain
@@ -15,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao,
-    private val accountDao: AccountDao
+    private val accountDao: AccountDao,
+    private val db: AppDatabase //App database added
 ) : TransactionRepository {
 
     override fun getAllTransactions(): Flow<List<Transaction>> =
@@ -42,17 +45,24 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun insertTransactions(transactions: List<Transaction>) =
         transactionDao.insertTransactions(transactions.map { it.toEntity() })
 
+    // WHY: deleteById() and adjustBalance() are two separate DB calls.
+    //      If the app crashes between them, the transaction is gone but
+    //      the money was never refunded. db.withTransaction() makes SQLite
+    //      treat both calls as one atomic unit — if the second fails,
+    //      the first is automatically rolled back.
+
     override suspend fun deleteTransactionById(id: Long) {
         val transaction = transactionDao.getTransactionById(id)?.toDomain() ?: return
-        transactionDao.deleteById(id)
-
         val delta = when (transaction.type) {
             TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
             TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
             else -> 0.0
         }
-        if (delta != 0.0) {
-            accountDao.adjustBalance(transaction.bankName, delta)
+        db.withTransaction {
+            transactionDao.deleteById(id)
+            if (delta != 0.0) {
+                accountDao.adjustBalance(transaction.bankName, delta)
+            }
         }
     }
 
@@ -76,4 +86,50 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>) =
         transactionDao.splitTransaction(parentId, subTransactions.map { it.toEntity() })
+    // WHY: These wrap "insert + balance update" and "update + balance update"
+//      inside a single SQLite transaction. If the balance update fails,
+//      the transaction insert/update is rolled back automatically.
+//      Also, adjustBalance uses "UPDATE accounts SET balance = balance + :delta"
+//      which is atomic — no read-modify-write race in Kotlin.
+
+    override suspend fun insertTransactionWithBalance(transaction: Transaction): Long {
+        val delta = when (transaction.type) {
+            TransactionType.CREDIT, TransactionType.BORROW -> transaction.amount
+            TransactionType.DEBIT, TransactionType.LEND -> -transaction.amount
+            else -> 0.0
+        }
+        return db.withTransaction {
+            val id = transactionDao.insertTransaction(transaction.toEntity())
+            if (delta != 0.0) {
+                accountDao.adjustBalance(transaction.bankName, delta)
+            }
+            id
+        }
+    }
+
+    override suspend fun updateTransactionWithBalance(oldTransaction: Transaction?, newTransaction: Transaction) {
+        val reverseDelta = oldTransaction?.let { old ->
+            when (old.type) {
+                TransactionType.CREDIT, TransactionType.BORROW -> -old.amount
+                TransactionType.DEBIT, TransactionType.LEND -> old.amount
+                else -> 0.0
+            }
+        } ?: 0.0
+
+        val newDelta = when (newTransaction.type) {
+            TransactionType.CREDIT, TransactionType.BORROW -> newTransaction.amount
+            TransactionType.DEBIT, TransactionType.LEND -> -newTransaction.amount
+            else -> 0.0
+        }
+
+        db.withTransaction {
+            if (oldTransaction != null && reverseDelta != 0.0) {
+                accountDao.adjustBalance(oldTransaction.bankName, reverseDelta)
+            }
+            transactionDao.updateTransaction(newTransaction.toEntity())
+            if (newDelta != 0.0) {
+                accountDao.adjustBalance(newTransaction.bankName, newDelta)
+            }
+        }
+    }
 }

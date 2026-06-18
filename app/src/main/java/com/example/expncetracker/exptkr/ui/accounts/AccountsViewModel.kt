@@ -110,7 +110,10 @@ class AccountsViewModel @Inject constructor(
 
     fun deleteAccount(id: Long) {
         viewModelScope.launch {
-            accountDao.deleteAccountById(id)
+            // WHY: Deleting an account must also delete its transactions,
+            //      or the transaction history becomes inconsistent.
+            //      We do this inside a Room @Transaction in the DAO so it's atomic.
+            accountDao.deleteAccountAndTransactions(id)
         }
     }
 }

@@ -60,4 +60,24 @@ class GoalsViewModel @Inject constructor(
             repository.deleteGoal(goal)
         }
     }
+    // WHY: Scan all transactions in the linked category and sum them
+//      so the goal progress updates automatically.
+
+    fun recalculateGoalProgress(goalId: Long) {
+        viewModelScope.launch {
+            val goal = repository.getGoalById(goalId) ?: return@launch
+            val category = goal.linkedCategory ?: return@launch
+
+            val total = transactionRepository.getTransactionsByCategory(category)
+                .first()
+                .sumOf { it.amount }
+
+            repository.updateGoal(
+                goal.copy(
+                    currentAmount = total,
+                    isCompleted = total >= goal.targetAmount
+                )
+            )
+        }
+    }
 }

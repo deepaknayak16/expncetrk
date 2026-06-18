@@ -20,7 +20,7 @@ data class Transaction(
     val counterparty: String? = null,
     val isSettled: Boolean = false,
     val tags: List<String> = emptyList(),
-    val entryTimestamp: LocalDateTime = LocalDateTime.now()
+    val createdAt: java.time.LocalDateTime = java.time.LocalDateTime.now()
 ) {
     init {
         require(amount >= 0) { "Amount cannot be negative" }

@@ -3,10 +3,14 @@ package com.example.expncetracker.exptkr.data.db.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
+
 
 @Entity(
     tableName = "transactions",
-    indices = [Index(value = ["smsId"], unique = true)]
+    indices = [Index(value = ["smsId"], unique = true),
+        Index(value = ["createdAt"])
+    ]
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -26,5 +30,9 @@ data class TransactionEntity(
     val counterparty: String? = null,
     val isSettled: Boolean = false,
     val tags: String? = null,
-    val entryTimestamp: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    // WHY: Link transactions to accounts by immutable ID, not by name.
+    //      Names can be edited; IDs cannot.
+    @ColumnInfo(name = "account_id", defaultValue = "0")
+    val accountId: Long = 0,
 )

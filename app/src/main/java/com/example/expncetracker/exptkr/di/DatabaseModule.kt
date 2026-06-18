@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.di
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import androidx.room.Room
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
@@ -35,11 +36,17 @@ object DatabaseModule {
         // Create/Retrieve passphrase for encrypted database from Android Keystore
         val passphrase = SecurityUtils.getOrCreatePassphrase(context)
         val factory = SupportOpenHelperFactory(passphrase)
-
-        return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
-            .openHelperFactory(factory) // Enable SQLCipher encryption
-            .addMigrations(AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6) // Add known migrations
-            .build()
+        try {
+            return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
+                .openHelperFactory(factory) // Enable SQLCipher encryption
+                .addMigrations(
+                    AppDatabase.MIGRATION_4_5,
+                    AppDatabase.MIGRATION_5_6
+                ) // Add known migrations
+                .build()
+        } catch (e: SQLiteException) {
+            throw IllegalStateException("Database corrupted. Restore from backup or clear app data.", e)
+        }
     }
 
     @Provides fun provideTransactionDao(db: AppDatabase): TransactionDao = db.transactionDao()

@@ -20,7 +20,8 @@ object ParserModule {
             HdfcParser(),
             SbiParser(),
             IciciParser(),
-            AxisParser()
+            AxisParser(),
+            KotaParser()
         )
     }
 

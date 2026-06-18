@@ -6,8 +6,10 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+<!-- Exclude the encrypted DB — key won't survive restore -->
+<exclude domain="database" path="expense_tracker.db" />
+<!-- Exclude preferences that hold keystore references -->
+<exclude domain="sharedpref" path="com.example.expncetracker_preferences" />
+<!-- Allow only user-exported backup JSON -->
+<include domain="file" path="expense_tracker_backup.json" />
 </full-backup-content>

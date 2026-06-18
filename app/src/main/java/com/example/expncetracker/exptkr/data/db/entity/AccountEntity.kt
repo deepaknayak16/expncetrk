@@ -2,8 +2,12 @@ package com.example.expncetracker.exptkr.data.db.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Index
 
-@Entity(tableName = "accounts")
+
+@Entity(tableName = "accounts",
+    indices = [Index(value = ["name"], unique = true)]
+)
 data class AccountEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,

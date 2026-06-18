@@ -44,7 +44,12 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(categoryName.hashCode(), notification)
+        // WHY: hashCode() can collide for different strings (e.g. "FB" and "Ea" both = 2236).
+        //      We combine the hash with a category-specific prefix so each category
+        //      gets a stable, unique notification ID. Same category updates its old alert;
+        //      different categories never overwrite each other.
+        val notificationId = (31 * 17 + categoryName.hashCode()) and 0x7FFFFFFF
+        notificationManager.notify(notificationId, notification)
     }
 
     companion object {

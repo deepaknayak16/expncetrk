@@ -134,6 +134,8 @@ class GoogleDriveSyncManager @Inject constructor(
 
     fun signOut() {
         driveService = null
-        GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+        val client = GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN)
+            client.signOut()
+            client.revokeAccess()
     }
 }

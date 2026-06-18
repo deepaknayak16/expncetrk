@@ -173,5 +173,9 @@
     <string name="widget_total_spending">Total Spending</string>
     <string name="widget_remaining_budget">Remaining Budget</string>
     <string name="widget_add_expense">+ Add Expense</string>
+    <!-- New -->
+    <string name="nav_ledger">Ledger</string>
+    <string name="nav_goals">Goals</string>
+    <string name="nav_accounts">Accounts</string>
 
 </resources>

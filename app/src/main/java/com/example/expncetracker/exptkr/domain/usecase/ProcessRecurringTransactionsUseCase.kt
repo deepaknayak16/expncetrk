@@ -40,21 +40,14 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
                     nextDueDate = null,
                     recurrenceEndDate = null,
                     parentTransactionId = tx.id,
-                    entryTimestamp = now
+                    createdAt = now
                 )
-                repository.insertTransaction(newTransaction)
-
-                accumulatedBalance = accumulatedBalance?.let { balance ->
-                    if (tx.type == TransactionType.CREDIT) balance + tx.amount else balance - tx.amount
-                }
+                repository.insertTransactionWithBalance(newTransaction)
 
                 nextDate = calculateNextDate(nextDate, tx.frequency!!)
             }
 
             // Persist the account balance once after catching up all periods.
-            if (account != null && accumulatedBalance != null) {
-                accountDao.updateAccount(account.copy(balance = accumulatedBalance))
-            }
 
             // Update the parent recurring transaction with the new next due date,
             // stopping recurrence if the end date has been reached.

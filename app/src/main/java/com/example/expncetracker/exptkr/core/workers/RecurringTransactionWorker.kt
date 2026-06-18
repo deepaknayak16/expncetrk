@@ -36,8 +36,15 @@ class RecurringTransactionWorker @AssistedInject constructor(
                 .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
                 .build()
 
+        // WHY: Exponential backoff ensures retries wait 10 min, then 20 min, etc.
+        //      Prevents tight retry loops that drain battery on persistent errors.
             val request = PeriodicWorkRequestBuilder<RecurringTransactionWorker>(1, TimeUnit.DAYS)
-                .setConstraints(constraints)
+                    .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    WorkRequest.MIN_BACKOFF_MILLIS,
+                    TimeUnit.MILLISECONDS
+                )
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(

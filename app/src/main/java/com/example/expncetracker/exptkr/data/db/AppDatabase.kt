@@ -39,7 +39,7 @@ import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
         CategoryEntity::class,
         GoalEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -63,12 +63,37 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE transactions ADD COLUMN entryTimestamp INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
                 // Update existing records to use their transaction timestamp as a fallback
-                db.execSQL("UPDATE transactions SET entryTimestamp = timestamp WHERE entryTimestamp = 0")
+                db.execSQL("UPDATE transactions SET createdAt = timestamp WHERE createdAt = 0")
             }
         }
-
+        // WHY: Migration 6→7 adds the account_id column so we can stop using name as a key.
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN account_id INTEGER NOT NULL DEFAULT 0")
+                // Optional: backfill account_id from bankName for existing rows
+                db.execSQL("""
+            UPDATE transactions 
+            SET account_id = (
+                SELECT id FROM accounts WHERE accounts.name = transactions.bankName LIMIT 1
+            )
+            WHERE account_id = 0
+        """)
+            }
+        }
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // SQLite doesn't enforce unique constraints on existing duplicates easily.
+                // First, deduplicate by renaming duplicates:
+                db.execSQL("""
+            DELETE FROM accounts WHERE rowid NOT IN (
+                SELECT MIN(rowid) FROM accounts GROUP BY name
+            )
+        """)
+                db.execSQL("CREATE UNIQUE INDEX index_accounts_name ON accounts(name)")
+            }
+        }
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
@@ -91,7 +116,7 @@ abstract class AppDatabase : RoomDatabase() {
 
             return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
         }
     }

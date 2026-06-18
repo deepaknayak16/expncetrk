@@ -155,7 +155,7 @@ class DashboardViewModel @Inject constructor(
                 }
                 
                 val now = LocalDateTime.now()
-                val minutesSinceCreation = java.time.Duration.between(transaction.entryTimestamp, now).toMinutes()
+                val minutesSinceCreation = java.time.Duration.between(transaction.createdAt, now).toMinutes()
                 
                 if (minutesSinceCreation > 60) {
                     _statusEvent.send("Manual transactions older than 1 hour cannot be deleted")
@@ -163,14 +163,6 @@ class DashboardViewModel @Inject constructor(
                 }
 
                 repository.deleteTransactionById(transaction.id)
-                val delta = when (transaction.type) {
-                    TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
-                    TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
-                    else -> 0.0
-                }
-                if (delta != 0.0) {
-                    accountDao.adjustBalance(transaction.bankName, delta)
-                }
                 _statusEvent.send("Transaction deleted")
             } catch (e: Exception) {
                 _statusEvent.send("Error deleting: ${e.message}")

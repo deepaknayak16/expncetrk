@@ -22,4 +22,8 @@ interface TransactionRepository {
     suspend fun replaceTransactions(transactions: List<Transaction>)
 
     suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>)
+
+    // WHY: The ViewModel needs to call these new atomic methods.
+    suspend fun insertTransactionWithBalance(transaction: Transaction): Long
+    suspend fun updateTransactionWithBalance(oldTransaction: Transaction?, newTransaction: Transaction)
 }

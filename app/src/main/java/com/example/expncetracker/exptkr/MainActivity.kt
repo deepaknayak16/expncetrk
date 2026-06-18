@@ -57,13 +57,6 @@ class MainActivity : FragmentActivity() {
         val notificationRationaleFlow = preferencesFlow.map { it[NOTIFICATION_PERMISSION_SHOWN_KEY] ?: false }
         val smsPermanentlyDeniedFlow = preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }
 
-        // D1 Fix: Show notification once in lifecycle, not on every recomposition
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        ) {
-            AppNotificationManager.showQuickActionsNotification(this)
-        }
-
         setContent {
             val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
             val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
@@ -96,13 +89,34 @@ class MainActivity : FragmentActivity() {
                         }
                     }
                 }
+                // WHY: Detect true permanent denial: user checked "Don't ask again".
+                if (result[Manifest.permission.READ_SMS] == false &&
+                    !shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
+                ) {
+                    scope.launch {
+                        dataStore.edit { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] = true }
+                    }
+                }
                 if (result[Manifest.permission.POST_NOTIFICATIONS] == true) {
                     scope.launch {
                         dataStore.edit { it[NOTIFICATION_PERMISSION_SHOWN_KEY] = true }
                     }
                 }
             }
+            // WHY: We must only post the notification AFTER we know the permission state.
+            //      Putting it inside the LaunchedEffect guarantees it runs once
+            //      after the permission flow has had a chance to execute.
 
+            LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    AppNotificationManager.showQuickActionsNotification(this@MainActivity)
+                }
+            }
             LaunchedEffect(isNotificationRationaleShown) {
                 if (!isNotificationRationaleShown &&
                     !hasAskedNotificationThisSession &&
@@ -138,9 +152,6 @@ class MainActivity : FragmentActivity() {
                     dismissButton = {
                         TextButton(onClick = { 
                             showPermissionRationale = false
-                            scope.launch {
-                                dataStore.edit { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] = true }
-                            }
                         }) { Text("Maybe Later") }
                     }
                 )

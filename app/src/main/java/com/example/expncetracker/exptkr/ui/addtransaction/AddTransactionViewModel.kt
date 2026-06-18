@@ -2,7 +2,11 @@ package com.example.expncetracker.exptkr.ui.addtransaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.expncetracker.exptkr.core.parser.CategoryDetector
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
+import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+import com.example.expncetracker.exptkr.data.db.entity.AccountEntity
+import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
@@ -11,6 +15,7 @@ import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -20,18 +25,21 @@ import javax.inject.Inject
 class AddTransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
     private val accountDao: AccountDao,
-    private val categoryDetector: com.example.expncetracker.exptkr.core.parser.CategoryDetector,
-    private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+    private val categoryDetector: CategoryDetector,
+    private val categoryDao: CategoryDao
 ) : ViewModel() {
 
     private val _transactionToEdit = MutableStateFlow<Transaction?>(null)
     val transactionToEdit = _transactionToEdit.asStateFlow()
 
+    private val _statusEvent = Channel<String>(Channel.BUFFERED)
+    val statusEvent = _statusEvent.receiveAsFlow()
+
     val transactionHistory: StateFlow<List<Transaction>> = repository.getAllTransactions()
         .map { it.take(200) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val categories: StateFlow<List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>> = categoryDao.getAllCategories()
+    val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val accounts: StateFlow<List<AccountUiModel>> = accountDao.getAllAccounts()
@@ -67,6 +75,17 @@ class AddTransactionViewModel @Inject constructor(
     private val _suggestedCategory = MutableStateFlow<String?>(null)
     val suggestedCategory = _suggestedCategory.asStateFlow()
 
+    fun addAccount(name: String, balance: Double, type: String) {
+        viewModelScope.launch {
+            val existing = accountDao.getAccountByName(name)
+            if (existing != null) {
+                // Show error or update existing instead of creating duplicate
+                _statusEvent.send("Account '$name' already exists")
+                return@launch
+            }
+            accountDao.insertAccount(AccountEntity(name = name, balance = balance, type = type, color = 0))
+        }
+    }
     fun addTransaction(
         id: Long = 0,
         amount: Double,
@@ -98,27 +117,6 @@ class AddTransactionViewModel @Inject constructor(
                 return@launch
             }
 
-            // Update Account Balance atomically to prevent race conditions (M6 Fix)
-            _transactionToEdit.value?.let { old ->
-                val reverseDelta = when (old.type) {
-                    TransactionType.CREDIT, TransactionType.BORROW -> -old.amount
-                    TransactionType.DEBIT, TransactionType.LEND -> old.amount
-                    else -> 0.0
-                }
-                if (reverseDelta != 0.0) {
-                    accountDao.adjustBalance(old.bankName, reverseDelta)
-                }
-            }
-
-            val newDelta = when (type) {
-                TransactionType.CREDIT, TransactionType.BORROW -> amount
-                TransactionType.DEBIT, TransactionType.LEND -> -amount
-                else -> 0.0
-            }
-            if (newDelta != 0.0) {
-                accountDao.adjustBalance(bankName, newDelta)
-            }
-
             // Calculate next due date if it is recurring
             val nextDueDate = if (isRecurring && frequency != null) {
                 calculateNextDate(timestamp, frequency)
@@ -140,12 +138,18 @@ class AddTransactionViewModel @Inject constructor(
                 recurrenceEndDate = recurrenceEndDate,
                 counterparty = counterparty,
                 tags = tags,
-                entryTimestamp = _transactionToEdit.value?.entryTimestamp ?: java.time.LocalDateTime.now()
+                createdAt = _transactionToEdit.value?.createdAt ?: java.time.LocalDateTime.now()
             )
+
             if (id != 0L) {
-                repository.updateTransaction(transaction)
+                // Editing an existing transaction
+                repository.updateTransactionWithBalance(
+                    oldTransaction = _transactionToEdit.value,
+                    newTransaction = transaction
+                )
             } else {
-                repository.insertTransaction(transaction)
+                // Adding a brand-new transaction
+                repository.insertTransactionWithBalance(transaction)
             }
         }
     }

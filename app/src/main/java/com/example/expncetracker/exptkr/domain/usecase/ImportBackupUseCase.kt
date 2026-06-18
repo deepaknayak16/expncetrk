@@ -22,10 +22,12 @@ class ImportBackupUseCase @Inject constructor(
             val jsonStr = file.readText()
             val dtoList = Json.decodeFromString<List<TransactionDto>>(jsonStr)
             val transactions = dtoList.map { it.toDomain() }
-            
-            if (transactions.isNotEmpty()) {
-                repository.replaceTransactions(transactions)
+
+            // WHY: Same reason as Google Drive restore — validate BEFORE clearing local data.
+            if (transactions.isEmpty()) {
+                return false // or throw Exception("Backup is empty")
             }
+            repository.replaceTransactions(transactions)
             true
         } catch (e: Exception) {
             e.printStackTrace()

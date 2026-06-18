@@ -121,7 +121,7 @@ fun AppNavGraph(startRoute: String? = null) {
                 
                 val drawerItems = listOf(
                     NavigationItem("dashboard", stringResource(R.string.today), Icons.Default.Home, Icons.Outlined.Home),
-                    NavigationItem("transactions", "Ledger", Icons.Default.ReceiptLong, Icons.Outlined.ReceiptLong),
+                    NavigationItem("transactions", stringResource(R.string.nav_ledger), Icons.Default.ReceiptLong, Icons.Outlined.ReceiptLong),
                     NavigationItem("settings", stringResource(R.string.settings_title), Icons.Default.Settings, Icons.Outlined.Settings)
                 )
                 
@@ -154,12 +154,12 @@ fun AppNavGraph(startRoute: String? = null) {
                 if (!isFullScreenRoute) {
                     ModernTopAppBar(
                         title = when (currentRoute) {
-                            "transactions" -> "Ledger"
+                            "transactions" -> stringResource(R.string.nav_ledger)
                             "categories" -> stringResource(R.string.category_label)
                             "analytics" -> stringResource(R.string.analytics_title)
                             "budget" -> stringResource(R.string.budget_title)
-                            "goals" -> "Goals"
-                            "accounts" -> "Accounts"
+                            "goals" -> stringResource(R.string.nav_goals)
+                            "accounts" -> stringResource(R.string.nav_accounts)
                             "settings" -> stringResource(R.string.settings_title)
                             else -> stringResource(R.string.app_name)
                         },
@@ -362,15 +362,15 @@ private fun ModernNavigationBar(
         NavigationItem("analytics", stringResource(R.string.analytics_title), Icons.Default.BarChart, Icons.Outlined.BarChart),
         NavigationItem("categories", stringResource(R.string.category_label), Icons.Default.Category, Icons.Outlined.Category),
         NavigationItem("budget", stringResource(R.string.budget_title), Icons.Default.AccountBalance, Icons.Outlined.AccountBalance),
-        NavigationItem("goals", "Goals", Icons.Default.Flag, Icons.Outlined.Flag),
-        NavigationItem("accounts", "Accounts", Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet)
+        NavigationItem("goals", stringResource(R.string.nav_goals), Icons.Default.Flag, Icons.Outlined.Flag),
+        NavigationItem("accounts", stringResource(R.string.nav_accounts), Icons.Default.AccountBalanceWallet, Icons.Outlined.AccountBalanceWallet)
     )
 
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     NavigationBar(
         modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+            .fillMaxWidth(),
+            //.horizontalScroll(rememberScrollState()),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 6.dp
     ) {
