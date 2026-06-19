@@ -4,21 +4,21 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
-
+import androidx.room.ForeignKey
 
 @Entity(
     tableName = "transactions",
     indices = [
         Index(value = ["smsId"], unique = true),
         Index(value = ["createdAt"]),
-        Index(value = ["account_id"])  // Add index
+        Index(value = ["account_id"])
     ],
     foreignKeys = [
         ForeignKey(
             entity = AccountEntity::class,
             parentColumns = ["id"],
             childColumns = ["account_id"],
-            onDelete = ForeignKey.SET_NULL  // or CASCADE
+            onDelete = ForeignKey.CASCADE // FIXED: was SET_NULL
         )
     ]
 )
@@ -41,8 +41,6 @@ data class TransactionEntity(
     val isSettled: Boolean = false,
     val tags: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-
-    // WHY: Link transactions to accounts by immutable ID, not by name.Names can be edited; IDs cannot.
 
     @ColumnInfo(name = "account_id", defaultValue = "0")
     val accountId: Long = 0,

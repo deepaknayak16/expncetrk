@@ -27,13 +27,12 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     isSettled = isSettled,
     tags = tags?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     createdAt = createdAt.toLocalDateTime(),
-
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     id = id,
     smsId = smsId,
-    accountId = if (accountId == 0L) null else accountId,
+    accountId = accountId, // FIXED: was "if (accountId == 0L) null else accountId"
     amount = amount,
     type = type.name,
     category = categoryName,
@@ -50,5 +49,4 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     isSettled = isSettled,
     tags = if (tags.isEmpty()) null else tags.joinToString(","),
     createdAt = createdAt.toEpochMilli(),
-
 )

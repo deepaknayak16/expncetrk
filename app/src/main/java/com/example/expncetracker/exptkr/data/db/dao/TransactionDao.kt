@@ -1,6 +1,5 @@
 package com.example.expncetracker.exptkr.data.db.dao
 
-import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -17,60 +16,66 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC LIMIT :limit")
     fun getRecentTransactions(limit: Int): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE timestamp >= :start AND timestamp <= :end ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
     fun getTransactionsInRange(start: Long, end: Long): Flow<List<TransactionEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTransaction(transaction: TransactionEntity): Long
-
-    @Update
-    suspend fun updateTransaction(transaction: TransactionEntity)
-
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertTransactions(transactions: List<TransactionEntity>)
-
-    @Query("SELECT * FROM transactions WHERE timestamp >= :start AND timestamp <= :end AND (merchant LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%' OR bankName LIKE '%' || :query || '%') ORDER BY timestamp DESC")
+    @Query("""
+        SELECT * FROM transactions
+        WHERE timestamp BETWEEN :start AND :end
+        AND (merchant LIKE '%' || :query || '%' OR note LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%')
+        ORDER BY timestamp DESC
+    """)
     fun searchTransactionsInRange(start: Long, end: Long, query: String): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Long): TransactionEntity?
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTransaction(transaction: TransactionEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTransactions(transactions: List<TransactionEntity>)
+
+    @Update
+    suspend fun updateTransaction(transaction: TransactionEntity)
+
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: Long)
-
-    @Query("SELECT MAX(timestamp) FROM transactions WHERE smsId IS NOT NULL")
-    suspend fun getLatestSmsTimestamp(): Long?
 
     @Query("SELECT MAX(timestamp) FROM transactions")
     suspend fun getLatestTransactionTimestamp(): Long?
 
-    @Query("SELECT * FROM transactions WHERE isRecurring = 1 AND nextDueDate <= :currentTimestamp AND (recurrenceEndDate IS NULL OR recurrenceEndDate >= :currentTimestamp)")
-    suspend fun getDueRecurringTransactions(currentTimestamp: Long): List<TransactionEntity>
+    @Query("SELECT MAX(timestamp) FROM transactions WHERE smsId IS NOT NULL")
+    suspend fun getLatestSmsTimestamp(): Long?
 
     @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY nextDueDate ASC")
     fun getAllRecurringTransactions(): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE category = :categoryName ORDER BY timestamp DESC")
-    fun getTransactionsByCategory(categoryName: String): Flow<List<TransactionEntity>>
+    @Query("SELECT * FROM transactions WHERE isRecurring = 1 AND nextDueDate <= :timestamp")
+    suspend fun getDueRecurringTransactions(timestamp: Long): List<TransactionEntity>
+
+    // FIX #19: Renamed parameter from categoryName → category for consistency with DB column
+    @Query("SELECT * FROM transactions WHERE category = :category ORDER BY timestamp DESC")
+    fun getTransactionsByCategory(category: String): Flow<List<TransactionEntity>>
 
     @Query("DELETE FROM transactions")
     suspend fun clearAll()
 
-    @androidx.room.Transaction
+    @Transaction
     suspend fun replaceTransactions(transactions: List<TransactionEntity>) {
         clearAll()
         insertTransactions(transactions)
     }
 
-    @androidx.room.Transaction
+    @Transaction
     suspend fun splitTransaction(parentId: Long, children: List<TransactionEntity>) {
         deleteById(parentId)
         insertTransactions(children)
     }
 
-    @Query("SELECT SUM(amount) FROM transactions WHERE categoryName = :category AND type = 'DEBIT'")
+    @Query("SELECT SUM(amount) FROM transactions WHERE category = :category AND type = 'DEBIT'")
     suspend fun getTotalSpentByCategory(category: String): Double?
 
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE categoryName = :category AND type = :type")
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE category = :category AND type = :type")
     suspend fun sumAmountByCategoryAndType(category: String, type: String): Double
 }

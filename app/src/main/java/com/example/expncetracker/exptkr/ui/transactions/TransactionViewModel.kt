@@ -49,7 +49,7 @@ class TransactionViewModel @Inject constructor(
     private val accountDao: AccountDao,
     categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 ) : ViewModel() {
-    
+
     val categories = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -99,23 +99,22 @@ class TransactionViewModel @Inject constructor(
         }
         val startMillis = adv.startDate ?: defaultStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = adv.endDate ?: now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        
+
         FilterParams(startMillis, endMillis, query, sort, adv)
     }.flatMapLatest { params ->
         _isLoading.value = true
         repository.searchTransactions(params.startMillis, params.endMillis, params.query).map { list ->
             list.filter { tx ->
                 val amountMatch = (params.adv.minAmount == null || tx.amount >= params.adv.minAmount) &&
-                                 (params.adv.maxAmount == null || tx.amount <= params.adv.maxAmount)
+                    (params.adv.maxAmount == null || tx.amount <= params.adv.maxAmount)
                 val categoryMatch = params.adv.categoryName == null || tx.categoryName == params.adv.categoryName
                 val accountMatch = params.adv.accountName == null || tx.bankName == params.adv.accountName
-                
-                // Advanced text search across merchant, note, category, account
+
                 val textMatch = if (params.adv.query.isNotEmpty()) {
                     tx.merchant.contains(params.adv.query, ignoreCase = true) ||
-                    (tx.note?.contains(params.adv.query, ignoreCase = true) ?: false) ||
-                    tx.categoryName.contains(params.adv.query, ignoreCase = true) ||
-                    tx.bankName.contains(params.adv.query, ignoreCase = true)
+                        (tx.note?.contains(params.adv.query, ignoreCase = true) ?: false) ||
+                        tx.categoryName.contains(params.adv.query, ignoreCase = true) ||
+                        tx.bankName.contains(params.adv.query, ignoreCase = true)
                 } else true
 
                 amountMatch && categoryMatch && accountMatch && textMatch
@@ -192,6 +191,7 @@ class TransactionViewModel @Inject constructor(
         }
     }
 
+    // FIX #8: Removed manual balance adjustment — repository handles it atomically
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
             when {
@@ -203,25 +203,16 @@ class TransactionViewModel @Inject constructor(
                 }
                 else -> {
                     repository.deleteTransactionById(transaction.id)
-                    // S4 FIX: Reverse account balance atomically
-                    val delta = when (transaction.type) {
-                        TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
-                        TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
-                        else -> 0.0
-                    }
-                    if (delta != 0.0) {
-                        accountDao.adjustBalance(transaction.bankName, delta)
-                    }
                     _statusEvent.send("Transaction deleted")
                 }
             }
         }
     }
 
+    // FIX #10: Atomic split with balance — moved to repository
     fun splitTransaction(parent: Transaction, splits: List<Pair<String, Double>>) {
         viewModelScope.launch {
             try {
-                reverseAccountBalance(parent)
                 val subTransactions = splits.map { (catName, amt) ->
                     parent.copy(
                         id = 0,
@@ -231,7 +222,7 @@ class TransactionViewModel @Inject constructor(
                         note = "Split from original ₹${parent.amount}: ${parent.note ?: ""}".trim()
                     )
                 }
-                repository.splitTransaction(parent.id, subTransactions)
+                repository.splitTransactionWithBalance(parent, subTransactions)
                 _statusEvent.send("Transaction split successfully")
             } catch (e: Exception) {
                 _statusEvent.send("Split failed: ${e.message}")
@@ -239,32 +230,11 @@ class TransactionViewModel @Inject constructor(
         }
     }
 
-    private suspend fun reverseAccountBalance(transaction: Transaction) {
-        val delta = when (transaction.type) {
-            TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
-            TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
-            else -> 0.0
-        }
-        if (delta != 0.0) {
-            accountDao.adjustBalance(transaction.bankName, delta)
-        }
-    }
-
+    // FIX #9: Atomic settlement via repository
     fun settleTransaction(transaction: Transaction) {
         viewModelScope.launch {
             try {
-                repository.updateTransaction(transaction.copy(isSettled = true))
-                // S4 FIX: Update account balance on settlement atomically
-                // If LEND: money returned -> add to balance
-                // If BORROW: money paid back -> subtract from balance
-                val delta = when (transaction.type) {
-                    TransactionType.LEND -> transaction.amount
-                    TransactionType.BORROW -> -transaction.amount
-                    else -> 0.0
-                }
-                if (delta != 0.0) {
-                    accountDao.adjustBalance(transaction.bankName, delta)
-                }
+                repository.settleTransaction(transaction)
                 _statusEvent.send("Debt marked as settled")
             } catch (e: Exception) {
                 _statusEvent.send("Settlement failed: ${e.message}")
