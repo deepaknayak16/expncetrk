@@ -79,11 +79,20 @@ class AddTransactionViewModel @Inject constructor(
         viewModelScope.launch {
             val existing = accountDao.getAccountByName(name)
             if (existing != null) {
-                // Show error or update existing instead of creating duplicate
                 _statusEvent.send("Account '$name' already exists")
                 return@launch
             }
-            accountDao.insertAccount(AccountEntity(name = name, balance = balance, type = type, color = 0))
+            val color = when (type) {
+                "Bank Account" -> 0xFF3B82F6.toInt()
+                "Cash" -> 0xFF10B981.toInt()
+                "Wallet" -> 0xFF8B5CF6.toInt()
+                "Investment" -> 0xFF06B6D4.toInt()
+                "Credit Card" -> 0xFFEF4444.toInt()
+                else -> 0xFF64748B.toInt()
+            }
+            accountDao.insertAccount(
+                AccountEntity(name = name, balance = balance, type = type, color = color)
+            )
         }
     }
     fun addTransaction(

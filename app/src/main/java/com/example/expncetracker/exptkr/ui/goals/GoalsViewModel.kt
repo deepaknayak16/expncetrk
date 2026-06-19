@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
 import com.example.expncetracker.exptkr.domain.repository.GoalRepository
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,7 +12,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class GoalsViewModel @Inject constructor(
-    private val repository: GoalRepository
+    private val repository: GoalRepository,
+    private val transactionRepository: TransactionRepository  // <-- ADD
 ) : ViewModel() {
 
     val goals: StateFlow<List<GoalEntity>> = repository.getAllGoals()
@@ -68,8 +70,11 @@ class GoalsViewModel @Inject constructor(
             val goal = repository.getGoalById(goalId) ?: return@launch
             val category = goal.linkedCategory ?: return@launch
 
-            val total = transactionRepository.getTransactionsByCategory(category)
-                .first()
+            // WHY: getTransactionsByCategory() doesn't exist yet.
+            //      We fetch all transactions and filter locally.
+            val allTransactions = transactionRepository.getAllTransactions().first()
+            val total = allTransactions
+                .filter { it.categoryName == category }
                 .sumOf { it.amount }
 
             repository.updateGoal(

@@ -32,6 +32,9 @@ interface AccountDao {
     suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
     // WHY: Atomic delete — either both the account and its transactions disappear,
 //      or neither does. No orphan transactions left behind.
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    suspend fun getAccountById(id: Long): AccountEntity?
+
     @Transaction
     suspend fun deleteAccountAndTransactions(accountId: Long) {
         // If you have already done H4 and added account_id:

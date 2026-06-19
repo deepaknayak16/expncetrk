@@ -61,18 +61,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // MIGRATION_5_6: restore the original column name
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE transactions ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
-                // Update existing records to use their transaction timestamp as a fallback
-                db.execSQL("UPDATE transactions SET createdAt = timestamp WHERE createdAt = 0")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN entryTimestamp INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE transactions SET entryTimestamp = timestamp WHERE entryTimestamp = 0")
             }
         }
-        // WHY: Migration 6→7 adds the account_id column so we can stop using name as a key.
+
+        // MIGRATION_6_7: rename the column + add account_id
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions RENAME COLUMN entryTimestamp TO createdAt")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN account_id INTEGER NOT NULL DEFAULT 0")
-                // Optional: backfill account_id from bankName for existing rows
                 db.execSQL("""
             UPDATE transactions 
             SET account_id = (
@@ -84,8 +85,15 @@ abstract class AppDatabase : RoomDatabase() {
         }
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // SQLite doesn't enforce unique constraints on existing duplicates easily.
-                // First, deduplicate by renaming duplicates:
+                // 1. Delete transactions for accounts that are about to be removed
+                db.execSQL("""
+            DELETE FROM transactions WHERE bankName IN (
+                SELECT name FROM accounts WHERE rowid NOT IN (
+                    SELECT MIN(rowid) FROM accounts GROUP BY name
+                )
+            )
+        """)
+                // 2. Now deduplicate accounts
                 db.execSQL("""
             DELETE FROM accounts WHERE rowid NOT IN (
                 SELECT MIN(rowid) FROM accounts GROUP BY name
@@ -107,7 +115,7 @@ abstract class AppDatabase : RoomDatabase() {
             // Load the native SQLCipher library safely
             try {
                 System.loadLibrary("sqlcipher")
-            } catch (e: UnsatisfiedLinkError) {
+            } catch (_: UnsatisfiedLinkError) {
                 // Ignore if already loaded
             }
 

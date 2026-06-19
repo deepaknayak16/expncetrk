@@ -1,6 +1,6 @@
 package com.example.expncetracker.exptkr.core.parser.bank
 
-class KotaParser : BaseBankParser("KOTAK") {
+class KotakParser : BaseBankParser("KOTAK") {
     override val amountRegex: Regex = Regex(
         "(?:debited|credited|spent|paid|received|withdrawn)\\s*.*?[₹Rs]\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)",
         RegexOption.IGNORE_CASE)

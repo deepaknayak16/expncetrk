@@ -26,7 +26,6 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     isSettled = isSettled,
     tags = tags?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     createdAt = createdAt.toLocalDateTime(),
-    entryTimestamp = java.time.Instant.ofEpochMilli(entryTimestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
 
 )
 
@@ -49,6 +48,5 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     isSettled = isSettled,
     tags = if (tags.isEmpty()) null else tags.joinToString(","),
     createdAt = createdAt.toEpochMilli(),
-    entryTimestamp = entryTimestamp.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
 
 )
