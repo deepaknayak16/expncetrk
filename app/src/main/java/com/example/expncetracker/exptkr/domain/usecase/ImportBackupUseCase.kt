@@ -2,16 +2,21 @@ package com.example.expncetracker.exptkr.domain.usecase
 
 import android.content.Context
 import com.example.expncetracker.exptkr.core.common.Constants
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
+import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import com.example.expncetracker.exptkr.data.model.TransactionDto
 import com.example.expncetracker.exptkr.data.model.toDomain
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import java.io.File
 import javax.inject.Inject
 
 class ImportBackupUseCase @Inject constructor(
     private val repository: TransactionRepository,
+    private val accountDao: AccountDao,
+    private val transactionDao: TransactionDao,
     @ApplicationContext private val context: Context
 ) {
     suspend fun execute(): Boolean {
@@ -23,11 +28,23 @@ class ImportBackupUseCase @Inject constructor(
             val dtoList = Json.decodeFromString<List<TransactionDto>>(jsonStr)
             val transactions = dtoList.map { it.toDomain() }
 
-            // WHY: Same reason as Google Drive restore — validate BEFORE clearing local data.
             if (transactions.isEmpty()) {
-                return false // or throw Exception("Backup is empty")
+                return false
             }
+
             repository.replaceTransactions(transactions)
+
+            // FIX #8: Recalculate account balances from restored transactions
+            val accounts = accountDao.getAllAccounts().first()
+            accounts.forEach { account ->
+                val debits = transactionDao.sumDebitsByAccount(account.id)
+                val credits = transactionDao.sumCreditsByAccount(account.id)
+                // Net balance = credits (money in) - debits (money out)
+                // Adjust this formula if your app handles LEND/BORROW differently
+                val newBalance = credits - debits
+                accountDao.updateAccount(account.copy(balance = newBalance))
+            }
+
             true
         } catch (e: Exception) {
             e.printStackTrace()

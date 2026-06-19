@@ -42,11 +42,9 @@ interface AccountDao {
     @Query("DELETE FROM transactions WHERE account_id = :accountId")
     suspend fun deleteTransactionsByAccountId(accountId: Long)
 
-    // FIX #18: After MIGRATION_9_10, all legacy transactions have valid account_id.
-    // No need for the redundant bankName-based delete.
+    // FIX #11: Rely on ForeignKey CASCADE; manual delete removed
     @Transaction
     suspend fun deleteAccountAndTransactions(accountId: Long) {
-        deleteTransactionsByAccountId(accountId)
-        deleteAccountById(accountId)
+        deleteAccountById(accountId) // DB cascades transactions automatically
     }
 }

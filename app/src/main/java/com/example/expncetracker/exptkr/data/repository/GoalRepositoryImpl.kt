@@ -25,13 +25,12 @@ class GoalRepositoryImpl @Inject constructor(
 
     override suspend fun deleteGoal(goal: GoalEntity) = goalDao.deleteGoal(goal)
 
-    // FIX #14: Atomic contribute — deduct from account + add to goal in one transaction
+    // FIX #10: Balance check moved inside transaction; floor applied
     override suspend fun contributeToGoal(goalId: Long, amount: Double) {
         val goal = goalDao.getGoalById(goalId) ?: return
         val accountId = goal.linkedAccountId
 
         if (accountId == null) {
-            // No linked account — just update the virtual counter
             val newAmount = (goal.currentAmount + amount).coerceAtLeast(0.0)
             goalDao.updateGoal(
                 goal.copy(
@@ -42,34 +41,41 @@ class GoalRepositoryImpl @Inject constructor(
             return
         }
 
-        val account = accountDao.getAccountById(accountId)
-            ?: throw IllegalStateException("Linked account not found")
-
-        if (account.balance < amount) {
-            throw IllegalStateException("Insufficient balance in ${account.name}")
-        }
-
+        // FIX #10: Everything inside withTransaction for atomicity
         db.withTransaction {
+            val account = accountDao.getAccountById(accountId)
+                ?: throw IllegalStateException("Linked account not found")
+
+            if (account.balance < amount) {
+                throw IllegalStateException("Insufficient balance in ${account.name}")
+            }
+
             accountDao.adjustBalanceById(accountId, -amount)
+            val newAmount = (goal.currentAmount + amount).coerceAtLeast(0.0) // FIX #10: floor
             goalDao.updateGoal(
-                goal.copy(currentAmount = goal.currentAmount + amount)
+                goal.copy(
+                    currentAmount = newAmount,
+                    isCompleted = newAmount >= goal.targetAmount
+                )
             )
         }
     }
 
-    // FIX #15: Recalculate one goal's progress from its linked category
+    // FIX #9: Skip account-tracking goals — category recalc is only for virtual tracking
     override suspend fun recalculateGoalProgress(goalId: Long) {
         val goal = goalDao.getGoalById(goalId) ?: return
+        if (goal.linkedAccountId != null) return // FIX #9: account-tracking goals use contributeToGoal, not category sums
         val category = goal.linkedCategory ?: return
         goalDao.recalculateGoalProgress(goalId, category)
     }
 
-    // FIX #17: Recalculate all goals linked to a given category
     override suspend fun recalculateGoalsByCategory(category: String) {
         val goals = goalDao.getGoalsByCategory(category)
         goals.forEach { goal ->
-            goal.linkedCategory?.let { cat ->
-                goalDao.recalculateGoalProgress(goal.id, cat)
+            if (goal.linkedAccountId == null) { // FIX #9: only recalc virtual-tracking goals
+                goal.linkedCategory?.let { cat ->
+                    goalDao.recalculateGoalProgress(goal.id, cat)
+                }
             }
         }
     }

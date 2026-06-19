@@ -8,19 +8,21 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.expncetracker.exptkr.core.common.Constants
+import com.example.expncetracker.exptkr.core.common.SecurityUtils // FIX #1
 import com.example.expncetracker.exptkr.data.db.converter.Converters
 import com.example.expncetracker.exptkr.data.db.dao.*
 import com.example.expncetracker.exptkr.data.db.entity.*
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory // FIX #2
 
 @Database(
     entities = [
         TransactionEntity::class,
         AccountEntity::class,
         CategoryEntity::class,
-        GoalEntity::class
+        GoalEntity::class,
+        BudgetEntity::class // FIX #3: restored
     ],
-    version = 10, // BUMPED for Step 4 cleanup migration
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -29,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
     abstract fun goalDao(): GoalDao
+    abstract fun budgetDao(): BudgetDao // FIX #3: restored
 
     companion object {
         @Volatile
@@ -96,7 +99,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // FIX #18: One-time cleanup — link legacy transactions with account_id=0 to actual accounts
         val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -121,7 +123,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
 
             val passphrase = SecurityUtils.getOrCreatePassphrase(appContext)
-            val factory = SupportFactory(passphrase)
+            val factory = SupportOpenHelperFactory(passphrase) // FIX #2
 
             return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
                 .openHelperFactory(factory)
@@ -131,7 +133,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
-                    MIGRATION_9_10 // NEW
+                    MIGRATION_9_10
                 )
                 .build()
         }

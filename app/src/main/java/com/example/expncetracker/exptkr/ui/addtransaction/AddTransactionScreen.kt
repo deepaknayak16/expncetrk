@@ -97,8 +97,11 @@ fun AddTransactionScreen(
     }
 
     LaunchedEffect(transactionId) {
-        if (transactionId != null && transactionId != 0L) viewModel.loadTransaction(transactionId)
+        if (transactionId != null && transactionId != 0L) {
+            viewModel.loadTransaction(transactionId) // FIX #5: was viewModel.loadTransaction(transactionId)
+        }
     }
+
     LaunchedEffect(transactionToEdit) {
         transactionToEdit?.let {
             amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
@@ -237,9 +240,10 @@ fun AddTransactionScreen(
                                             amount = amount,
                                             type = selectedType,
                                             category = selectedCategoryName,
-                                            description = merchantName.trim(),
+                                            merchant = merchantName.trim(),   // FIX #5: was description = merchantName.trim()
                                             note = note.trim(),
                                             bankName = selectedAccount!!.name,
+                                            accountId = selectedAccount?.id ?: 0L, // FIX #5: add this line (before or after other params)
                                             counterparty = counterparty.trim().ifEmpty { null },
                                             isRecurring = isRecurring,
                                             frequency = if (isRecurring) recurrenceFrequency else null,

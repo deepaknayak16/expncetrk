@@ -78,4 +78,10 @@ interface TransactionDao {
 
     @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE category = :category AND type = :type")
     suspend fun sumAmountByCategoryAndType(category: String, type: String): Double
+
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE account_id = :accountId AND type = 'DEBIT'")
+    suspend fun sumDebitsByAccount(accountId: Long): Double
+
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE account_id = :accountId AND type = 'CREDIT'")
+    suspend fun sumCreditsByAccount(accountId: Long): Double
 }

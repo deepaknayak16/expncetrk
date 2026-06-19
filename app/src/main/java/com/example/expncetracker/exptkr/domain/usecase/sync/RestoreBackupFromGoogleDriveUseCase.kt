@@ -39,12 +39,20 @@ class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
             val transactions = dtoList.map { it.toDomain() }
 
             // WHY: If the JSON is empty or bad, we must STOP before touching the database.
-//      The "finally" guarantees the temp file is always deleted, even on crash.
+            // The "finally" guarantees the temp file is always deleted, even on crash.
             try {
                 if (transactions.isEmpty()) {
                     return@withContext Result.failure(Exception("Backup file is empty — nothing to restore"))
                 }
                 repository.replaceTransactions(transactions)
+                // After repository.replaceTransactions(restoredTransactions)
+                val accounts = accountDao.getAllAccounts().first()
+                accounts.forEach { account ->
+                    val debits = transactionDao.sumDebitsByAccount(account.id)
+                    val credits = transactionDao.sumCreditsByAccount(account.id)
+                    val newBalance = credits - debits
+                    accountDao.updateAccount(account.copy(balance = newBalance))
+                }
                 Result.success("Data restored from Google Drive successfully")
             } finally {
                 tempFile.delete()
