@@ -81,13 +81,13 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("""
                     UPDATE transactions
                         SET account_id = (
-                            SELECT MIN(id) FROM accounts AS a2 WHERE a2.name = accounts.name
-                            )
+                            SELECT MIN(id) FROM accounts WHERE name = transactions.bankName
+                        )
                         WHERE account_id IN (
                             SELECT id FROM accounts WHERE rowid NOT IN (
                                 SELECT MIN(rowid) FROM accounts GROUP BY name
-                                )
                             )
+                        )
                         """)
 
                 // Step 2: Delete duplicate accounts (transactions now point to the survivor)

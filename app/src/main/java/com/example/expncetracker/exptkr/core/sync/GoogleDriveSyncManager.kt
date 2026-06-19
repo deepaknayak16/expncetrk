@@ -132,10 +132,13 @@ class GoogleDriveSyncManager @Inject constructor(
         return GoogleSignIn.getLastSignedInAccount(context) != null
     }
 
-    fun signOut() {
+    suspend fun signOut() {
         driveService = null
-        val client = GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN)
-            client.signOut()
-            client.revokeAccess()
+        try {
+            // Inject GoogleSignInClient into this class instead of recreating it
+            googleSignInClient.signOut().await()
+        } catch (e: Exception) {
+            Log.e("GDriveSync", "Sign out failed", e)
+                }
     }
 }

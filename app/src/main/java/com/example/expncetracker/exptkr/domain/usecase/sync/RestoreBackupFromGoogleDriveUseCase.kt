@@ -17,6 +17,7 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
+    private val driveSyncManager: GoogleDriveSyncManager, // Inject manager instead
     private val driveService: Drive,
     private val repository: TransactionRepository,
     private val accountDao: AccountDao,

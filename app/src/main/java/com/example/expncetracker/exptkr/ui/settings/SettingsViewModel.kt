@@ -118,10 +118,12 @@ class SettingsViewModel @Inject constructor(
     fun restoreFromGoogleDrive() {
         viewModelScope.launch {
             _statusEvent.send("Restoring from Google Drive...")
-            restoreBackupFromGoogleDriveUseCase.execute().fold(
-                onSuccess = { msg -> _statusEvent.send(msg) },
-                onFailure = { e -> _statusEvent.send("Restore failed: ${e.message}") }
-            )
+            val success = restoreBackupFromGoogleDriveUseCase.execute()
+            if (success) {
+                _statusEvent.send("Restore successful")
+            } else {
+                _statusEvent.send("Restore failed")
+            }
         }
     }
 

@@ -41,12 +41,12 @@ class SyncBackupToGoogleDriveUseCase @Inject constructor(
             backupFile.delete()
 
             if (fileId != null) {
-                Result.success("Backup synced to Google Drive successfully")
-            } else {
-                Result.failure(Exception("Failed to upload backup to Google Drive"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+                return@withContext Result.success("Backup synced to Google Drive successfully")
+                } else {
+                    return@withContext Result.failure(Exception("Failed to upload backup to Google Drive"))
+                }
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+                }
     }
 }
