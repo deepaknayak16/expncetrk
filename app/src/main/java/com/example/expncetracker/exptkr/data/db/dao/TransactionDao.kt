@@ -84,4 +84,13 @@ interface TransactionDao {
 
     @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE account_id = :accountId AND type = 'CREDIT'")
     suspend fun sumCreditsByAccount(accountId: Long): Double
+
+    @Query("""
+    SELECT
+        COALESCE(SUM(CASE WHEN type = 'CREDIT' OR type = 'BORROW' THEN amount ELSE 0 END), 0.0) -
+        COALESCE(SUM(CASE WHEN type = 'DEBIT' OR type = 'LEND' THEN amount ELSE 0 END), 0.0)
+    FROM transactions
+    WHERE account_id = :accountId
+    """)
+    suspend fun calculateNetBalanceByAccount(accountId: Long): Double
 }

@@ -34,14 +34,10 @@ class ImportBackupUseCase @Inject constructor(
 
             repository.replaceTransactions(transactions)
 
-            // FIX #8: Recalculate account balances from restored transactions
+            // FIX: Recalculate balances using the same formula as runtime (CREDIT/BORROW +, DEBIT/LEND -)
             val accounts = accountDao.getAllAccounts().first()
             accounts.forEach { account ->
-                val debits = transactionDao.sumDebitsByAccount(account.id)
-                val credits = transactionDao.sumCreditsByAccount(account.id)
-                // Net balance = credits (money in) - debits (money out)
-                // Adjust this formula if your app handles LEND/BORROW differently
-                val newBalance = credits - debits
+                val newBalance = transactionDao.calculateNetBalanceByAccount(account.id)
                 accountDao.updateAccount(account.copy(balance = newBalance))
             }
 

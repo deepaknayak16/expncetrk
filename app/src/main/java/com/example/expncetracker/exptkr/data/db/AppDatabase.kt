@@ -77,18 +77,25 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // Step 1: For each duplicate account name, update transactions to point to the surviving account ID
                 db.execSQL("""
-                    DELETE FROM transactions WHERE bankName IN (
-                        SELECT name FROM accounts WHERE rowid NOT IN (
+                    UPDATE transactions
+                        SET account_id = (
+                            SELECT MIN(id) FROM accounts AS a2 WHERE a2.name = accounts.name
+                            )
+                        WHERE account_id IN (
+                            SELECT id FROM accounts WHERE rowid NOT IN (
+                                SELECT MIN(rowid) FROM accounts GROUP BY name
+                                )
+                            )
+                        """)
+
+                // Step 2: Delete duplicate accounts (transactions now point to the survivor)
+                db.execSQL("""
+                        DELETE FROM accounts WHERE rowid NOT IN (
                             SELECT MIN(rowid) FROM accounts GROUP BY name
-                        )
-                    )
-                """)
-                db.execSQL("""
-                    DELETE FROM accounts WHERE rowid NOT IN (
-                        SELECT MIN(rowid) FROM accounts GROUP BY name
-                    )
-                """)
+                            )
+                    """)
             }
         }
 

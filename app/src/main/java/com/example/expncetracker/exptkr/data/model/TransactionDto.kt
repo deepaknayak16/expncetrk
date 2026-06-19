@@ -11,6 +11,7 @@ import kotlinx.serialization.Serializable
 data class TransactionDto(
     val id: Long = 0,
     val smsId: Long? = null,
+    val accountId: Long = 0, // <-- ADDED
     val amount: Double,
     val type: TransactionType,
     val category: String,
@@ -25,12 +26,14 @@ data class TransactionDto(
     val parentTransactionId: Long? = null,
     val counterparty: String? = null,
     val isSettled: Boolean = false,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis() // <-- ADDED
 )
 
 fun TransactionDto.toDomain() = Transaction(
     id = id,
     smsId = smsId,
+    accountId = accountId, // <-- ADDED
     amount = amount,
     type = type,
     categoryName = category,
@@ -45,12 +48,14 @@ fun TransactionDto.toDomain() = Transaction(
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
     isSettled = isSettled,
-    tags = tags
+    tags = tags,
+    createdAt = createdAt.toLocalDateTime() // <-- ADDED
 )
 
 fun Transaction.toDto() = TransactionDto(
     id = id,
     smsId = smsId,
+    accountId = accountId, // <-- ADDED
     amount = amount,
     type = type,
     category = categoryName,
@@ -65,5 +70,6 @@ fun Transaction.toDto() = TransactionDto(
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
     isSettled = isSettled,
-    tags = tags
+    tags = tags,
+    createdAt = createdAt.toEpochMilli() // <-- ADDED
 )

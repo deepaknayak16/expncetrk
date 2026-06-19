@@ -20,13 +20,13 @@ class CategoryDetector @Inject constructor(
      * 3. Rule-based Fallback (Hardcoded patterns)
      */
     suspend fun detect(
-        merchant: String, 
-        type: TransactionType, 
+        merchant: String,
+        type: TransactionType,
         history: List<com.example.expncetracker.exptkr.domain.model.Transaction> = emptyList()
     ): String {
         val cleanMerchant = merchant.trim()
         val upperMerchant = cleanMerchant.uppercase(Locale.ROOT)
-        
+
         // 1. EXACT HISTORY MATCH
         val exactMatch = history.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
         if (exactMatch != null) {
@@ -43,7 +43,7 @@ class CategoryDetector @Inject constructor(
 
         // 3. FALLBACK: Static Rules
         if (type == TransactionType.CREDIT) {
-            if (containsAny(upperMerchant, "SALARY", "PAYROLL", "WIPRO", "INFOSYS", "TCS", "HCL")) 
+            if (containsAny(upperMerchant, "SALARY", "PAYROLL", "WIPRO", "INFOSYS", "TCS", "HCL"))
                 return Category.SALARY.displayName
         }
 
@@ -61,7 +61,7 @@ class CategoryDetector @Inject constructor(
             containsAny(upperMerchant, "SCHOOL", "COLLEGE", "FEE", "UNIVERSITY", "UDEMY", "COURSERA", "EDUCATION", "COURSE") -> Category.EDUCATION
             else -> Category.OTHERS
         }
-        
+
         return detectedCategory.displayName
     }
 
@@ -96,7 +96,7 @@ class CategoryDetector @Inject constructor(
         categories.forEach { cat ->
             // Prior: P(cat)
             var logProb = ln(((categoryCounts[cat] ?: 0) + 1).toDouble() / (totalDocs + categories.size))
-            
+
             // Vocabulary size for Laplace smoothing
             val vocabSize = wordCounts.size
             val totalWordsInCat = wordCounts.values.sumOf { it[cat] ?: 0 }
@@ -118,7 +118,7 @@ class CategoryDetector @Inject constructor(
         // This is a simplified heuristic for confidence
         val confidence = if (probabilities.size > 1) {
             val sorted = probabilities.values.sortedDescending()
-            val totalRange = sorted.last() - sorted[0]
+            val totalRange = sorted[0] - sorted.last()
             if (totalRange != 0.0) ((sorted[0] - sorted[1]) / totalRange).coerceIn(0.0, 1.0) else 0.0
         } else 1.0
 

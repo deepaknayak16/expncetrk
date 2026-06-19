@@ -1,64 +1,61 @@
-package com.example.expncetracker.exptkr.domain.usecase.sync
+package com.example.expncetracker.exptkr.domain.usecase
 
 import android.content.Context
-import com.example.expncetracker.exptkr.core.sync.GoogleDriveSyncManager
+import com.example.expncetracker.exptkr.core.common.Constants
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
+import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import com.example.expncetracker.exptkr.data.model.TransactionDto
 import com.example.expncetracker.exptkr.data.model.toDomain
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.google.api.client.http.ByteArrayContent
+import com.google.api.services.drive.Drive
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.io.File
 import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
 class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
+    private val driveService: Drive,
     private val repository: TransactionRepository,
-    @ApplicationContext private val context: Context,
-    private val driveSyncManager: GoogleDriveSyncManager
+    private val accountDao: AccountDao,
+    private val transactionDao: TransactionDao,
+    @ApplicationContext private val context: Context
 ) {
-    suspend fun execute(): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun execute(): Boolean = withContext(Dispatchers.IO) {
         try {
-            if (!driveSyncManager.isSignedIn()) {
-                return@withContext Result.failure(Exception("Please sign in to Google first"))
-            }
+            val fileList = driveService.files().list()
+                .setQ("name='${Constants.BACKUP_FILE_NAME}' and trashed=false")
+                .setSpaces("appDataFolder")
+                .setFields("files(id, name, modifiedTime)")
+                .execute()
 
-            val tempFile = File(context.cacheDir, "gdrive_restore_${System.currentTimeMillis()}.json")
+            val file = fileList.files.firstOrNull() ?: return@withContext false
 
-            val downloadSuccess = driveSyncManager.downloadBackup(tempFile)
+            val content = driveService.files().get(file.id).executeMediaAsInputStream()
+            val jsonStr = content.bufferedReader().use { it.readText() }
 
-            if (!downloadSuccess) {
-                tempFile.delete()
-                return@withContext Result.failure(Exception("Failed to download backup from Google Drive"))
-            }
-
-            val jsonStr = tempFile.readText()
             val dtoList = Json.decodeFromString<List<TransactionDto>>(jsonStr)
             val transactions = dtoList.map { it.toDomain() }
 
-            // WHY: If the JSON is empty or bad, we must STOP before touching the database.
-            // The "finally" guarantees the temp file is always deleted, even on crash.
-            try {
-                if (transactions.isEmpty()) {
-                    return@withContext Result.failure(Exception("Backup file is empty — nothing to restore"))
-                }
-                repository.replaceTransactions(transactions)
-                // After repository.replaceTransactions(restoredTransactions)
-                val accounts = accountDao.getAllAccounts().first()
-                accounts.forEach { account ->
-                    val debits = transactionDao.sumDebitsByAccount(account.id)
-                    val credits = transactionDao.sumCreditsByAccount(account.id)
-                    val newBalance = credits - debits
-                    accountDao.updateAccount(account.copy(balance = newBalance))
-                }
-                Result.success("Data restored from Google Drive successfully")
-            } finally {
-                tempFile.delete()
+            if (transactions.isEmpty()) {
+                return@withContext false
             }
+
+            repository.replaceTransactions(transactions)
+
+            // FIX: Recalculate balances after restore
+            val accounts = accountDao.getAllAccounts().first()
+            accounts.forEach { account ->
+                val newBalance = transactionDao.calculateNetBalanceByAccount(account.id)
+                accountDao.updateAccount(account.copy(balance = newBalance))
+            }
+
+            true
         } catch (e: Exception) {
-            Result.failure(e)
+            e.printStackTrace()
+            false
         }
     }
 }
