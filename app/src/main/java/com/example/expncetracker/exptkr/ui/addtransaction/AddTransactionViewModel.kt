@@ -98,6 +98,7 @@ class AddTransactionViewModel @Inject constructor(
     fun addTransaction(
         id: Long = 0,
         amount: Double,
+        accountId: Long,
         type: TransactionType,
         category: String,
         description: String?,
@@ -134,6 +135,7 @@ class AddTransactionViewModel @Inject constructor(
             val transaction = Transaction(
                 id = id,
                 smsId = _transactionToEdit.value?.smsId,
+                accountId = accountId,
                 amount = amount,
                 type = type,
                 categoryName = category,

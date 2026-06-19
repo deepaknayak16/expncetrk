@@ -24,17 +24,30 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE name = :name")
     suspend fun getAccountByName(name: String): AccountEntity?
 
+    @Query("SELECT id FROM accounts WHERE name = :name LIMIT 1")
+    suspend fun getAccountIdByName(name: String): Long?
+
     @Query("UPDATE accounts SET balance = balance + :delta WHERE name = :name")
     suspend fun adjustBalance(name: String, delta: Double): Int
 
     // WHY: Look up and update balance by immutable ID instead of editable name.
+
     @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
     suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
 
-    // WHY: Atomic delete — either both the account and its transactions disappear,
-    // or neither does. No orphan transactions left behind.
+    // WHY: Atomic delete — either both the account and its transactions disappear,or neither does. No orphan transactions left behind.
+
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getAccountById(id: Long): AccountEntity?
+
+    @Query("DELETE FROM transactions WHERE bankName = :name")
+    suspend fun deleteTransactionsByBankName(name: String)
+
+    @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
+    suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
+
+    @Query("DELETE FROM transactions WHERE account_id = :accountId")
+    suspend fun deleteTransactionsByAccountId(accountId: Long)
 
     @Transaction
     suspend fun deleteAccountAndTransactions(accountId: Long) {
@@ -44,13 +57,8 @@ interface AccountDao {
         // If you have NOT done H4 yet (current code), you need to find the name first:
         val account = getAccountById(accountId) ?: return
         deleteTransactionsByBankName(account.name)
+        deleteTransactionsByAccountId(accountId)  // USE NEW METHOD
         deleteAccountById(accountId)
     }
-
-    @Query("DELETE FROM transactions WHERE bankName = :name")
-    suspend fun deleteTransactionsByBankName(name: String)
-
-    @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
-    suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
 
 }

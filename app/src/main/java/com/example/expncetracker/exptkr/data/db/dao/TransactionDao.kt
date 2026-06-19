@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Transaction
 import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -49,6 +50,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY nextDueDate ASC")
     fun getAllRecurringTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE category = :categoryName ORDER BY timestamp DESC")
+    fun getTransactionsByCategory(categoryName: String): Flow<List<TransactionEntity>>
+
     @Query("DELETE FROM transactions")
     suspend fun clearAll()
 
@@ -63,4 +67,10 @@ interface TransactionDao {
         deleteById(parentId)
         insertTransactions(children)
     }
+
+    @Query("SELECT SUM(amount) FROM transactions WHERE categoryName = :category AND type = 'DEBIT'")
+    suspend fun getTotalSpentByCategory(category: String): Double?
+
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE categoryName = :category AND type = :type")
+    suspend fun sumAmountByCategoryAndType(category: String, type: String): Double
 }

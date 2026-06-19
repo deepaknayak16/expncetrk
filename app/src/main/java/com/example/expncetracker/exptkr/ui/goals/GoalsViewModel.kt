@@ -106,25 +106,27 @@ class GoalsViewModel @Inject constructor(
 
     fun recalculateGoalProgress(goalId: Long) {
         viewModelScope.launch {
-            val goal = repository.getGoalById(goalId) ?: return@launch
-            val category = goal.linkedCategory
+            try {
+                val goal = repository.getGoalById(goalId) ?: return@launch
+                val category = goal.linkedCategory ?: return@launch
 
-            // If linked to a category, auto-calculate from transactions
-            val autoTotal = if (category != null) {
-                val allTransactions = transactionRepository.getAllTransactions().first()
-                allTransactions
-                    .filter { it.categoryName == category }
-                    .sumOf { it.amount }
-            } else {
-                goal.currentAmount // Keep manual amount if no category linked
-            }
+                // Determine which transaction type contributes to this goal
+                val targetType = when (goal.goalType) {
+                    GoalType.SAVINGS -> TransactionType.CREDIT.name
+                    else -> TransactionType.DEBIT.name
+                }
 
-            repository.updateGoal(
-                goal.copy(
-                    currentAmount = autoTotal,
-                    isCompleted = autoTotal >= goal.targetAmount
+                val total = transactionRepository.sumByCategory(category, targetType)
+
+                repository.updateGoal(
+                    goal.copy(
+                        currentAmount = total,
+                        isCompleted = total >= goal.targetAmount
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                _statusEvent.send("Goal recalculation failed: ${e.localizedMessage}")
+            }
         }
     }
 }

@@ -60,8 +60,8 @@ class TransactionRepositoryImpl @Inject constructor(
         }
         db.withTransaction {
             transactionDao.deleteById(id)
-            if (delta != 0.0) {
-                accountDao.adjustBalance(transaction.bankName, delta)
+            if (delta != 0.0 && transaction.accountId != 0L) {
+            accountDao.adjustBalanceById(transaction.accountId, delta)  // USE ID
             }
         }
     }

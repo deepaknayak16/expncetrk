@@ -20,4 +20,29 @@ interface GoalDao {
 
     @Query("SELECT * FROM goals WHERE id = :id")
     suspend fun getGoalById(id: Long): GoalEntity?
+
+
+    @Query("""
+        UPDATE goals
+        SET currentAmount = (
+            SELECT COALESCE(SUM(amount), 0)
+            FROM transactions
+            WHERE categoryName = :category AND type = 'DEBIT'
+        ),
+        isCompleted = (
+            SELECT COALESCE(SUM(amount), 0)
+            FROM transactions
+            WHERE categoryName = :category AND type = 'DEBIT'
+        ) >= targetAmount
+        WHERE id = :goalId
+    """)
+    suspend fun recalculateGoalProgress(goalId: Long, category: String)
+
+    @Query("""
+    SELECT COALESCE(SUM(amount), 0.0)
+    FROM transactions
+    WHERE categoryName = :category
+    AND type = :type
+    """)
+    suspend fun sumAmountByCategory(category: String, type: String): Double
 }

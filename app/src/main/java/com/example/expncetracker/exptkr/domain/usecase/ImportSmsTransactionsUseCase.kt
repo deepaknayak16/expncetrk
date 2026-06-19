@@ -12,6 +12,7 @@ class ImportSmsTransactionsUseCase @Inject constructor(
     private val parserRegistry: ParserRegistry,
     private val categoryDetector: CategoryDetector,
     private val repository: TransactionRepository
+    private val accountDao: AccountDao
 ) {
     suspend fun execute() {
         // IMPORTANT: We use getLatestSmsTimestamp to ignore sample data dates
@@ -21,6 +22,7 @@ class ImportSmsTransactionsUseCase @Inject constructor(
         val parsedTransactions = rawSmsList.mapNotNull { raw ->
             val parsedSms = parserRegistry.parseSms(raw.address, raw.body, raw.timestamp) ?: return@mapNotNull null
             val categoryName = categoryDetector.detect(parsedSms.merchant, parsedSms.type)
+            val accountId = accountDao.getAccountIdByName(parsed.bankName) ?: 0L
 
             Transaction(
                 smsId = raw.smsId,
@@ -30,7 +32,8 @@ class ImportSmsTransactionsUseCase @Inject constructor(
                 merchant = parsedSms.merchant,
                 bankName = parsedSms.bankName,
                 note = "Imported from SMS",
-                timestamp = parsedSms.timestamp
+                timestamp = parsedSms.timestamp,
+                accountId = accountId
             )
         }
 

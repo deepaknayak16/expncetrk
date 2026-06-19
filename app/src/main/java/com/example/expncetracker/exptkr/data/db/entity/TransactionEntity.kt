@@ -8,8 +8,18 @@ import androidx.room.ColumnInfo
 
 @Entity(
     tableName = "transactions",
-    indices = [Index(value = ["smsId"], unique = true),
-        Index(value = ["createdAt"])
+    indices = [
+        Index(value = ["smsId"], unique = true),
+        Index(value = ["createdAt"]),
+        Index(value = ["account_id"])  // Add index
+    ],
+    foreignKeys = [
+        ForeignKey(
+            entity = AccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["account_id"],
+            onDelete = ForeignKey.SET_NULL  // or CASCADE
+        )
     ]
 )
 data class TransactionEntity(
@@ -31,8 +41,9 @@ data class TransactionEntity(
     val isSettled: Boolean = false,
     val tags: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    // WHY: Link transactions to accounts by immutable ID, not by name.
-    //      Names can be edited; IDs cannot.
+
+    // WHY: Link transactions to accounts by immutable ID, not by name.Names can be edited; IDs cannot.
+
     @ColumnInfo(name = "account_id", defaultValue = "0")
     val accountId: Long = 0,
 )

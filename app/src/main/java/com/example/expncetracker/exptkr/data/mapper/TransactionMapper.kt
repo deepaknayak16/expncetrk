@@ -10,6 +10,7 @@ import com.example.expncetracker.exptkr.domain.model.TransactionType
 fun TransactionEntity.toDomain(): Transaction = Transaction(
     id = id,
     smsId = smsId,
+    accountId = accountId ?: 0L,
     amount = amount,
     type = runCatching { TransactionType.valueOf(type) }.getOrDefault(TransactionType.DEBIT),
     categoryName = category,
@@ -32,6 +33,7 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     id = id,
     smsId = smsId,
+    accountId = if (accountId == 0L) null else accountId,
     amount = amount,
     type = type.name,
     category = categoryName,
