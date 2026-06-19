@@ -86,11 +86,12 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>) =
         transactionDao.splitTransaction(parentId, subTransactions.map { it.toEntity() })
+
     // WHY: These wrap "insert + balance update" and "update + balance update"
-//      inside a single SQLite transaction. If the balance update fails,
-//      the transaction insert/update is rolled back automatically.
-//      Also, adjustBalance uses "UPDATE accounts SET balance = balance + :delta"
-//      which is atomic — no read-modify-write race in Kotlin.
+    // inside a single SQLite transaction. If the balance update fails,
+    // the transaction insert/update is rolled back automatically.
+    // Also, adjustBalance uses "UPDATE accounts SET balance = balance + :delta"
+    // which is atomic — no read-modify-write race in Kotlin.
 
     override suspend fun insertTransactionWithBalance(transaction: Transaction): Long {
         val delta = when (transaction.type) {
@@ -129,6 +130,20 @@ class TransactionRepositoryImpl @Inject constructor(
             transactionDao.updateTransaction(newTransaction.toEntity())
             if (newDelta != 0.0) {
                 accountDao.adjustBalance(newTransaction.bankName, newDelta)
+            }
+        }
+    }
+
+    override suspend fun settleTransaction(transaction: Transaction) {
+        val delta = when (transaction.type) {
+            TransactionType.LEND -> transaction.amount
+            TransactionType.BORROW -> -transaction.amount
+            else -> 0.0
+        }
+        db.withTransaction {
+            transactionDao.updateTransaction(transaction.copy(isSettled = true).toEntity())
+            if (delta != 0.0) {
+                accountDao.adjustBalance(transaction.bankName, delta)
             }
         }
     }

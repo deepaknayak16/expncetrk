@@ -30,14 +30,23 @@ class GoalsViewModel @Inject constructor(
         _showAddDialog.value = false
     }
 
-    fun addGoal(name: String, targetAmount: Double, color: Int, deadline: Long? = null) {
+    fun addGoal(
+            name: String,
+            targetAmount: Double,
+            color: Int,
+            deadline: Long? = null,
+            linkedCategory: String? = null,   // NEW
+            linkedAccountId: Long? = null      // NEW
+        ) {
         viewModelScope.launch {
             repository.insertGoal(
                 GoalEntity(
                     name = name,
                     targetAmount = targetAmount,
                     color = color,
-                    deadline = deadline
+                    deadline = deadline,
+                    linkedCategory = linkedCategory,
+                    linkedAccountId = linkedAccountId
                 )
             )
         }
@@ -57,30 +66,63 @@ class GoalsViewModel @Inject constructor(
         }
     }
 
+    fun contributeToGoal(id: Long, amount: Double) {
+        viewModelScope.launch {
+            val goal = repository.getGoalById(id) ?: return@launch
+            val accountId = goal.linkedAccountId
+
+            if (accountId == null) {
+                // No account linked — just update the virtual counter
+                val newAmount = (goal.currentAmount + amount).coerceAtLeast(0.0)
+                repository.updateGoal(goal.copy(currentAmount = newAmount, isCompleted = newAmount >= goal.targetAmount))
+                return@launch
+            }
+
+            // Deduct from the linked account
+            val account = accountDao.getAccountById(accountId) ?: return@launch
+            if (account.balance < amount) {
+                _statusEvent.send("Insufficient balance in ${account.name}")
+                return@launch
+            }
+
+            // Atomic: deduct from account + add to goal
+            db.withTransaction {
+                accountDao.adjustBalanceById(accountId, -amount) // Deduct
+                repository.updateGoal(goal.copy(currentAmount = goal.currentAmount + amount))
+            }
+
+            _statusEvent.send("₹$amount moved to ${goal.name}")
+        }
+    }
+
     fun deleteGoal(goal: GoalEntity) {
         viewModelScope.launch {
             repository.deleteGoal(goal)
         }
     }
+
     // WHY: Scan all transactions in the linked category and sum them
-//      so the goal progress updates automatically.
+    // so the goal progress updates automatically.
 
     fun recalculateGoalProgress(goalId: Long) {
         viewModelScope.launch {
             val goal = repository.getGoalById(goalId) ?: return@launch
-            val category = goal.linkedCategory ?: return@launch
+            val category = goal.linkedCategory
 
-            // WHY: getTransactionsByCategory() doesn't exist yet.
-            //      We fetch all transactions and filter locally.
-            val allTransactions = transactionRepository.getAllTransactions().first()
-            val total = allTransactions
-                .filter { it.categoryName == category }
-                .sumOf { it.amount }
+            // If linked to a category, auto-calculate from transactions
+            val autoTotal = if (category != null) {
+                val allTransactions = transactionRepository.getAllTransactions().first()
+                allTransactions
+                    .filter { it.categoryName == category }
+                    .sumOf { it.amount }
+            } else {
+                goal.currentAmount // Keep manual amount if no category linked
+            }
 
             repository.updateGoal(
                 goal.copy(
-                    currentAmount = total,
-                    isCompleted = total >= goal.targetAmount
+                    currentAmount = autoTotal,
+                    isCompleted = autoTotal >= goal.targetAmount
                 )
             )
         }

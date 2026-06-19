@@ -67,6 +67,11 @@ class AccountsViewModel @Inject constructor(
 
     fun addAccount(name: String, balance: Double, type: String) {
         viewModelScope.launch {
+            val existing = accountDao.getAccountByName(name)
+            if (existing != null) {
+                // Show error via a status channel or toast
+                return@launch
+            }
             val color = when (type) {
                 "Bank Account" -> 0xFF3B82F6.toInt() // Blue
                 "Cash" -> 0xFF10B981.toInt() // Green
@@ -88,6 +93,12 @@ class AccountsViewModel @Inject constructor(
 
     fun updateAccount(id: Long, name: String, balance: Double, type: String) {
         viewModelScope.launch {
+            // Check for name collision with a DIFFERENT account
+            val existing = accountDao.getAccountByName(name)
+            if (existing != null && existing.id != id) {
+                // Name already taken by another account — show error
+                return@launch
+            }
             val color = when (type) {
                 "Bank Account" -> 0xFF3B82F6.toInt() // Blue
                 "Cash" -> 0xFF10B981.toInt() // Green
@@ -96,7 +107,7 @@ class AccountsViewModel @Inject constructor(
                 "Credit Card" -> 0xFFEF4444.toInt() // Red
                 else -> 0xFF64748B.toInt() // Slate
             }
-            accountDao.insertAccount(
+            accountDao.updateAccount(
                 AccountEntity(
                     id = id,
                     name = name,

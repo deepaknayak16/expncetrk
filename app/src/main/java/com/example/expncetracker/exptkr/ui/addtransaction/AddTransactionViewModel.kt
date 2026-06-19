@@ -159,6 +159,12 @@ class AddTransactionViewModel @Inject constructor(
             } else {
                 // Adding a brand-new transaction
                 repository.insertTransactionWithBalance(transaction)
+                    // After successful insert
+                    if (transaction.categoryName == "Savings" || transaction.categoryName == "Investment") {
+                        // Trigger goal recalculation for all goals linked to this category
+                        // (You can inject GoalsViewModel or use a shared event bus)
+                    }
+
             }
         }
     }

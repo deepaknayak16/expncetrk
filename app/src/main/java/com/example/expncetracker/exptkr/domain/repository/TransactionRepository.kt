@@ -26,4 +26,6 @@ interface TransactionRepository {
     // WHY: The ViewModel needs to call these new atomic methods.
     suspend fun insertTransactionWithBalance(transaction: Transaction): Long
     suspend fun updateTransactionWithBalance(oldTransaction: Transaction?, newTransaction: Transaction)
+
+    suspend fun settleTransaction(transaction: Transaction)
 }

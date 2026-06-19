@@ -14,7 +14,12 @@ data class GoalEntity(
     val iconName: String = "SAVINGS",
     val color: Int,
     val isCompleted: Boolean = false,
-    // app/src/main/java/com/example/expncetracker/exptkr/data/db/entity/GoalEntity.kt
+
+    // NEW: Which category auto-contributes to this goal
     @ColumnInfo(name = "linked_category")
-    val linkedCategory: String? = null,   // e.g. "Savings", "Investment"
+    val linkedCategory: String? = null, // e.g. "Savings", "Investment"
+
+    // NEW: Which account holds the "saved" money for this goal
+    @ColumnInfo(name = "linked_account_id")
+    val linkedAccountId: Long? = null
 )

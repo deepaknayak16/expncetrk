@@ -39,7 +39,7 @@ import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
         CategoryEntity::class,
         GoalEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -75,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE transactions RENAME COLUMN entryTimestamp TO createdAt")
                 db.execSQL("ALTER TABLE transactions ADD COLUMN account_id INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("""
-            UPDATE transactions 
+            UPDATE transactions
             SET account_id = (
                 SELECT id FROM accounts WHERE accounts.name = transactions.bankName LIMIT 1
             )
@@ -83,6 +83,7 @@ abstract class AppDatabase : RoomDatabase() {
         """)
             }
         }
+
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 1. Delete transactions for accounts that are about to be removed
@@ -108,6 +109,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE goals ADD COLUMN linked_account_id INTEGER")
+            }
+        }
+
         private fun buildDatabase(context: Context): AppDatabase {
             val appContext = context.applicationContext
             val databaseName = Constants.DATABASE_NAME
@@ -124,7 +131,7 @@ abstract class AppDatabase : RoomDatabase() {
 
             return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
         }
     }

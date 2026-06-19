@@ -30,8 +30,9 @@ interface AccountDao {
     // WHY: Look up and update balance by immutable ID instead of editable name.
     @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
     suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
+
     // WHY: Atomic delete — either both the account and its transactions disappear,
-//      or neither does. No orphan transactions left behind.
+    // or neither does. No orphan transactions left behind.
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getAccountById(id: Long): AccountEntity?
 
@@ -48,5 +49,8 @@ interface AccountDao {
 
     @Query("DELETE FROM transactions WHERE bankName = :name")
     suspend fun deleteTransactionsByBankName(name: String)
+
+    @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
+    suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
 
 }

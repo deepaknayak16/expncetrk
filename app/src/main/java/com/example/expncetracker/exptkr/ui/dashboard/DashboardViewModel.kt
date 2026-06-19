@@ -45,7 +45,7 @@ class DashboardViewModel @Inject constructor(
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing = _isSyncing.asStateFlow()
-    
+
     private val _statusEvent = Channel<String>(Channel.BUFFERED)
     val statusEvent = _statusEvent.receiveAsFlow()
 
@@ -107,7 +107,7 @@ class DashboardViewModel @Inject constructor(
 
             val distribution = recent.groupBy { it.categoryName }
                 .mapValues { it.value.sumOf { t -> t.amount } }
-            
+
             DashboardUiState.Success(
                 DashboardData(
                     summary = summary,
@@ -153,10 +153,10 @@ class DashboardViewModel @Inject constructor(
                     _statusEvent.send("SMS transactions cannot be deleted")
                     return@launch
                 }
-                
+
                 val now = LocalDateTime.now()
                 val minutesSinceCreation = java.time.Duration.between(transaction.createdAt, now).toMinutes()
-                
+
                 if (minutesSinceCreation > 60) {
                     _statusEvent.send("Manual transactions older than 1 hour cannot be deleted")
                     return@launch
@@ -173,15 +173,7 @@ class DashboardViewModel @Inject constructor(
     fun settleTransaction(transaction: Transaction) {
         viewModelScope.launch {
             try {
-                repository.updateTransaction(transaction.copy(isSettled = true))
-                val delta = when (transaction.type) {
-                    TransactionType.LEND -> transaction.amount
-                    TransactionType.BORROW -> -transaction.amount
-                    else -> 0.0
-                }
-                if (delta != 0.0) {
-                    accountDao.adjustBalance(transaction.bankName, delta)
-                }
+                repository.settleTransaction(transaction)
                 _statusEvent.send("Settled successfully")
             } catch (e: Exception) {
                 _statusEvent.send("Settlement failed: ${e.message}")
