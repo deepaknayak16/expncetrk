@@ -52,13 +52,14 @@ class MainActivity : FragmentActivity() {
 
         val preferencesFlow = dataStore.data
         val biometricEnabled = preferencesFlow.map { it[BIOMETRIC_ENABLED_KEY] ?: false }
-        val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] ?: false }
+        val darkModeFlow = preferencesFlow.map { it[DARK_MODE_KEY] }
         val rationaleShownFlow = preferencesFlow.map { it[PERMISSION_RATIONALE_SHOWN_KEY] ?: false }
         val notificationRationaleFlow = preferencesFlow.map { it[NOTIFICATION_PERMISSION_SHOWN_KEY] ?: false }
         val smsPermanentlyDeniedFlow = preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }
 
         setContent {
-            val isDarkMode by darkModeFlow.collectAsState(initial = isSystemInDarkTheme())
+            val isDarkModePref by darkModeFlow.collectAsState(initial = null)
+            val isDarkMode = isDarkModePref ?: isSystemInDarkTheme()
             val isBiometricEnabled by biometricEnabled.collectAsState(initial = false)
             val isRationaleShown by rationaleShownFlow.collectAsState(initial = false)
             val isNotificationRationaleShown by notificationRationaleFlow.collectAsState(initial = false)

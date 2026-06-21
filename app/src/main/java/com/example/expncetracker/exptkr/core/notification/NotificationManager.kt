@@ -8,7 +8,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.expncetracker.exptkr.MainActivity
-import com.example.expncetracker.R
+import com.example.expncetracker.exptkr.R
 import androidx.core.content.ContextCompat
 object AppNotificationManager {
     private const val CHANNEL_ID = "quick_actions_channel"

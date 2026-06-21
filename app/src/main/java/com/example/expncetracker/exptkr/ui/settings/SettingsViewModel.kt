@@ -25,6 +25,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.io.File
 import javax.inject.Inject
 
@@ -60,7 +61,8 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isSignedIn = account != null,
-                    accountName = account?.displayName,
+                    accountName = account?.displayName ?: account?.email,
+                    accountPhotoUrl = account?.photoUrl?.toString(),
                     isDarkMode = isDark,
                     isBiometricEnabled = isBiometric,
                     isBiometricAvailable = biometricStatus is BiometricStatus.Available,
@@ -79,7 +81,11 @@ class SettingsViewModel @Inject constructor(
             if (task.isSuccessful) {
                 val account = task.result
                 _uiState.update {
-                    it.copy(isSignedIn = true, accountName = account?.displayName)
+                    it.copy(
+                        isSignedIn = true,
+                        accountName = account?.displayName ?: account?.email,
+                        accountPhotoUrl = account?.photoUrl?.toString()
+                    )
                 }
                 _statusEvent.send("Signed in successfully")
             } else {
@@ -98,9 +104,12 @@ class SettingsViewModel @Inject constructor(
 
     fun signOutFromGoogle() {
         viewModelScope.launch {
-            googleSignInClient.signOut().addOnCompleteListener {
+            try {
+                googleSignInClient.signOut().await()
                 googleDriveSyncManager.signOut()
-                _uiState.update { it.copy(isSignedIn = false, accountName = null) }
+                _uiState.update { it.copy(isSignedIn = false, accountName = null, accountPhotoUrl = null) }
+            } catch (e: Exception) {
+                _statusEvent.send("Sign out failed: ${e.message}")
             }
         }
     }

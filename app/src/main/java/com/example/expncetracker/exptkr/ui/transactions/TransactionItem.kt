@@ -1,5 +1,6 @@
 package com.example.expncetracker.exptkr.ui.transactions
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -84,31 +85,32 @@ fun TransactionListItem(
             .clickable(enabled = onClick != null || onEdit != null) { 
                 if (onClick != null) onClick() else onEdit?.invoke() 
             },
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+        color = Color.Transparent
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp, horizontal = 16.dp),
+                    .padding(vertical = 6.dp, horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = color.copy(alpha = 0.12f)
+                    modifier = Modifier.size(40.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = color.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, color.copy(alpha = 0.1f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
                             tint = color,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -123,17 +125,23 @@ fun TransactionListItem(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = transaction.categoryName,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Medium
                         )
                         if (transaction.counterparty != null) {
-                            Text(
-                                text = " • ${transaction.counterparty}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Surface(
+                                modifier = Modifier.padding(start = 6.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            ) {
+                                Text(
+                                    text = transaction.counterparty,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -141,7 +149,7 @@ fun TransactionListItem(
                 val prefix = when (transaction.type) {
                     TransactionType.CREDIT -> "+"
                     TransactionType.DEBIT -> "-"
-                    TransactionType.TRANSFER -> ""
+                    TransactionType.TRANSFER -> "="
                     TransactionType.LEND -> "↗"
                     TransactionType.BORROW -> "↙"
                 }
@@ -149,13 +157,14 @@ fun TransactionListItem(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "$prefix ${transaction.amount.formatAsCurrency()}",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.ExtraBold,
                         color = typeColor
                     )
                     Text(
                         text = transaction.timestamp.formatToDisplay(),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
@@ -175,7 +184,7 @@ fun TransactionListItem(
                 }
             }
             HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
             )
         }

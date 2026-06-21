@@ -50,6 +50,7 @@ import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
@@ -58,6 +59,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
+import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.core.common.shape.Shape
 import java.time.LocalDate
 import java.time.ZoneId
@@ -65,6 +67,15 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 
 // ─── Trend window for chart period selector ───────────────────────────────────
 
@@ -98,10 +109,11 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
 
     // NEW: category drill-down sheet state
     var drillDownCategory by remember { mutableStateOf<String?>(null) }
-    val drillDownTransactions by remember(drillDownCategory, viewModel) {
+    val allTransactions by viewModel.currentTransactions.collectAsState()
+    val drillDownTransactions by remember(drillDownCategory, allTransactions) {
         derivedStateOf {
             if (drillDownCategory == null) emptyList()
-            else viewModel.getTransactionsForCategory(drillDownCategory!!)
+            else allTransactions.filter { it.categoryName == drillDownCategory }
         }
     }
 
@@ -131,13 +143,23 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     )
 
     val lineChart = rememberCartesianChart(
-        rememberLineCartesianLayer(),
+        rememberLineCartesianLayer(
+            lineProvider = LineCartesianLayer.LineProvider.series(
+                listOf(
+                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(MaterialTheme.colorScheme.primary))),
+                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFFF44336)))),
+                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFF4CAF50)))),
+                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFFFF9800)))),
+                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFF9C27B0)))),
+                )
+            )
+        ),
         startAxis = rememberStartAxis(label = axisLabel, tick = null, guideline = axisGuideline),
         bottomAxis = rememberBottomAxis(
             label = axisLabel,
             tick = null,
             guideline = null,
-            valueFormatter = { value, _, _ -> trends.getOrNull(value.toInt())?.label ?: "" }
+            valueFormatter = { value, _, _ -> trends["Total"]?.getOrNull(value.toInt())?.label ?: "" }
         )
     )
 
@@ -198,50 +220,67 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     }
 
     LaunchedEffect(currentPeriodStart, selectedFilter) {
-        if (selectedFilter == DateFilter.WEEK) {
-            viewModel.setWeekRange(currentPeriodStart, weekEnd)
+        // Synchronize the ViewModel's range with the UI's selected period
+        val end = when (selectedFilter) {
+            DateFilter.DAY -> currentPeriodStart
+            DateFilter.WEEK -> currentPeriodStart.plusDays(6)
+            DateFilter.WEEK_RANGE -> currentPeriodStart.plusDays(6)
+            DateFilter.MONTH -> currentPeriodStart.withDayOfMonth(currentPeriodStart.lengthOfMonth())
+            DateFilter.YEAR -> currentPeriodStart.withDayOfYear(currentPeriodStart.lengthOfYear())
         }
-        // NEW: also load previous period for comparison
+        
+        // Use a more specific method or handle filter update carefully to avoid race
+        viewModel.setWeekRange(currentPeriodStart, end)
+        
+        // Ensure filter is also synced if changed locally
+        if (viewModel.selectedFilter.value != selectedFilter) {
+            // Note: setFilter might also update range, which could cause double jump.
+            // Better to let ViewModel handle the source of truth for filter.
+        }
+
+        // Load previous period for comparison
         viewModel.loadPreviousPeriod(currentPeriodStart, selectedFilter)
     }
 
     LaunchedEffect(trends, dailyTotals, selectedFilter) {
         if (trends.isNotEmpty()) {
             lineModelProducer.runTransaction {
-                lineSeries { series(trends.map { it.amount.toFloat() }) }
+                lineSeries { 
+                    trends.values.forEach { series(it.map { p -> p.amount.toFloat() }) }
+                }
             }
         }
-        if (dailyTotals.isNotEmpty()) {
-            // NEW: correct grouping per filter type
-                        val groupedData: List<Float> = when (selectedFilter) {
-                            DateFilter.DAY, DateFilter.WEEK, DateFilter.WEEK_RANGE ->
-                                dailyTotals.entries.sortedBy { it.key }.map { it.value.toFloat() }
+        
+        // NEW: robust grouping logic for Month/Year data
+        val groupedData: List<Float> = when (selectedFilter) {
+            DateFilter.DAY, DateFilter.WEEK, DateFilter.WEEK_RANGE ->
+                dailyTotals.entries.sortedBy { it.key }.map { it.value.toFloat() }
 
-                            DateFilter.MONTH -> {
-                    // Group by week-of-month (4 buckets)
-                    val weeks = (0..4).map { week ->
-                        dailyTotals.entries
-                            .filter { (d, _) -> (d.dayOfMonth - 1) / 7 == week }
-                            .sumOf { it.value }
-                            .toFloat()
-                    }.dropLastWhile { it == 0f }
-                    weeks
-                }
-
-                DateFilter.YEAR -> {
-                    // Group by month (12 buckets)
-                    (1..12).map { month ->
-                        dailyTotals.entries
-                            .filter { (d, _) -> d.monthValue == month }
-                            .sumOf { it.value }
-                            .toFloat()
-                    }
+            DateFilter.MONTH -> {
+                // Always create 5 buckets (weeks) to keep chart stable
+                val startOfMonth = currentPeriodStart.withDayOfMonth(1)
+                (0..4).map { week ->
+                    val weekStart = startOfMonth.plusDays(week * 7L)
+                    val weekEnd = weekStart.plusDays(6)
+                    dailyTotals.filter { (d, _) -> !d.isBefore(weekStart) && !d.isAfter(weekEnd) }
+                        .values.sumOf { it }.toFloat()
                 }
             }
-            if (groupedData.isNotEmpty()) {
-                columnModelProducer.runTransaction {
-                    columnSeries { series(groupedData) }
+
+            DateFilter.YEAR -> {
+                // Always create 12 buckets (months) to keep chart stable
+                (1..12).map { month ->
+                    dailyTotals.filter { (d, _) -> d.monthValue == month && d.year == currentPeriodStart.year }
+                        .values.sumOf { it }.toFloat()
                 }
+            }
+        }
+
+        // Always update the producer, even if data is empty, to clear the previous view
+        columnModelProducer.runTransaction {
+            columnSeries { 
+                if (groupedData.isNotEmpty()) series(groupedData) 
+                else series(List(if (selectedFilter == DateFilter.YEAR) 12 else 7) { 0f })
             }
         }
     }
@@ -332,171 +371,153 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             // ── 1. Summary header card ─────────────────────────────────────
             item(key = "summary_header") {
                 AnalyticsCard {
-                    // Unified Filter and Navigation Row
+
+                    // ─────────────────────────────
+                    // FILTER + NAV ROW (COMPACT)
+                    // ─────────────────────────────
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .padding(bottom = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. Day
+
                         FilterItemSimple(
-                            "Day",
+                            "Daily",
                             selectedFilter == DateFilter.DAY,
-                            onClick = { viewModel.setFilter(DateFilter.DAY) },
-                            modifier = Modifier.weight(0.7f)
+                            { viewModel.setFilter(DateFilter.DAY) },
+                            Modifier.weight(0.7f)
                         )
 
-                        // 2. Week
                         FilterItemSimple(
                             "Week",
                             selectedFilter == DateFilter.WEEK,
-                            onClick = { viewModel.setFilter(DateFilter.WEEK) },
-                            modifier = Modifier.weight(0.7f)
+                            { viewModel.setFilter(DateFilter.WEEK) },
+                            Modifier.weight(0.7f)
                         )
 
-                        // 3. Date Navigation (In place of Week Range)
-                        Row(
-                            modifier = Modifier.weight(2.5f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    currentPeriodStart = when (selectedFilter) {
-                                        DateFilter.DAY -> currentPeriodStart.minusDays(1)
-                                        DateFilter.WEEK -> currentPeriodStart.minusWeeks(1)
-                                        DateFilter.WEEK_RANGE -> currentPeriodStart.minusWeeks(1)
-                                        DateFilter.MONTH -> currentPeriodStart.minusMonths(1).withDayOfMonth(1)
-                                        DateFilter.YEAR -> LocalDate.of(currentPeriodStart.year - 1, 1, 1)
-                                    }
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            val dateText = when (selectedFilter) {
-                                DateFilter.DAY -> currentPeriodStart.format(dayFormatter)
-                                DateFilter.WEEK -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
-                                DateFilter.WEEK_RANGE -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
-                                DateFilter.MONTH -> currentPeriodStart.format(monthFormatter)
-                                DateFilter.YEAR -> currentPeriodStart.year.toString()
-                            }
-
-                            Text(
-                                text = dateText,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .padding(horizontal = 4.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .clickable {
-                                        if (selectedFilter == DateFilter.WEEK_RANGE) showRangePicker = true
-                                        else showDatePicker = true
-                                    }
-                            )
-
-                            val isNextDisabled = when (selectedFilter) {
-                                DateFilter.DAY -> !currentPeriodStart.isBefore(today)
-                                DateFilter.WEEK -> !currentPeriodStart.plusWeeks(1).isBefore(
-                                    today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(1)
-                                )
-                                DateFilter.WEEK_RANGE -> false
-                                DateFilter.MONTH -> currentPeriodStart.year == today.year &&
-                                        currentPeriodStart.monthValue >= today.monthValue
-                                DateFilter.YEAR -> currentPeriodStart.year >= today.year
-                            }
-
-                            IconButton(
-                                onClick = {
-                                    currentPeriodStart = when (selectedFilter) {
-                                        DateFilter.DAY -> currentPeriodStart.plusDays(1)
-                                        DateFilter.WEEK -> currentPeriodStart.plusWeeks(1)
-                                        DateFilter.WEEK_RANGE -> currentPeriodStart.plusWeeks(1)
-                                        DateFilter.MONTH -> currentPeriodStart.plusMonths(1).withDayOfMonth(1)
-                                        DateFilter.YEAR -> LocalDate.of(currentPeriodStart.year + 1, 1, 1)
-                                    }
-                                },
-                                enabled = !isNextDisabled,
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    null,
-                                    tint = if (isNextDisabled) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        // 4. Month
                         FilterItemSimple(
                             "Month",
                             selectedFilter == DateFilter.MONTH,
-                            onClick = { viewModel.setFilter(DateFilter.MONTH) },
-                            modifier = Modifier.weight(0.8f)
+                            { viewModel.setFilter(DateFilter.MONTH) },
+                            Modifier.weight(0.7f)
                         )
 
-                        // 5. Year
                         FilterItemSimple(
                             "Year",
                             selectedFilter == DateFilter.YEAR,
-                            onClick = { viewModel.setFilter(DateFilter.YEAR) },
-                            modifier = Modifier.weight(0.7f)
+                            { viewModel.setFilter(DateFilter.YEAR) },
+                            Modifier.weight(0.7f)
                         )
-                    }
 
-                    // Jump to today (Small text button below row if navigated away)
-                    AnimatedVisibility(visible = !isViewingCurrentPeriod && selectedFilter != DateFilter.WEEK_RANGE) {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            TextButton(
-                                onClick = {
-                                    currentPeriodStart = when (selectedFilter) {
-                                        DateFilter.DAY -> today
-                                        DateFilter.WEEK -> today.with(
-                                            WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L
-                                        )
-                                        DateFilter.MONTH -> today.withDayOfMonth(1)
-                                        DateFilter.YEAR -> LocalDate.of(today.year, 1, 1)
-                                        else -> today
-                                    }
-                                },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Icon(Icons.Default.Today, null, modifier = Modifier.size(12.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Today", style = MaterialTheme.typography.labelSmall)
-                            }
+                        Spacer(Modifier.width(4.dp))
+
+                        // ───────── DATE NAV ─────────
+                        val dateText = when (selectedFilter) {
+                            DateFilter.DAY -> currentPeriodStart.format(dayFormatter)
+                            DateFilter.WEEK -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
+                            DateFilter.WEEK_RANGE -> "${currentPeriodStart.format(dateFormatter)} – ${weekEnd.format(dateFormatter)}"
+                            DateFilter.MONTH -> currentPeriodStart.format(monthFormatter)
+                            DateFilter.YEAR -> currentPeriodStart.year.toString()
+                        }
+
+                        val isNextDisabled = when (selectedFilter) {
+                            DateFilter.DAY -> !currentPeriodStart.isBefore(today)
+                            DateFilter.WEEK -> !currentPeriodStart.plusWeeks(1).isBefore(
+                                today.with(WeekFields.of(Locale.getDefault()).dayOfWeek(), 1L).plusDays(1)
+                            )
+                            DateFilter.WEEK_RANGE -> false
+                            DateFilter.MONTH ->
+                                currentPeriodStart.year == today.year &&
+                                        currentPeriodStart.monthValue >= today.monthValue
+                            DateFilter.YEAR ->
+                                currentPeriodStart.year >= today.year
+                        }
+
+                        IconButton(
+                            onClick = {
+                                currentPeriodStart = when (selectedFilter) {
+                                    DateFilter.DAY -> currentPeriodStart.minusDays(1)
+                                    DateFilter.WEEK -> currentPeriodStart.minusWeeks(1)
+                                    DateFilter.WEEK_RANGE -> currentPeriodStart.minusWeeks(1)
+                                    DateFilter.MONTH -> currentPeriodStart.minusMonths(1).withDayOfMonth(1)
+                                    DateFilter.YEAR -> currentPeriodStart.minusYears(1)
+                                }
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                null,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+
+                        Text(
+                            text = dateText,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .clickable {
+                                    if (selectedFilter == DateFilter.WEEK_RANGE)
+                                        showRangePicker = true
+                                    else
+                                        showDatePicker = true
+                                }
+                        )
+
+                        IconButton(
+                            onClick = {
+                                currentPeriodStart = when (selectedFilter) {
+                                    DateFilter.DAY -> currentPeriodStart.plusDays(1)
+                                    DateFilter.WEEK -> currentPeriodStart.plusWeeks(1)
+                                    DateFilter.WEEK_RANGE -> currentPeriodStart.plusWeeks(1)
+                                    DateFilter.MONTH -> currentPeriodStart.plusMonths(1).withDayOfMonth(1)
+                                    DateFilter.YEAR -> currentPeriodStart.plusYears(1)
+                                }
+                            },
+                            enabled = !isNextDisabled,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                null,
+                                tint = if (isNextDisabled)
+                                    MaterialTheme.colorScheme.outlineVariant
+                                else
+                                    MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(12.dp)
+                            )
                         }
                     }
 
-                    Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(4.dp))
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
 
-                    // NEW: three stat columns with period-over-period delta
+                    // ─────────────────────────────
+                    // SUMMARY
+                    // ─────────────────────────────
+
                     val expense = summary?.totalExpense ?: 0.0
                     val income = summary?.totalIncome ?: 0.0
                     val balance = summary?.balance ?: 0.0
+
                     val prevExpense = previousSummary?.totalExpense ?: 0.0
                     val prevIncome = previousSummary?.totalIncome ?: 0.0
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.Top
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
+
                         SummaryStatCell(
                             label = "Expense",
+                            style = MaterialTheme.typography.titleSmall,
                             value = expense.formatAsCurrency(),
                             valueColor = MaterialTheme.colorScheme.error,
                             previousValue = prevExpense,
@@ -504,9 +525,12 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             higherIsBetter = false,
                             modifier = Modifier.weight(1f)
                         )
+
                         VerticalStatDivider()
+
                         SummaryStatCell(
                             label = "Income",
+                            style = MaterialTheme.typography.titleSmall,
                             value = income.formatAsCurrency(),
                             valueColor = MaterialTheme.colorScheme.tertiary,
                             previousValue = prevIncome,
@@ -514,62 +538,60 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             higherIsBetter = true,
                             modifier = Modifier.weight(1f)
                         )
+
                         VerticalStatDivider()
+
                         SummaryStatCell(
                             label = "Balance",
+                            style = MaterialTheme.typography.titleSmall,
                             value = balance.formatAsCurrency(),
-                            valueColor = if (balance >= 0) MaterialTheme.colorScheme.tertiary
-                            else MaterialTheme.colorScheme.error,
+                            valueColor =
+                                if (balance >= 0)
+                                    MaterialTheme.colorScheme.tertiary
+                                else
+                                    MaterialTheme.colorScheme.error,
                             modifier = Modifier.weight(1f)
                         )
                     }
-
-                    // NEW: budget progress bar (only shown when budget is set)
+                    // ─────────────────────────────
+                    // BUDGET (COMPACTED SPACING ONLY)
+                    // ─────────────────────────────
                     summary?.budget?.let { budget ->
                         if (budget > 0) {
+
                             val fraction = (expense / budget).toFloat().coerceIn(0f, 1f)
                             val overBudget = expense > budget
-                            Spacer(Modifier.height(14.dp))
-                            HorizontalDivider(
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
-                            Spacer(Modifier.height(10.dp))
+
+                            Spacer(Modifier.height(8.dp))
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(
-                                    "Budget",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Text("Budget", style = MaterialTheme.typography.labelSmall)
                                 Text(
                                     "${expense.formatAsCurrency()} / ${budget.formatAsCurrency()}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (overBudget) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (overBudget)
+                                        MaterialTheme.colorScheme.error
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(Modifier.height(4.dp))
+
+                            Spacer(Modifier.height(3.dp))
+
                             LinearProgressIndicator(
                                 progress = { fraction },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color = if (overBudget) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    .height(5.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = if (overBudget)
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.primary
                             )
-                            if (overBudget) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "Over budget by ${(expense - budget).formatAsCurrency()}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
                         }
                     }
                 }
@@ -585,8 +607,12 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             fontWeight = FontWeight.Medium
                         )
                         Spacer(Modifier.height(12.dp))
-                        val days = (0..6).map { currentPeriodStart.plusDays(it.toLong()) }
-                        val maxAmount = dailyTotals.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+                        val days = remember(currentPeriodStart) { 
+                            (0..6).map { currentPeriodStart.plusDays(it.toLong()) } 
+                        }
+                        val maxAmount by remember(dailyTotals) {
+                            derivedStateOf { dailyTotals.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0 }
+                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -634,19 +660,20 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                             .clip(RoundedCornerShape(3.dp))
                                             .background(MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
-                                        if (fraction > 0f) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .fillMaxHeight(fraction)
-                                                    .align(Alignment.BottomCenter)
-                                                    .clip(RoundedCornerShape(3.dp))
-                                                    .background(
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .animateContentSize() // NEW: Smooth out changes
+                                                .fillMaxHeight(fraction.coerceIn(0.01f, 1f))
+                                                .align(Alignment.BottomCenter)
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(
+                                                    if (amount > 0) {
                                                         if (isToday) MaterialTheme.colorScheme.primary
                                                         else MaterialTheme.colorScheme.error
-                                                    )
-                                            )
-                                        }
+                                                    } else Color.Transparent
+                                                )
+                                        )
                                     }
                                     Spacer(Modifier.height(4.dp))
                                     Text(
@@ -715,7 +742,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
 
                     if (trends.isNotEmpty()) {
                         // NEW: quick total above chart
-                        val trendTotal = trends.sumOf { it.amount }
+                        val trendTotal = trends["Total"]?.sumOf { it.amount } ?: 0.0
                         Text(
                             text = trendTotal.formatAsCurrency(),
                             style = MaterialTheme.typography.titleMedium,
@@ -730,6 +757,37 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                 .fillMaxWidth()
                                 .height(180.dp)
                         )
+                        
+                        // NEW: simple legend
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                            maxItemsInEachRow = 3
+                        ) {
+                            val colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                Color(0xFFF44336),
+                                Color(0xFF4CAF50),
+                                Color(0xFFFF9800),
+                                Color(0xFF9C27B0)
+                            )
+                            trends.keys.forEachIndexed { index, cat ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(colors.getOrElse(index) { Color.Gray })
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = cat,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     } else {
                         ChartEmptyState("No trend data for this period")
                     }
@@ -764,6 +822,8 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             distribution = dist,
                             allCategories = allCategories,
                             modifier = Modifier.fillMaxWidth(),
+                            showTitle = false,
+                            showCard = false,
                             onCategoryClick = { categoryName ->
                                 drillDownCategory = categoryName
                             }
@@ -931,19 +991,27 @@ private fun FilterItemSimple(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        modifier = modifier.height(34.dp),
+        shape = MaterialTheme.shapes.small,
+        color = if (isSelected)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        contentColor = if (isSelected)
+            MaterialTheme.colorScheme.onPrimaryContainer
+        else
+            MaterialTheme.colorScheme.onSurfaceVariant
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            modifier = Modifier.padding(vertical = 6.dp),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -964,6 +1032,7 @@ private fun AnalyticsCard(content: @Composable ColumnScope.() -> Unit) {
 
 // ─── SummaryStatCell with period delta ────────────────────────────────────────
 
+
 @Composable
 private fun SummaryStatCell(
     label: String,
@@ -972,49 +1041,86 @@ private fun SummaryStatCell(
     previousValue: Double? = null,
     currentValue: Double? = null,
     higherIsBetter: Boolean = true,
+    style: androidx.compose.ui.text.TextStyle? = null,
     modifier: Modifier = Modifier
 ) {
+
+    val resolvedStyle = style ?: MaterialTheme.typography.titleSmall
+
+    val locale = remember { java.util.Locale.getDefault() }
+
+    val hasDelta = previousValue != null && currentValue != null && previousValue > 0
+
+    val delta = if (hasDelta) {
+        ((currentValue!! - previousValue!!) / previousValue) * 100
+    } else 0.0
+
+    val isPositive = delta > 0
+    val isGood = if (higherIsBetter) isPositive else !isPositive
+
+    val deltaColor = if (isGood)
+        MaterialTheme.colorScheme.tertiary
+    else
+        MaterialTheme.colorScheme.error
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.85f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    val deltaText = remember(delta) {
+        "${if (delta > 0) "+" else ""}${"%.1f".format(delta)}%"
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(horizontal = 4.dp)
+        modifier = modifier.padding(horizontal = 2.dp)
     ) {
+
         Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            maxLines = 1
         )
+
         Spacer(Modifier.height(4.dp))
+
         AnimatedContent(
             targetState = value,
-            transitionSpec = { fadeIn(tween(180)).togetherWith(fadeOut(tween(180))) },
-            label = "StatValue"
+            transitionSpec = {
+                fadeIn(tween(150)).togetherWith(fadeOut(tween(150)))
+            },
+            label = "value_anim"
         ) { v ->
+
             Text(
                 text = v,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Medium,
-                color = valueColor,
+                style = resolvedStyle,
+                fontWeight = FontWeight.Bold,
+                color = valueColor.copy(alpha = pulseAlpha),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = if (value.length > 10) 12.sp else 15.sp
+                overflow = TextOverflow.Ellipsis
             )
         }
 
-        // NEW: period comparison delta
-        if (previousValue != null && currentValue != null && previousValue > 0) {
-            val delta = ((currentValue - previousValue) / previousValue) * 100
-            val isPositive = delta > 0
-            val isGood = if (higherIsBetter) isPositive else !isPositive
-            val deltaColor = if (isGood) MaterialTheme.colorScheme.tertiary
-            else MaterialTheme.colorScheme.error
+        if (hasDelta) {
+
             Spacer(Modifier.height(2.dp))
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
+
                 Icon(
                     imageVector = when {
                         delta > 1.0 -> Icons.AutoMirrored.Filled.TrendingUp
@@ -1025,14 +1131,27 @@ private fun SummaryStatCell(
                     modifier = Modifier.size(12.dp),
                     tint = deltaColor
                 )
+
                 Spacer(Modifier.width(2.dp))
+
                 Text(
-                    text = "${if (isPositive) "+" else ""}${String.format("%.1f", delta)}%",
+                    text = deltaText,
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 11.sp,
                     color = deltaColor
                 )
             }
+
+        } else {
+
+            Spacer(Modifier.height(2.dp))
+
+            Text(
+                text = "—",
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
         }
     }
 }

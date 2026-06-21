@@ -6,6 +6,7 @@ package com.example.expncetracker.exptkr.ui.settings
 data class SettingsUiState(
     val isSignedIn: Boolean = false,
     val accountName: String? = null,
+    val accountPhotoUrl: String? = null,
     val lastSyncTime: String? = null,
     val isDarkMode: Boolean = false,
     val isBiometricEnabled: Boolean = false,

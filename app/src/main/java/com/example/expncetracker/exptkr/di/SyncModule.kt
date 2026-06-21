@@ -30,8 +30,9 @@ object SyncModule {
     @Provides
     @Singleton
     fun provideGoogleDriveSyncManager(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        googleSignInClient: GoogleSignInClient
     ): GoogleDriveSyncManager {
-        return GoogleDriveSyncManager(context)
+        return GoogleDriveSyncManager(context, googleSignInClient)
     }
 }

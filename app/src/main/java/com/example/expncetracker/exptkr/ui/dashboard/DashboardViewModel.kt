@@ -49,13 +49,13 @@ class DashboardViewModel @Inject constructor(
     private val _statusEvent = Channel<String>(Channel.BUFFERED)
     val statusEvent = _statusEvent.receiveAsFlow()
 
-    val trends: StateFlow<List<SpendingTrend>> = _selectedFilter.flatMapLatest { filter ->
+    val trends: StateFlow<Map<String, List<SpendingTrend>>> = _selectedFilter.flatMapLatest { filter ->
         val rangeDays = when (filter) {
             DateFilter.DAY, DateFilter.WEEK -> filter.toDays()
             else -> 30
         }
         getTrendsUseCase(rangeDays)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val uiState: StateFlow<DashboardUiState> = combine(
         _selectedFilter,
@@ -100,7 +100,7 @@ class DashboardViewModel @Inject constructor(
         .combine(repository.getAllRecurringTransactions().distinctUntilChanged()) { (summary, recent), recurring -> Triple(summary, recent, recurring) }
         .combine(categoryDao.getAllCategories().distinctUntilChanged()) { triple, categories -> triple to categories }
         .combine(goalDao.getAllGoals().distinctUntilChanged()) { pair, goals -> pair to goals }
-        .combine(trends) { pair, trendList ->
+        .combine(trends) { pair, trendMap ->
             val (summaryRecentRecurring, categories) = pair.first
             val (summary, recent, recurring) = summaryRecentRecurring
             val goals = pair.second
@@ -113,7 +113,7 @@ class DashboardViewModel @Inject constructor(
                     summary = summary,
                     recentTransactions = recent,
                     recurringTransactions = recurring,
-                    trends = trendList,
+                    trends = trendMap.getOrDefault("Total", emptyList()),
                     distribution = distribution,
                     allCategories = categories,
                     goals = goals

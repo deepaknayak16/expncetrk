@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.entity.AccountEntity
+import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
+import com.example.expncetracker.exptkr.domain.model.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -12,16 +14,53 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
-    private val accountDao: AccountDao
+    private val accountDao: AccountDao,
+    private val getSummaryUseCase: GetSummaryUseCase
 ) : ViewModel() {
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
+    private val _showAddDialog = MutableStateFlow(false)
+    val showAddDialog = _showAddDialog.asStateFlow()
+
+    val summary = getSummaryUseCase(DateFilter.MONTH)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val accounts = accountDao.getAllAccounts()
+        .map { list ->
+            list.map { entity ->
+                AccountUiModel(
+                    id = entity.id,
+                    name = entity.name,
+                    balance = entity.balance,
+                    type = entity.type,
+                    color = entity.color
+                )
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _statusEvent = Channel<String>(Channel.BUFFERED)
     val statusEvent = _statusEvent.receiveAsFlow()
 
-    // FIX #16: Emit error when name already exists
+    fun triggerAddAccount() {
+        _showAddDialog.value = true
+    }
+
+    fun onDialogDismissed() {
+        _showAddDialog.value = false
+    }
+
+    fun refreshAccounts() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            // Simulating refresh delay
+            kotlinx.coroutines.delay(1000)
+            _isRefreshing.value = false
+        }
+    }
+
     fun addAccount(name: String, balance: Double, type: String) {
         viewModelScope.launch {
             val existing = accountDao.getAccountByName(name)
@@ -48,7 +87,6 @@ class AccountsViewModel @Inject constructor(
         }
     }
 
-    // FIX #16: Emit error when name collides with a different account
     fun updateAccount(id: Long, name: String, balance: Double, type: String) {
         viewModelScope.launch {
             val existing = accountDao.getAccountByName(name)

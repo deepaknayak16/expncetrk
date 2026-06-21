@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
@@ -61,10 +62,11 @@ fun AddTransactionScreen(
     onNavigateBack: () -> Unit,
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
-    val transactionToEdit by viewModel.transactionToEdit.collectAsState()
-    val accounts by viewModel.accounts.collectAsState()
-    val allCategories by viewModel.categories.collectAsState()
-    val suggestedCategory by viewModel.suggestedCategory.collectAsState()
+    val transactionToEdit by viewModel.transactionToEdit.collectAsStateWithLifecycle()
+    val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+    val allCategories by viewModel.categories.collectAsStateWithLifecycle()
+    val suggestedCategory by viewModel.suggestedCategory.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var amountText by remember { mutableStateOf("") }
     var merchantName by remember { mutableStateOf("") }
@@ -81,6 +83,24 @@ fun AddTransactionScreen(
 
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+
+    LaunchedEffect(uiState.isSaved) {
+        if (uiState.isSaved) {
+            onNavigateBack()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearEdit()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.statusEvent.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val contactPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickContact()
@@ -195,90 +215,60 @@ fun AddTransactionScreen(
                     // FIX: inline save button instead of bare icon — clearer affordance
                         Button(
                             onClick = {
-                                val amount = runCatching {
-                                    evaluate(amountText)
-                                }.getOrDefault(-1.0)
+                                val tagList = tagsInput
+                                    .split(",")
+                                    .map { it.trim() }
+                                    .filter { it.isNotEmpty() }
+                                    .map { if (it.startsWith("#")) it else "#$it" }
 
-                                when {
-                                    amount < 0 ->
-                                        Toast.makeText(
-                                            context,
-                                            "Invalid expression",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                    amount == 0.0 ->
-                                        Toast.makeText(
-                                            context,
-                                            "Enter an amount",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                    merchantName.isBlank() ->
-                                        Toast.makeText(
-                                            context,
-                                            "Enter merchant",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                    selectedAccount == null ->
-                                        Toast.makeText(
-                                            context,
-                                            "Select account",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                    else -> {
-                                        val tagList = tagsInput
-                                            .split(",")
-                                            .map { it.trim() }
-                                            .filter { it.isNotEmpty() }
-                                            .map { if (it.startsWith("#")) it else "#$it" }
-
-                                        viewModel.addTransaction(
-                                            id = transactionId ?: 0L,
-                                            amount = amount,
-                                            type = selectedType,
-                                            category = selectedCategoryName,
-                                            merchant = merchantName.trim(),   // FIX #5: was description = merchantName.trim()
-                                            note = note.trim(),
-                                            bankName = selectedAccount!!.name,
-                                            accountId = selectedAccount?.id ?: 0L, // FIX #5: add this line (before or after other params)
-                                            counterparty = counterparty.trim().ifEmpty { null },
-                                            isRecurring = isRecurring,
-                                            frequency = if (isRecurring) recurrenceFrequency else null,
-                                            tags = tagList,
-                                            timestamp = transactionDate
-                                        )
-
-                                        Toast.makeText(
-                                            context,
-                                            "Transaction saved!",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                        onNavigateBack()
-                                    }
-                                }
+                                viewModel.addTransaction(
+                                    id = transactionId ?: 0L,
+                                    amountText = amountText,
+                                    type = selectedType,
+                                    category = selectedCategoryName,
+                                    merchant = merchantName.trim(),
+                                    note = note.trim(),
+                                    bankName = selectedAccount?.name ?: "",
+                                    accountId = selectedAccount?.id ?: 0L,
+                                    counterparty = counterparty.trim().ifEmpty { null },
+                                    isRecurring = isRecurring,
+                                    frequency = if (isRecurring) recurrenceFrequency else null,
+                                    tags = tagList,
+                                    timestamp = transactionDate
+                                )
                             },
+                            enabled = viewModel.isFormValid(
+                                amountText,
+                                merchantName,
+                                selectedCategoryName,
+                                selectedAccount?.name ?: ""
+                            ) && !uiState.isSaving,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF10B981),
-                                contentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             modifier = Modifier.padding(end = 8.dp),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 14.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Save",
-                                fontWeight = FontWeight.Medium
-                            )
+                            if (uiState.isSaving) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "Save",
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -300,13 +290,12 @@ fun AddTransactionScreen(
             ) {
 
                 // ── Type selector ───────────────────────────────────────────
-                // FIX: horizontally scrolling pill row — no weight(1f) squishing
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val types = listOf(
                         TransactionType.CREDIT to "Income",
@@ -320,11 +309,11 @@ fun AddTransactionScreen(
                             label = label,
                             isSelected = selectedType == type,
                             selectedColor = when (type) {
-                                TransactionType.CREDIT -> Color(0xFF10B981)
-                                TransactionType.DEBIT -> Color(0xFFEF4444)
-                                TransactionType.TRANSFER -> Color(0xFF3B82F6)
-                                TransactionType.LEND -> Color(0xFFF97316)
-                                TransactionType.BORROW -> Color(0xFF8B5CF6)
+                                TransactionType.CREDIT -> MaterialTheme.colorScheme.primary
+                                TransactionType.DEBIT -> MaterialTheme.colorScheme.error
+                                TransactionType.TRANSFER -> MaterialTheme.colorScheme.secondary
+                                TransactionType.LEND -> MaterialTheme.colorScheme.tertiary
+                                TransactionType.BORROW -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                             },
                             onClick = {
                                 selectedType = type
@@ -348,8 +337,8 @@ fun AddTransactionScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     DropdownSelector(
                         value = selectedAccount?.name ?: "Account",
@@ -364,48 +353,49 @@ fun AddTransactionScreen(
                     ) { showCategorySheet = true }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // ── Amount display ──────────────────────────────────────────
-                // FIX: amount uses typeColor so debit = red, credit = green at a glance
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = typeColor.copy(alpha = 0.06f),
-                    border = BorderStroke(1.dp, typeColor.copy(alpha = 0.2f))
+                        .padding(horizontal = 16.dp)
+                        .height(72.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = typeColor.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, typeColor.copy(alpha = 0.3f))
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 20.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             "₹",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = typeColor.copy(alpha = 0.6f),
+                            style = MaterialTheme.typography.displaySmall,
+                            color = typeColor.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Light
                         )
                         Text(
                             text = displayAmount,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.displaySmall,
                             color = typeColor,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // ── Text fields ─────────────────────────────────────────────
                 Column(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Counterparty (lend/borrow only)
                     if (selectedType == TransactionType.LEND || selectedType == TransactionType.BORROW) {
@@ -435,7 +425,7 @@ fun AddTransactionScreen(
                         value = merchantName,
                         onValueChange = {
                             merchantName = it
-                            viewModel.onMerchantNameChanged(it, selectedCategoryName)
+                            viewModel.onMerchantNameChanged(it, selectedCategoryName, userSelectedCategory)
                         },
                         placeholder = "Merchant / payee",
                         leadingIcon = Icons.Default.Store
@@ -520,13 +510,13 @@ fun AddTransactionScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF181111))
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 // Date / time row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
@@ -550,7 +540,7 @@ fun AddTransactionScreen(
                         modifier = Modifier
                             .width(0.5.dp)
                             .height(14.dp)
-                            .background(Color.White.copy(alpha = 0.15f))
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     )
 
                     TextButton(
@@ -627,6 +617,7 @@ fun AddTransactionScreen(
                     }
                 )
             }
+
         }
     }
 
@@ -971,17 +962,19 @@ fun CalculatorKeypad(
     onDeleteClick: () -> Unit,
     onBracketClick: () -> Unit
 ) {
-    val opBg = Color(0xFF3F51B5)
-    val accentBlue = Color(0xFF60A5FA)
-    val clearBg = Color(0xFFEF4444).copy(alpha = 0.15f)
-    val clearFg = Color(0xFFEF4444)
-    val eqBg = Color(0xFFFFEB3B)
+    val opBg = MaterialTheme.colorScheme.secondaryContainer
+    val opFg = MaterialTheme.colorScheme.onSecondaryContainer
+    val accentFg = MaterialTheme.colorScheme.primary
+    val clearBg = MaterialTheme.colorScheme.errorContainer
+    val clearFg = MaterialTheme.colorScheme.onErrorContainer
+    val eqBg = MaterialTheme.colorScheme.primary
+    val eqFg = MaterialTheme.colorScheme.onPrimary
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(Color(0xFFDA9797))
+            .background(MaterialTheme.colorScheme.surface)
             .padding(8.dp)
     ) {
         val rowMod = Modifier
@@ -991,30 +984,30 @@ fun CalculatorKeypad(
 
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
             CalcKey("AC", Modifier.weight(1f), clearBg, clearFg) { onClearClick() }
-            CalcKey("( )", Modifier.weight(1f), opBg) { onBracketClick() }
-            CalcKey("%", Modifier.weight(1f), opBg) { onOperatorClick("%") }
-            CalcKey("÷", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("/") }
+            CalcKey("( )", Modifier.weight(1f), opBg, opFg) { onBracketClick() }
+            CalcKey("%", Modifier.weight(1f), opBg, opFg) { onOperatorClick("%") }
+            CalcKey("÷", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("/") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
             CalcKey("7", Modifier.weight(1f)) { onDigitClick("7") }
             CalcKey("8", Modifier.weight(1f)) { onDigitClick("8") }
             CalcKey("9", Modifier.weight(1f)) { onDigitClick("9") }
-            CalcKey("×", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("*") }
+            CalcKey("×", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("*") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
             CalcKey("4", Modifier.weight(1f)) { onDigitClick("4") }
             CalcKey("5", Modifier.weight(1f)) { onDigitClick("5") }
             CalcKey("6", Modifier.weight(1f)) { onDigitClick("6") }
-            CalcKey("−", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("-") }
+            CalcKey("−", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("-") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
             CalcKey("1", Modifier.weight(1f)) { onDigitClick("1") }
             CalcKey("2", Modifier.weight(1f)) { onDigitClick("2") }
             CalcKey("3", Modifier.weight(1f)) { onDigitClick("3") }
-            CalcKey("+", Modifier.weight(1f), opBg, accentBlue) { onOperatorClick("+") }
+            CalcKey("+", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("+") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -1024,9 +1017,9 @@ fun CalculatorKeypad(
                 icon = Icons.AutoMirrored.Filled.Backspace,
                 modifier = Modifier.weight(1f),
                 backgroundColor = Color.Transparent,
-                contentColor = Color.Black.copy(alpha = 1.5f)
+                contentColor = MaterialTheme.colorScheme.onSurface
             ) { onDeleteClick() }
-            CalcKey("=", Modifier.weight(1f), eqBg, Color.Black) { onEqualsClick() }
+            CalcKey("=", Modifier.weight(1f), eqBg, eqFg) { onEqualsClick() }
         }
     }
 }
@@ -1035,8 +1028,8 @@ fun CalculatorKeypad(
 private fun RowScope.CalcKey(
     text: String? = null,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = Color(0xFF161B22),
-    contentColor: Color = Color.Black,
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
@@ -1044,7 +1037,7 @@ private fun RowScope.CalcKey(
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = tween(100)
+        animationSpec = tween(100), label = ""
     )
     Surface(
         onClick = {
@@ -1054,9 +1047,10 @@ private fun RowScope.CalcKey(
         },
         modifier = modifier
             .fillMaxHeight()
+            .scale(scale)
             .minimumInteractiveComponentSize(),
-        shape = RoundedCornerShape(10.dp)
-
+        shape = RoundedCornerShape(10.dp),
+        color = backgroundColor
     )
     {
         Box(contentAlignment = Alignment.Center) {

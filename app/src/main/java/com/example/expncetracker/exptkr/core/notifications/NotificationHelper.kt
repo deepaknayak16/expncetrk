@@ -5,7 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import com.example.expncetracker.R
+import com.example.expncetracker.exptkr.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -37,7 +37,7 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
         val message = "You've reached $spentPercentage% of your budget for $categoryName."
         
         val notification = NotificationCompat.Builder(context, CHANNEL_BUDGET)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Use app icon
+            .setSmallIcon(R.drawable.ic_stat_name) // Use app icon
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

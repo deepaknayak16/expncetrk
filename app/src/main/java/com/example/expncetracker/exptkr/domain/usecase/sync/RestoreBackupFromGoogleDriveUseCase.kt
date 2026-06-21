@@ -1,13 +1,13 @@
-package com.example.expncetracker.exptkr.domain.usecase
+package com.example.expncetracker.exptkr.domain.usecase.sync
 
 import android.content.Context
 import com.example.expncetracker.exptkr.core.common.Constants
+import com.example.expncetracker.exptkr.core.sync.GoogleDriveSyncManager
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import com.example.expncetracker.exptkr.data.model.TransactionDto
 import com.example.expncetracker.exptkr.data.model.toDomain
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
-import com.google.api.client.http.ByteArrayContent
 import com.google.api.services.drive.Drive
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -17,8 +17,7 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
-    private val driveSyncManager: GoogleDriveSyncManager, // Inject manager instead
-    private val driveService: Drive,
+    private val driveSyncManager: GoogleDriveSyncManager,
     private val repository: TransactionRepository,
     private val accountDao: AccountDao,
     private val transactionDao: TransactionDao,
@@ -26,6 +25,7 @@ class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
 ) {
     suspend fun execute(): Boolean = withContext(Dispatchers.IO) {
         try {
+            val driveService = driveSyncManager.getDriveService() ?: return@withContext false
             val fileList = driveService.files().list()
                 .setQ("name='${Constants.BACKUP_FILE_NAME}' and trashed=false")
                 .setSpaces("appDataFolder")

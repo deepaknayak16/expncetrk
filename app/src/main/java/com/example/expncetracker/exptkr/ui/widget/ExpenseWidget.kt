@@ -11,7 +11,7 @@ import androidx.glance.appwidget.*
 import androidx.glance.layout.*
 import androidx.glance.text.*
 import androidx.glance.GlanceTheme
-import com.example.expncetracker.R
+import com.example.expncetracker.exptkr.R
 import com.example.expncetracker.exptkr.MainActivity
 import com.example.expncetracker.exptkr.data.db.AppDatabase
 import kotlinx.coroutines.flow.first

@@ -74,17 +74,17 @@ class AnalyticsViewModel @Inject constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val trends: StateFlow<List<SpendingTrend>> = combine(_trendDays, _refreshTrigger) { days, _ -> days }
+    val trends: StateFlow<Map<String, List<SpendingTrend>>> = combine(_trendDays, _refreshTrigger) { days, _ -> days }
         .flatMapLatest { days ->
             getTrendsUseCase(days)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val dailyTotals: StateFlow<Map<LocalDate, Double>> = combine(_weekRange, _refreshTrigger) { range, _ -> range }
         .flatMapLatest { range ->
             getDailyTotalsUseCase(range.first, range.second)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    private val _currentTransactions = combine(_weekRange, _refreshTrigger) { range, _ -> range }
+    val currentTransactions: StateFlow<List<Transaction>> = combine(_weekRange, _refreshTrigger) { range, _ -> range }
         .flatMapLatest { range ->
             val startMillis = range.first.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             val endMillis = range.second.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -115,7 +115,7 @@ class AnalyticsViewModel @Inject constructor(
 
     fun setWeekRange(start: LocalDate, end: LocalDate) {
         _weekRange.value = Pair(start, end)
-        _selectedFilter.value = DateFilter.WEEK_RANGE
+        // Removed: _selectedFilter.value = DateFilter.WEEK_RANGE
     }
 
     fun setCustomRange(startMillis: Long, endMillis: Long) {
@@ -155,7 +155,7 @@ class AnalyticsViewModel @Inject constructor(
     }
 
     fun getTransactionsForCategory(categoryName: String): List<Transaction> {
-        return _currentTransactions.value.filter { it.categoryName == categoryName }
+        return currentTransactions.value.filter { it.categoryName == categoryName }
     }
 
     fun refreshData() {

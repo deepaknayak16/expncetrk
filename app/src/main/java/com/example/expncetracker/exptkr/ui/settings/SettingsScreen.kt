@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import com.example.expncetracker.BuildConfig
+import com.example.expncetracker.exptkr.BuildConfig
 import com.example.expncetracker.exptkr.core.common.Constants.FILE_PROVIDER_AUTHORITY
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter

@@ -4,12 +4,10 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.core.common.SecurityUtils // FIX #1
-import com.example.expncetracker.exptkr.data.db.converter.Converters
 import com.example.expncetracker.exptkr.data.db.dao.*
 import com.example.expncetracker.exptkr.data.db.entity.*
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory // FIX #2
@@ -25,7 +23,6 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory // FIX #2
     version = 10,
     exportSchema = true
 )
-@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun accountDao(): AccountDao

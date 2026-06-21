@@ -1,8 +1,10 @@
 package com.example.expncetracker.exptkr.core.sync
 
 import android.content.Context
-import com.example.expncetracker.BuildConfig
+import android.util.Log
+import com.example.expncetracker.exptkr.BuildConfig
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -11,6 +13,7 @@ import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -21,10 +24,21 @@ import javax.inject.Singleton
  */
 @Singleton
 class GoogleDriveSyncManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val googleSignInClient: GoogleSignInClient
 ) {
 
     private var driveService: Drive? = null
+
+    /**
+     * Get the Drive service, initializing it if necessary.
+     */
+    fun getDriveService(): Drive? {
+        if (driveService == null) {
+            initializeDriveService()
+        }
+        return driveService
+    }
 
     /**
      * Initialize the Google Drive service using the last signed-in account.

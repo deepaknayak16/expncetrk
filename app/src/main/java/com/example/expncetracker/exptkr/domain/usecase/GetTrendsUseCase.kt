@@ -14,57 +14,75 @@ import javax.inject.Inject
 class GetTrendsUseCase @Inject constructor(
     private val repository: TransactionRepository
 ) {
-    operator fun invoke(days: Int = 30): Flow<List<SpendingTrend>> {
+    operator fun invoke(days: Int = 30): Flow<Map<String, List<SpendingTrend>>> {
         val now = LocalDateTime.now()
         val endMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val startDateTime = now.minusDays(days.toLong()).withHour(0).withMinute(0)
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         return repository.getTransactionsInRange(startMillis, endMillis).map { txList ->
-            val trends = mutableMapOf<String, Double>()
-            
-            // For smaller ranges, group by day. For larger, group by month?
-            // The user's screen seems to expect labels like "MMM 'yy" but for 1W/1M it might be different.
-            // Let's stick to month-based if days > 30, otherwise maybe day-based?
-            // Actually, the original implementation was month-based.
+            val labels = mutableListOf<String>()
+            val totalTrends = mutableMapOf<String, Double>()
+            val categoryTrends = mutableMapOf<String, MutableMap<String, Double>>()
             
             if (days <= 30) {
-                // Day-based for 1W/1M - Ensure we cover the full range including the start day
+                // Day-based for 1W/1M - Start from Today and move backward
                 for (i in 0..days) {
                     val date = now.minusDays(i.toLong()).toLocalDate()
                     val label = date.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM"))
-                    trends[label] = 0.0
+                    labels.add(label)
+                    totalTrends[label] = 0.0
                 }
                 txList.forEach { tx ->
                     if (tx.type == TransactionType.DEBIT) {
                         val label = tx.timestamp.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd MMM"))
-                        if (trends.containsKey(label)) {
-                            trends[label] = trends[label]!! + tx.amount
+                        if (totalTrends.containsKey(label)) {
+                            totalTrends[label] = totalTrends[label]!! + tx.amount
+                            
+                            val catMap = categoryTrends.getOrPut(tx.categoryName) { labels.associateWith { 0.0 }.toMutableMap() }
+                            catMap[label] = (catMap[label] ?: 0.0) + tx.amount
                         }
                     }
                 }
             } else {
-                // Month-based - Ensure we cover all months in the range
+                // Month-based - Start from Current Month and move backward
                 val startMonth = startDateTime.toLocalDate().withDayOfMonth(1)
                 var currentMonth = now.toLocalDate().withDayOfMonth(1)
                 
                 while (!currentMonth.isBefore(startMonth)) {
                     val label = "${currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${currentMonth.year % 100}"
-                    trends[label] = 0.0
+                    labels.add(label)
+                    totalTrends[label] = 0.0
                     currentMonth = currentMonth.minusMonths(1)
                 }
 
                 txList.forEach { tx ->
                     if (tx.type == TransactionType.DEBIT) {
                         val label = "${tx.timestamp.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} '${tx.timestamp.year % 100}"
-                        if (trends.containsKey(label)) {
-                            trends[label] = trends[label]!! + tx.amount
+                        if (totalTrends.containsKey(label)) {
+                            totalTrends[label] = totalTrends[label]!! + tx.amount
+                            
+                            val catMap = categoryTrends.getOrPut(tx.categoryName) { labels.associateWith { 0.0 }.toMutableMap() }
+                            catMap[label] = (catMap[label] ?: 0.0) + tx.amount
                         }
                     }
                 }
             }
 
-            trends.entries.map { SpendingTrend(it.key, it.value) }.reversed()
+            val result = mutableMapOf<String, List<SpendingTrend>>()
+            
+            // Add Total - No .reversed() call ensures index 0 (Today) is on the left
+            result["Total"] = labels.map { SpendingTrend(it, totalTrends[it] ?: 0.0) }
+            
+            // Add top 4 categories by total volume
+            categoryTrends.entries
+                .sortedByDescending { it.value.values.sum() }
+                .take(4)
+                .forEach { (cat, trends) ->
+                    result[cat] = labels.map { SpendingTrend(it, trends[it] ?: 0.0) }
+                }
+
+            result
         }
     }
 }

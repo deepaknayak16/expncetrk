@@ -1,6 +1,6 @@
 package com.example.expncetracker.exptkr.core.parser.bank
 
-import com.example.expncetracker.BuildConfig
+import com.example.expncetracker.exptkr.BuildConfig
 import com.example.expncetracker.exptkr.core.parser.BankParser
 import com.example.expncetracker.exptkr.core.parser.ParsedSms
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime

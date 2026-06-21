@@ -1,5 +1,6 @@
 package com.example.expncetracker.exptkr.ui.transactions
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -22,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,7 +42,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TransactionScreen(
     viewModel: TransactionViewModel,
@@ -126,50 +129,53 @@ fun TransactionScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.onSearchQueryChange(it) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(52.dp),
                         placeholder = {
                             Text(
-                                "Search...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                style = MaterialTheme.typography.bodyLarge
+                                "Search transactions...",
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Search,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         },
-                        shape = MaterialTheme.shapes.large,
+                        shape = MaterialTheme.shapes.extraLarge,
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
                         ),
                         singleLine = true
                     )
 
-                    IconButton(
-                        onClick = { showSortMenu = true },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.large)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.large)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Sort,
-                            contentDescription = "Sort",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    Box {
+                        IconButton(
+                            onClick = { showSortMenu = true },
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    MaterialTheme.shapes.extraLarge
+                                )
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Sort,
+                                contentDescription = "Sort",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                         DropdownMenu(
                             expanded = showSortMenu,
                             onDismissRequest = { showSortMenu = false }
@@ -183,7 +189,7 @@ fun TransactionScreen(
                                     },
                                     leadingIcon = {
                                         if (sortOrder == order) {
-                                            Icon(Icons.Default.Check, contentDescription = null)
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                         }
                                     }
                                 )
@@ -195,24 +201,19 @@ fun TransactionScreen(
                     IconButton(
                         onClick = { showFilterSheet = true },
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(52.dp)
                             .background(
                                 if (isFilterActive) MaterialTheme.colorScheme.primaryContainer 
-                                else MaterialTheme.colorScheme.surface, 
-                                MaterialTheme.shapes.large
-                            )
-                            .border(
-                                1.dp, 
-                                if (isFilterActive) MaterialTheme.colorScheme.primary 
-                                else MaterialTheme.colorScheme.outlineVariant, 
-                                MaterialTheme.shapes.large
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), 
+                                MaterialTheme.shapes.extraLarge
                             )
                     ) {
                         Icon(
                             Icons.Default.FilterList,
                             contentDescription = "Filter",
                             tint = if (isFilterActive) MaterialTheme.colorScheme.primary 
-                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -290,7 +291,7 @@ fun TransactionScreen(
                                     item {
                                         Text(
                                             text = date,
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(top = 8.dp)
@@ -332,23 +333,41 @@ fun TransactionDetailContent(
     val isDebt = transaction.type == TransactionType.LEND || transaction.type == TransactionType.BORROW
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Transaction Details", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(
+            text = "Transaction Details",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        
         Spacer(Modifier.height(24.dp))
         
-        Surface(modifier = Modifier.size(80.dp), shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)) {
+        Surface(
+            modifier = Modifier.size(64.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+        ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    imageVector = Icons.Default.ReceiptLong,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
         
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
         
         Text(
             text = transaction.amount.formatAsCurrency(),
-            style = MaterialTheme.typography.displayMedium,
+            style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Black,
             color = when(transaction.type) {
                 TransactionType.CREDIT, TransactionType.BORROW -> if (isDark) DarkIncome else LightIncome
@@ -357,21 +376,36 @@ fun TransactionDetailContent(
             }
         )
         
+        Text(
+            text = transaction.merchant,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        
         Spacer(Modifier.height(24.dp))
         
-        DetailItem("Merchant", transaction.merchant)
-        DetailItem("Category", transaction.categoryName)
-        if (transaction.counterparty != null) {
-            DetailItem(if (transaction.type == TransactionType.LEND) "Lent To" else "Borrowed From", transaction.counterparty!!)
-        }
-        DetailItem("Note", transaction.note?.takeIf { it.isNotBlank() } ?: "No note")
-        DetailItem("Bank/Account", transaction.bankName)
-        DetailItem("Date & Time", transaction.timestamp.formatToDisplay())
-        DetailItem("Source", if (transaction.smsId != null) "SMS Import" else "Manual Entry")
-        DetailItem("Type", transaction.type.name)
-        
-        if (transaction.isSettled) {
-            DetailItem("Status", "SETTLED")
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            DetailItemWithIcon(Icons.Default.Category, "Category", transaction.categoryName)
+            if (transaction.counterparty != null) {
+                DetailItemWithIcon(
+                    Icons.Default.Person,
+                    if (transaction.type == TransactionType.LEND) "Lent To" else "Borrowed From",
+                    transaction.counterparty
+                )
+            }
+            DetailItemWithIcon(Icons.AutoMirrored.Filled.Notes, "Note", transaction.note?.takeIf { it.isNotBlank() } ?: "No note")
+            DetailItemWithIcon(Icons.Default.AccountBalanceWallet, "Account", transaction.bankName)
+            DetailItemWithIcon(Icons.Default.AccessTime, "Date & Time", transaction.timestamp.formatToDisplay())
+            DetailItemWithIcon(
+                if (transaction.smsId != null) Icons.Default.Sms else Icons.Default.EditNote,
+                "Source",
+                if (transaction.smsId != null) "SMS Import" else "Manual Entry"
+            )
         }
 
         Spacer(Modifier.height(24.dp))
@@ -379,54 +413,126 @@ fun TransactionDetailContent(
         if (isDebt && !transaction.isSettled) {
             Button(
                 onClick = onSettle,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer)
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                )
             ) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Mark as Settled")
+                Text("Mark as Settled", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(8.dp))
         }
 
-        Button(
-            onClick = onSplit,
-            enabled = canSplit,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
-        ) {
-            Icon(Icons.Default.CallSplit, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Split Transaction")
+        if (canSplit) {
+            Button(
+                onClick = onSplit,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(Icons.Default.CallSplit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Split Transaction", fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(12.dp))
         }
-
-        Spacer(Modifier.height(16.dp))
         
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(
                 onClick = onDelete,
                 enabled = canDelete,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (canDelete) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant)
+                border = BorderStroke(1.dp, if (canDelete) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant)
             ) {
-                Icon(Icons.Default.Delete, contentDescription = null)
+                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Delete")
             }
             
-            Button(onClick = onEdit, enabled = canEdit, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Default.Edit, contentDescription = null)
+            Button(
+                onClick = onEdit,
+                enabled = canEdit,
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Edit")
             }
         }
         
         if (transaction.smsId != null) {
-            Text("SMS transactions: amount and merchant cannot be edited. Category, note, and tags can be updated.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+            Surface(
+                modifier = Modifier.padding(top = 16.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+            ) {
+                Text(
+                    text = "SMS imports have restricted editing for security and accuracy.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(12.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun DetailItemWithIcon(icon: ImageVector, label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(Modifier.width(12.dp))
+            
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -558,8 +664,12 @@ fun AdvancedFilterBottomSheet(
     onUpdate: (TransactionFilter) -> Unit,
     onSaveSmartFilter: (String) -> Unit
 ) {
-    val dateRangePickerState = rememberDateRangePickerState()
+    val dateRangePickerState = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = currentFilter.startDate,
+        initialSelectedEndDateMillis = currentFilter.endDate
+    )
     var showSmartFilterDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -569,33 +679,59 @@ fun AdvancedFilterBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text("Advanced Filters", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(24.dp))
-
-            // Date Range
-            Text("Date Range", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            DateRangePicker(
-                state = dateRangePickerState,
-                modifier = Modifier.height(400.dp),
-                title = null,
-                headline = null,
-                showModeToggle = false
-            )
-            
-            LaunchedEffect(dateRangePickerState.selectedStartDateMillis, dateRangePickerState.selectedEndDateMillis) {
-                onUpdate(currentFilter.copy(
-                    startDate = dateRangePickerState.selectedStartDateMillis,
-                    endDate = dateRangePickerState.selectedEndDateMillis
-                ))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Filter Ledger",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = {
+                    onUpdate(TransactionFilter())
+                }) {
+                    Text("Reset All", color = MaterialTheme.colorScheme.error)
+                }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // Amount Range
-            Text("Amount Range", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // 1. Date Selection
+            FilterSectionHeader("Period")
+            OutlinedCard(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(Icons.Default.DateRange, null, tint = MaterialTheme.colorScheme.primary)
+                    val dateText = if (currentFilter.startDate != null && currentFilter.endDate != null) {
+                        val start = java.time.Instant.ofEpochMilli(currentFilter.startDate)
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        val end = java.time.Instant.ofEpochMilli(currentFilter.endDate)
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        "${start.format(DateTimeFormatter.ofPattern("MMM dd"))} - ${end.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}"
+                    } else "Select custom date range"
+                    
+                    Text(text = dateText, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp))
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // 2. Amount Range
+            FilterSectionHeader("Amount Range")
             val min = 0f
             val max = 100000f
             var sliderPosition by remember { 
@@ -608,51 +744,99 @@ fun AdvancedFilterBottomSheet(
                     onUpdate(currentFilter.copy(minAmount = it.start.toDouble(), maxAmount = it.endInclusive.toDouble()))
                 },
                 valueRange = min..max,
-                steps = 100
+                steps = 100,
+                colors = SliderDefaults.colors(
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("₹${sliderPosition.start.roundToInt()}")
-                Text("₹${sliderPosition.endInclusive.roundToInt()}")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                AmountBadge("Min: ₹${sliderPosition.start.roundToInt()}")
+                AmountBadge("Max: ₹${sliderPosition.endInclusive.roundToInt()}")
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // Category Selection
-            Text("Category", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 3. Category Selection
+            FilterSectionHeader("Categories")
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 FilterChip(
                     selected = currentFilter.categoryName == null,
                     onClick = { onUpdate(currentFilter.copy(categoryName = null)) },
-                    label = { Text("All") }
+                    label = { Text("All Categories") },
+                    leadingIcon = if (currentFilter.categoryName == null) {
+                        { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                    } else null
                 )
                 categories.forEach { cat ->
                     FilterChip(
                         selected = currentFilter.categoryName == cat.name,
                         onClick = { onUpdate(currentFilter.copy(categoryName = cat.name)) },
-                        label = { Text(cat.name) }
+                        label = { Text(cat.name) },
+                        leadingIcon = if (currentFilter.categoryName == cat.name) {
+                            { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                        } else null
                     )
                 }
             }
 
             Spacer(Modifier.height(32.dp))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 OutlinedButton(
                     onClick = { showSmartFilterDialog = true },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = MaterialTheme.shapes.large
                 ) {
-                    Icon(Icons.Default.Star, contentDescription = null)
+                    Icon(Icons.Default.StarOutline, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Save Search")
+                    Text("Save View")
                 }
                 Button(
                     onClick = { onApply(); onDismiss() },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = MaterialTheme.shapes.large
                 ) {
-                    Text("Apply Filters")
+                    Text("Apply Filter")
                 }
             }
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(40.dp))
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onUpdate(currentFilter.copy(
+                        startDate = dateRangePickerState.selectedStartDateMillis,
+                        endDate = dateRangePickerState.selectedEndDateMillis
+                    ))
+                    showDatePicker = false
+                }) { Text("Confirm") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DateRangePicker(
+                state = dateRangePickerState,
+                modifier = Modifier.height(500.dp),
+                title = null,
+                headline = null,
+                showModeToggle = false
+            )
         }
     }
 
@@ -660,53 +844,60 @@ fun AdvancedFilterBottomSheet(
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showSmartFilterDialog = false },
-            title = { Text("Save Smart Filter") },
+            title = { Text("Save Filter View") },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Filter Name") },
-                    placeholder = { Text("e.g. Monthly Food") }
+                    label = { Text("View Name") },
+                    placeholder = { Text("e.g. Shopping last month") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
                 )
             },
             confirmButton = {
-                Button(onClick = { onSaveSmartFilter(name); showSmartFilterDialog = false }) {
+                Button(onClick = { 
+                    if (name.isNotBlank()) {
+                        onSaveSmartFilter(name)
+                        showSmartFilterDialog = false 
+                    }
+                }) {
                     Text("Save")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSmartFilterDialog = false }) {
-                    Text("Cancel") }
+                    Text("Cancel")
+                }
             }
         )
     }
 }
 
+@Composable
+private fun FilterSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(bottom = 12.dp)
+    )
+}
 
 @Composable
-private fun DetailItem(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+private fun AmountBadge(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+        shape = CircleShape
     ) {
         Text(
-            label, 
-            color = MaterialTheme.colorScheme.onSurfaceVariant, 
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(0.3f)
-        )
-        Text(
-            value, 
-            color = MaterialTheme.colorScheme.onSurface, 
-            style = MaterialTheme.typography.bodyLarge, 
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(0.7f),
-            textAlign = androidx.compose.ui.text.style.TextAlign.End,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
     }
 }
+
+

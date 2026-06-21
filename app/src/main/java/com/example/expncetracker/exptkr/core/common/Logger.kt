@@ -1,7 +1,7 @@
 package com.example.expncetracker.exptkr.core.common
 
 import android.util.Log
-import com.example.expncetracker.BuildConfig
+import com.example.expncetracker.exptkr.BuildConfig
 
 object Logger {
     private const val TAG = "ExpnceTracker"
