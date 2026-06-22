@@ -54,15 +54,9 @@ class CategoryDetector @Inject constructor(
         }
 
         return when {
+            containsAny(upperMerchant, "BIGBASKET", "ZEPTO", "GROCERY", "MILK", "RETAIL", "SUPERMARKET", "PROVISION", "INSTAMART") -> "Groceries"
             containsAny(upperMerchant, "SWIGGY", "ZOMATO", "RESTAU", "FOOD", "CAFE", "HOTEL", "EATS", "KITCHEN") -> "Food"
             containsAny(upperMerchant, "UBER", "OLA", "RAPIDO", "NAMA", "METRO", "TAXI", "AUTO", "TRAIN") -> "Cabs"
-            containsAny(upperMerchant, "RENT", "NOBROKER", "HOUSING", "PG ") -> "Rent"
-            containsAny(upperMerchant, "BESCOM", "AIRTEL", "JIO", "RECHARGE", "BILL", "ELECTRICITY", "WATER", "GAS", "BSNL", "BROADBAND") -> "Bills"
-            containsAny(upperMerchant, "AMAZON", "FLIPKART", "DMART", "BLINKIT", "INSTAMART", "SHOP", "STORE", "MYNTRA", "AJIO", "MALL", "FASHION") -> "Shopping"
-            containsAny(upperMerchant, "ZERODHA", "GROWW", "MUTUAL", "INVEST", "STOCK", "BROKER", "COIN", "SIP", "FUNDS") -> "Investments"
-            containsAny(upperMerchant, "AIRLINES", "FLIGHT", "INDIGO", "RAILWAY", "IRCTC", "TRAVEL", "MAKEMYTRIP", "GOIBIBO", "STAY", "BOOKING") -> "Travel"
-            containsAny(upperMerchant, "NETFLIX", "PRIME", "HOTSTAR", "CINEMA", "MOVIE", "BOOKMYSHOW", "PVR", "INOX", "SONY", "SPOTIFY") -> "Entertainment"
-            containsAny(upperMerchant, "BIGBASKET", "ZEPTO", "GROCERY", "MILK", "RETAIL", "SUPERMARKET", "PROVISION") -> "Groceries"
             containsAny(upperMerchant, "HOSPITAL", "PHARMACY", "DR ", "CLINIC", "MEDPLUS", "APOLLO", "HEALTH", "DIAGNOSTICS") -> "Healthcare"
             containsAny(upperMerchant, "SCHOOL", "COLLEGE", "FEE", "UNIVERSITY", "UDEMY", "COURSERA", "EDUCATION", "COURSE") -> "Education"
             else -> "Others"

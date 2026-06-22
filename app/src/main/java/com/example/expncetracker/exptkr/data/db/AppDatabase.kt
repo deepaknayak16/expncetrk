@@ -22,7 +22,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         RawSmsEntity::class,
         MerchantMappingEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -144,6 +144,67 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // To remove a Foreign Key in SQLite, we must recreate the table
+                // 1. Create a temporary table with the new schema (no FK)
+                db.execSQL("""
+                    CREATE TABLE transactions_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        smsId INTEGER,
+                        amount REAL NOT NULL,
+                        type TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        merchant TEXT NOT NULL,
+                        bankName TEXT NOT NULL,
+                        note TEXT,
+                        timestamp INTEGER NOT NULL,
+                        isRecurring INTEGER NOT NULL,
+                        frequency TEXT,
+                        nextDueDate INTEGER,
+                        recurrenceEndDate INTEGER,
+                        parentTransactionId INTEGER,
+                        counterparty TEXT,
+                        isSettled INTEGER NOT NULL,
+                        tags TEXT,
+                        createdAt INTEGER NOT NULL,
+                        account_id INTEGER NOT NULL DEFAULT 0,
+                        idempotencyHash TEXT,
+                        confidenceScore REAL NOT NULL,
+                        parsingStatus TEXT NOT NULL
+                    )
+                """)
+
+                // 2. Copy data from old table to new table
+                db.execSQL("""
+                    INSERT INTO transactions_new (
+                        id, smsId, amount, type, category, merchant, bankName, note, timestamp,
+                        isRecurring, frequency, nextDueDate, recurrenceEndDate, parentTransactionId,
+                        counterparty, isSettled, tags, createdAt, account_id, idempotencyHash,
+                        confidenceScore, parsingStatus
+                    )
+                    SELECT 
+                        id, smsId, amount, type, category, merchant, bankName, note, timestamp,
+                        isRecurring, frequency, nextDueDate, recurrenceEndDate, parentTransactionId,
+                        counterparty, isSettled, tags, createdAt, account_id, idempotencyHash,
+                        confidenceScore, parsingStatus
+                    FROM transactions
+                """)
+
+                // 3. Drop old table
+                db.execSQL("DROP TABLE transactions")
+
+                // 4. Rename new table to original name
+                db.execSQL("ALTER TABLE transactions_new RENAME TO transactions")
+
+                // 5. Re-create indices
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_smsId` ON `transactions` (`smsId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_createdAt` ON `transactions` (`createdAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_account_id` ON `transactions` (`account_id`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_idempotencyHash` ON `transactions` (`idempotencyHash`)")
+            }
+        }
+
         private fun buildDatabase(context: Context): AppDatabase {
             val appContext = context.applicationContext
             val databaseName = Constants.DATABASE_NAME
@@ -166,7 +227,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_7_8,
                     MIGRATION_8_9,
                     MIGRATION_9_10,
-                    MIGRATION_10_11
+                    MIGRATION_10_11,
+                    MIGRATION_11_12
                 )
                 .build()
         }

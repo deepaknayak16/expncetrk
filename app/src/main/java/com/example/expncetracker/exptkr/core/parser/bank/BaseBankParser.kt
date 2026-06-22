@@ -15,11 +15,17 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
     abstract val debitRegex: Regex
     abstract val creditRegex: Regex
     abstract val merchantRegex: Regex?
+    
+    // Optional: secondary regex for merchants in different formats
+    open val secondaryMerchantRegex: Regex? = null
 
     override fun parse(smsBody: String, timestamp: Long): ParsedSms? {
         return try {
             val time = timestamp.toLocalDateTime()
-            val cleanBody = smsBody.replace("\n", " ")
+            // Normalize all whitespace (including newlines, tabs, and multiple spaces) to a single space
+            val cleanBody = smsBody.replace(Regex("\\s+"), " ").trim()
+
+            Logger.d("BankParser", "Parsing SMS from $bankName: $cleanBody")
 
             val isDebit = debitRegex.containsMatchIn(cleanBody)
             val isCredit = creditRegex.containsMatchIn(cleanBody)
@@ -45,6 +51,7 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             val type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT
 
             val merchant = merchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
+                ?: secondaryMerchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
                 ?: if (isDebit) "$bankName Debit" else "$bankName Credit"
 
             ParsedSms(amount, type, merchant, bankName, time)

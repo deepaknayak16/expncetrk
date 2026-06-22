@@ -6,5 +6,10 @@ class HdfcParser : BaseBankParser("HDFC") {
         RegexOption.IGNORE_CASE)
     override val debitRegex = "(?:debited|spent|withdrawn|transferred|paid|payment|sent)".toRegex(RegexOption.IGNORE_CASE)
     override val creditRegex = "(?:credited|deposited|received|added)".toRegex(RegexOption.IGNORE_CASE)
-    override val merchantRegex = "(?:to|at|towards|INFO\\*)\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?:\\s+On\\s+|\\s+Ref|\\s+RefNo|\\.)".toRegex(RegexOption.IGNORE_CASE)
+    
+    // Pattern 1: Capture names following common action keywords
+    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO[:*])\\s+(.+?)(?:\\s+On|\\s+Ref|\\s+RefNo|\\.|$)".toRegex()
+    
+    // Pattern 2: Specific fallback for UPI and "To" formats
+    override val secondaryMerchantRegex = "(?i)To\\s+(.+?)(?:\\s|\\.|$)".toRegex()
 }

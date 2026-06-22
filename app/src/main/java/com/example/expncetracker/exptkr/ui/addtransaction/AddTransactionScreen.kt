@@ -148,7 +148,7 @@ fun AddTransactionScreen(
     }
     LaunchedEffect(accounts, transactionToEdit) {
         selectedAccount = if (transactionToEdit != null)
-            accounts.find { it.name == transactionToEdit?.bankName }
+            accounts.find { it.id == transactionToEdit?.accountId }
         else
             accounts.firstOrNull()
     }

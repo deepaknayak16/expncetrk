@@ -265,9 +265,9 @@ fun AppNavGraph(startRoute: String? = null) {
                 composable("analytics") {
                     AnalyticsScreen(viewModel = hiltViewModel())
                 }
-                composable("budget") {
-                    BudgetScreen(budgetViewModel)
-                }
+                //composable("budget") {
+                    //BudgetScreen(budgetViewModel)
+                //}
                 composable("budget") {
                     BudgetScreen(budgetViewModel)
                 }
@@ -441,7 +441,7 @@ private fun AppDrawerSheet(
         val drawerItems = listOf(
             NavigationItem("dashboard", "Today", Icons.Filled.Home, Icons.Outlined.Home),
             NavigationItem("transactions", "Ledger", Icons.Filled.ReceiptLong, Icons.Outlined.ReceiptLong),
-            NavigationItem("categories", "Category", Icons.Filled.Category, Icons.Outlined.Category),
+            //NavigationItem("categories", "Category", Icons.Filled.Category, Icons.Outlined.Category),
             NavigationItem("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
         )
 

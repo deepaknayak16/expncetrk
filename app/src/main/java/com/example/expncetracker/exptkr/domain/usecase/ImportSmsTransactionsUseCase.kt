@@ -17,13 +17,17 @@ class ImportSmsTransactionsUseCase @Inject constructor(
     private val accountDao: AccountDao
 ) {
     suspend fun execute() {
-        // Fetch since last timestamp - subtract 5 minutes to avoid missing messages 
-        // that arrived during the last sync but with a slightly earlier timestamp.
-        val lastTimestamp = (repository.getLatestSmsTimestamp() - 300000).coerceAtLeast(0L)
+        // FETCH WIDE: Look back 30 days to ensure we don't miss anything 
+        // regardless of what the DB says (DB handles duplicates via idempotencyHash)
+        val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+        val lastTimestampInDb = repository.getLatestSmsTimestamp()
         
-        Logger.d("ImportSmsTransactions", "Starting sync since timestamp: $lastTimestamp")
+        // Use the earlier of the two to be safe, but capped at 30 days lookback
+        val fetchSince = if (lastTimestampInDb == 0L) thirtyDaysAgo else (lastTimestampInDb - 600000).coerceAtLeast(thirtyDaysAgo)
         
-        val rawSmsList = smsReader.fetchSmsSince(lastTimestamp)
+        Logger.d("ImportSmsTransactions", "Starting sync since timestamp: $fetchSince (30d ago was $thirtyDaysAgo)")
+        
+        val rawSmsList = smsReader.fetchSmsSince(fetchSince)
         Logger.d("ImportSmsTransactions", "Fetched ${rawSmsList.size} raw candidate messages")
 
         val parsedTransactions = rawSmsList.mapNotNull { raw ->
