@@ -31,41 +31,6 @@ class CategoriesViewModel @Inject constructor(
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    init {
-        // Pre-populate if empty with correct colors
-        viewModelScope.launch {
-            if (categoryDao.getAllCategories().first().isEmpty()) {
-                Category.entries.forEach { cat ->
-                    val type = if (cat in listOf(Category.SALARY, Category.INVESTMENTS)) "INCOME" else "EXPENSE"
-                    val color = when (cat) {
-                        Category.FOOD -> 0xFFF97316
-                        Category.CABS -> 0xFF6366F1
-                        Category.RENT -> 0xFFEAB308
-                        Category.BILLS -> 0xFFEC4899
-                        Category.SHOPPING -> 0xFFA855F7
-                        Category.SALARY -> 0xFF10B981
-                        Category.INVESTMENTS -> 0xFF06B6D4
-                        Category.TRAVEL -> 0xFF3B82F6
-                        Category.ENTERTAINMENT -> 0xFF8B5CF6
-                        Category.GROCERIES -> 0xFF4ADE80
-                        Category.HEALTHCARE -> 0xFFEF4444
-                        Category.EDUCATION -> 0xFF14B8A6
-                        Category.OTHERS -> 0xFF64748B
-                    }.toInt()
-                    
-                    categoryDao.insertCategory(
-                        CategoryEntity(
-                            name = cat.displayName,
-                            type = type,
-                            iconName = cat.name,
-                            color = color
-                        )
-                    )
-                }
-            }
-        }
-    }
-
     fun triggerAddCategory() {
         _showAddDialog.value = true
     }

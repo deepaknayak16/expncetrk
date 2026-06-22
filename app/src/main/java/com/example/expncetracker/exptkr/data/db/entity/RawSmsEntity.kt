@@ -8,5 +8,6 @@ data class RawSmsEntity(
     @PrimaryKey val smsId: Long,
     val body: String,
     val address: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val parsingStatus: String = "PENDING"
 )

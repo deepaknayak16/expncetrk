@@ -21,5 +21,10 @@ data class Transaction(
     val counterparty: String? = null,
     val isSettled: Boolean = false,
     val tags: List<String> = emptyList(),
-    val createdAt: LocalDateTime = LocalDateTime.now()
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+
+    // Phase 1 Additions
+    val idempotencyHash: String? = null,
+    val confidenceScore: Float = 1.0f,
+    val parsingStatus: String = "COMPLETE"
 )

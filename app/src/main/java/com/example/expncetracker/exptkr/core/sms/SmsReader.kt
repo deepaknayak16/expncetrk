@@ -42,7 +42,10 @@ class SmsReader @Inject constructor(
                         val id = cursor.getLong(idIndex)
                         val address = cursor.getString(addressIndex) ?: ""
                         val body = cursor.getString(bodyIndex) ?: ""
+                        val date = cursor.getLong(dateIndex)
                         
+                        // Broaden relevance check: check if it looks like a transactional SMS 
+                        // even if the sender is not in the list yet
                         val isBankBySender = Constants.BANK_SENDERS.any { prefix ->
                             address.uppercase().contains(prefix.uppercase()) 
                         }
@@ -50,16 +53,23 @@ class SmsReader @Inject constructor(
                         val isWalletBySender = Constants.WALLET_SENDERS.any { prefix ->
                             address.uppercase().contains(prefix.uppercase())
                         }
+                        
+                        // Fallback: If it's a short code (not a phone number) and contains currency keywords
+                        val isShortCode = address.length < 15 && address.any { it.isLetter() }
+                        val containsCurrency = body.contains("Rs", ignoreCase = true) || 
+                                             body.contains("INR", ignoreCase = true) ||
+                                             body.contains("₹")
 
-                        val isRelevant = isBankBySender || isWalletBySender
+                        val isRelevant = isBankBySender || isWalletBySender || (isShortCode && containsCurrency)
 
                         if (isRelevant) {
+                            Logger.d("SmsReader", "Found relevant SMS from $address: ${body.take(20)}...")
                             smsList.add(
                                 RawSmsEntity(
                                     smsId = id,
                                     address = address,
                                     body = body,
-                                    timestamp = cursor.getLong(dateIndex)
+                                    timestamp = date
                                 )
                             )
                         }

@@ -27,6 +27,9 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     isSettled = isSettled,
     tags = tags?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     createdAt = createdAt.toLocalDateTime(),
+    idempotencyHash = idempotencyHash,
+    confidenceScore = confidenceScore,
+    parsingStatus = parsingStatus
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -49,4 +52,7 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     isSettled = isSettled,
     tags = if (tags.isEmpty()) null else tags.joinToString(","),
     createdAt = createdAt.toEpochMilli(),
+    idempotencyHash = idempotencyHash,
+    confidenceScore = confidenceScore,
+    parsingStatus = parsingStatus
 )

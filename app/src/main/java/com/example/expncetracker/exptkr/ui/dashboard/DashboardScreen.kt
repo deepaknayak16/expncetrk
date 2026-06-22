@@ -54,6 +54,7 @@ import com.example.expncetracker.exptkr.ui.components.SectionHeader
 import com.example.expncetracker.exptkr.ui.components.getIconByName
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
+import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
@@ -99,7 +100,7 @@ fun DashboardScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions[Manifest.permission.READ_SMS] == true) {
+        if (permissions[Manifest.permission.READ_SMS] == true && permissions[Manifest.permission.RECEIVE_SMS] == true) {
             viewModel.syncTransactions()
         }
     }
@@ -163,15 +164,10 @@ fun DashboardScreen(
                         },
                         onFilterChange = onFilterChange,
                         onSyncClick = {
-                            if (ContextCompat.checkSelfPermission(
-                                    context, Manifest.permission.READ_SMS
-                                ) == PackageManager.PERMISSION_GRANTED
-                            ) {
+                            if (SmsPermissionManager.hasPermissions(context)) {
                                 viewModel.syncTransactions()
                             } else {
-                                permissionLauncher.launch(
-                                    arrayOf(Manifest.permission.READ_SMS)
-                                )
+                                permissionLauncher.launch(SmsPermissionManager.permissions)
                             }
                         }
                     )
@@ -262,7 +258,8 @@ fun DashboardContent(
                 recurringTransactions = recurring,
                 currentFilter = currentFilter,
                 onFilterChange = onFilterChange,
-                onUpcomingClick = { showUpcomingSheet = true }
+                onUpcomingClick = { showUpcomingSheet = true },
+                onSyncClick = onSyncClick
             )
         }
 
@@ -645,7 +642,8 @@ fun ModernDashboardHeader(
     recurringTransactions: List<Transaction>,
     currentFilter: DateFilter,
     onFilterChange: (DateFilter) -> Unit,
-    onUpcomingClick: () -> Unit
+    onUpcomingClick: () -> Unit,
+    onSyncClick: () -> Unit
 ) {
     val healthScore = remember(summary) {
         if (summary.totalAssets > 0) {
@@ -818,6 +816,18 @@ fun ModernDashboardHeader(
                     ) {
                         Icon(Icons.Default.ChevronRight, "Next", modifier = Modifier.size(20.dp))
                     }
+                }
+
+                IconButton(
+                    onClick = onSyncClick,
+                    modifier = Modifier.weight(1f).size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Sync",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
 
                 FilterItemCompact(

@@ -1,5 +1,6 @@
 package com.example.expncetracker.exptkr.core.parser
 
+import com.example.expncetracker.exptkr.core.common.Logger
 import com.example.expncetracker.exptkr.core.parser.bank.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,16 +14,28 @@ class ParserRegistry @Inject constructor(
     fun parseSms(sender: String, body: String, timestamp: Long): ParsedSms? {
         val norm = sender.uppercase()
         
+        Logger.d("ParserRegistry", "Attempting to parse SMS from $sender: ${body.take(30)}...")
+
         // Find a specific parser that matches the sender
         val specificParser = parsers.firstOrNull { parser ->
             norm.contains(parser.bankKey)
         }
         
-        return if (specificParser != null) {
+        val result = if (specificParser != null) {
+            Logger.d("ParserRegistry", "Found specific parser: ${specificParser.bankKey}")
             specificParser.parse(body, timestamp) 
                 ?: genericParser.parse(body, timestamp)?.copy(bankName = specificParser.bankKey)
         } else {
+            Logger.d("ParserRegistry", "No specific parser found, trying generic")
             genericParser.parse(body, timestamp)?.copy(bankName = sender)
         }
+
+        if (result != null) {
+            Logger.d("ParserRegistry", "Successfully parsed: Amt=${result.amount}, Merchant=${result.merchant}")
+        } else {
+            Logger.d("ParserRegistry", "Failed to parse SMS from $sender")
+        }
+
+        return result
     }
 }

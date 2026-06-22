@@ -31,6 +31,7 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
 
             if (!isDebit && !isCredit) return null
 
+            // FIX: Currency matching improved to handle multi-character symbols like Rs.
             val amountMatch = amountRegex.find(cleanBody) ?: return null
             val amountStr = amountMatch.groupValues.getOrNull(1)?.replace(",", "") ?: return null
             val amount = amountStr.toDoubleOrNull() ?: return null

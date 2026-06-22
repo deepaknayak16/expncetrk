@@ -7,10 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.expncetracker.exptkr.core.common.Constants
-import com.example.expncetracker.exptkr.core.common.SecurityUtils // FIX #1
+import com.example.expncetracker.exptkr.core.common.SecurityUtils
 import com.example.expncetracker.exptkr.data.db.dao.*
 import com.example.expncetracker.exptkr.data.db.entity.*
-import net.zetetic.database.sqlcipher.SupportOpenHelperFactory // FIX #2
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
     entities = [
@@ -18,9 +18,11 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory // FIX #2
         AccountEntity::class,
         CategoryEntity::class,
         GoalEntity::class,
-        BudgetEntity::class // FIX #3: restored
+        BudgetEntity::class,
+        RawSmsEntity::class,
+        MerchantMappingEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,7 +30,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
     abstract fun goalDao(): GoalDao
-    abstract fun budgetDao(): BudgetDao // FIX #3: restored
+    abstract fun budgetDao(): BudgetDao
+    abstract fun rawSmsDao(): RawSmsDao
+    abstract fun merchantMappingDao(): MerchantMappingDao
 
     companion object {
         @Volatile
@@ -74,7 +78,6 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Step 1: For each duplicate account name, update transactions to point to the surviving account ID
                 db.execSQL("""
                     UPDATE transactions
                         SET account_id = (
@@ -86,8 +89,6 @@ abstract class AppDatabase : RoomDatabase() {
                             )
                         )
                         """)
-
-                // Step 2: Delete duplicate accounts (transactions now point to the survivor)
                 db.execSQL("""
                         DELETE FROM accounts WHERE rowid NOT IN (
                             SELECT MIN(rowid) FROM accounts GROUP BY name
@@ -116,6 +117,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN idempotencyHash TEXT")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN confidenceScore REAL NOT NULL DEFAULT 1.0")
+                db.execSQL("ALTER TABLE transactions ADD COLUMN parsingStatus TEXT NOT NULL DEFAULT 'COMPLETE'")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_idempotencyHash` ON `transactions` (`idempotencyHash`)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `raw_sms` (
+                        `smsId` INTEGER NOT NULL, 
+                        `body` TEXT NOT NULL, 
+                        `address` TEXT NOT NULL, 
+                        `timestamp` INTEGER NOT NULL, 
+                        `parsingStatus` TEXT NOT NULL DEFAULT 'PENDING', 
+                        PRIMARY KEY(`smsId`)
+                    )
+                """)
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `merchant_mappings` (
+                        `merchantName` TEXT NOT NULL, 
+                        `categoryName` TEXT NOT NULL, 
+                        `updatedAt` INTEGER NOT NULL, 
+                        PRIMARY KEY(`merchantName`)
+                    )
+                """)
+            }
+        }
+
         private fun buildDatabase(context: Context): AppDatabase {
             val appContext = context.applicationContext
             val databaseName = Constants.DATABASE_NAME
@@ -127,7 +155,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
 
             val passphrase = SecurityUtils.getOrCreatePassphrase(appContext)
-            val factory = SupportOpenHelperFactory(passphrase) // FIX #2
+            val factory = SupportOpenHelperFactory(passphrase)
 
             return Room.databaseBuilder(appContext, AppDatabase::class.java, databaseName)
                 .openHelperFactory(factory)
@@ -137,7 +165,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
-                    MIGRATION_9_10
+                    MIGRATION_9_10,
+                    MIGRATION_10_11
                 )
                 .build()
         }

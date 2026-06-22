@@ -11,15 +11,8 @@ import androidx.room.ForeignKey
     indices = [
         Index(value = ["smsId"], unique = true),
         Index(value = ["createdAt"]),
-        Index(value = ["account_id"])
-    ],
-    foreignKeys = [
-        ForeignKey(
-            entity = AccountEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["account_id"],
-            onDelete = ForeignKey.CASCADE // FIXED: was SET_NULL
-        )
+        Index(value = ["account_id"]),
+        Index(value = ["idempotencyHash"], unique = true)
     ]
 )
 data class TransactionEntity(
@@ -44,4 +37,9 @@ data class TransactionEntity(
 
     @ColumnInfo(name = "account_id", defaultValue = "0")
     val accountId: Long = 0,
+
+    // Phase 1 Additions
+    val idempotencyHash: String? = null,
+    val confidenceScore: Float = 1.0f,
+    val parsingStatus: String = "COMPLETE"
 )

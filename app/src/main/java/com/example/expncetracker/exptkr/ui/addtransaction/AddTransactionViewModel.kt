@@ -57,7 +57,8 @@ class AddTransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
     private val goalRepository: GoalRepository,
     private val accountDao: AccountDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val merchantMappingDao: com.example.expncetracker.exptkr.data.db.dao.MerchantMappingDao
 ) : ViewModel() {
 
     // ── Exposed state ──────────────────────────────────────────────────────────
@@ -205,9 +206,20 @@ class AddTransactionViewModel @Inject constructor(
                     repository.insertTransactionWithBalance(transaction)
                     "Transaction added"
                 }
-            }
-                .onSuccess { message ->
-                    // FIX: recalculation on both paths, once
+            }.onSuccess { message ->
+                // Save merchant mapping (Phase 3 Learning)
+                viewModelScope.launch {
+                    if (merchant.isNotBlank() && category.isNotBlank()) {
+                        merchantMappingDao.insertMapping(
+                            com.example.expncetracker.exptkr.data.db.entity.MerchantMappingEntity(
+                                merchantName = merchant.trim(),
+                                categoryName = category
+                            )
+                        )
+                    }
+                }
+                
+                // FIX: recalculation on both paths, once
                     if (category == "Savings" || category == "Investment") {
                         runCatching { goalRepository.recalculateGoalsByCategory(category) }
                     }
