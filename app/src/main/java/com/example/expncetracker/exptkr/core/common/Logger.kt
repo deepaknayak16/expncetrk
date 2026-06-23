@@ -16,11 +16,20 @@ object Logger {
     }
 
     fun e(message: String, throwable: Throwable? = null) {
-        Log.e(TAG, message, throwable)
+        if (DEBUG) {
+            Log.e(TAG, message, throwable)
+        } else {
+            // TODO: Route to a crash reporter in production (e.g., Firebase Crashlytics)
+            // if (throwable != null) FirebaseCrashlytics.getInstance().recordException(throwable)
+        }
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        Log.e(tag, message, throwable)
+        if (DEBUG) {
+            Log.e(tag, message, throwable)
+        } else {
+            // TODO: Route to a crash reporter in production
+        }
     }
 
     fun i(message: String) {

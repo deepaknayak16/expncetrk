@@ -86,6 +86,26 @@ interface TransactionDao {
     @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE account_id = :accountId AND type = 'CREDIT'")
     suspend fun sumCreditsByAccount(accountId: Long): Double
 
+    @Transaction
+    suspend fun deleteDuplicateSmsTransactions() {
+        // Find and delete transactions that have identical core properties but different IDs
+        // This is a one-time cleanup to fix duplicates created by inconsistent hashing
+        val duplicates = findDuplicateSmsTransactions()
+        duplicates.forEach { id ->
+            deleteById(id)
+        }
+    }
+
+    @Query("""
+        SELECT id FROM transactions 
+        WHERE id NOT IN (
+            SELECT MIN(id) FROM transactions 
+            GROUP BY amount, timestamp, merchant, bankName
+        )
+        AND smsId IS NOT NULL
+    """)
+    suspend fun findDuplicateSmsTransactions(): List<Long>
+
     @Query("""
     SELECT
         COALESCE(SUM(CASE WHEN type = 'CREDIT' OR type = 'BORROW' THEN amount ELSE 0 END), 0.0) -

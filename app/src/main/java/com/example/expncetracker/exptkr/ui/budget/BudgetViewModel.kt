@@ -2,11 +2,11 @@ package com.example.expncetracker.exptkr.ui.budget
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.entity.BudgetEntity
-import com.example.expncetracker.exptkr.domain.model.Category
+import com.example.expncetracker.exptkr.domain.repository.BudgetRepository
+import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
+import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
-import com.example.expncetracker.exptkr.domain.model.DateFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,8 +14,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
@@ -33,18 +31,18 @@ data class BudgetUiModel(
 
 @HiltViewModel
 class BudgetViewModel @Inject constructor(
-    private val budgetDao: BudgetDao,
+    private val budgetRepository: BudgetRepository,
     private val getSummaryUseCase: GetSummaryUseCase,
-    private val repository: com.example.expncetracker.exptkr.domain.repository.TransactionRepository,
-    private val categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+    private val repository: TransactionRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _selectedMonth = MutableStateFlow(YearMonth.now())
     val selectedMonth = _selectedMonth.asStateFlow()
 
-    private val _budgets = budgetDao.getAllBudgets()
+    private val _budgets = budgetRepository.getAllBudgets()
     
-    val categories = categoryDao.getAllCategories()
+    val categories = categoryRepository.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _statusEvent = Channel<String>(Channel.BUFFERED)
@@ -123,15 +121,15 @@ class BudgetViewModel @Inject constructor(
                 _statusEvent.send("Budget limit must be greater than 0")
                 return@launch
             }
-            budgetDao.insertBudget(BudgetEntity(categoryName, limit))
+            budgetRepository.insertBudget(BudgetEntity(categoryName, limit))
         }
     }
 
     fun deleteBudgetByName(categoryName: String) {
         viewModelScope.launch {
-            val budget = budgetDao.getBudgetByCategory(categoryName)
+            val budget = budgetRepository.getBudgetByCategory(categoryName)
             if (budget != null) {
-                budgetDao.deleteBudget(budget)
+                budgetRepository.deleteBudget(budget)
                 _statusEvent.send("Budget deleted")
             } else {
                 _statusEvent.send("Budget not found")

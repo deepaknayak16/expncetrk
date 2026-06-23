@@ -13,4 +13,7 @@ interface RawSmsDao {
 
     @Query("SELECT * FROM raw_sms ORDER BY timestamp DESC")
     suspend fun getAllRawSms(): List<RawSmsEntity>
+
+    @Query("UPDATE raw_sms SET parsingStatus = :status WHERE smsId = :id")
+    suspend fun updateStatus(id: Long, status: String)
 }

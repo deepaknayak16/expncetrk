@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
+import com.example.expncetracker.exptkr.data.db.AppDatabaseMigrations
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
@@ -15,6 +16,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.hilt.EntryPoint
 import javax.inject.Singleton
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.example.expncetracker.exptkr.core.common.SecurityUtils
@@ -38,14 +40,15 @@ object DatabaseModule {
             return Room.databaseBuilder(context, AppDatabase::class.java, Constants.DATABASE_NAME)
                 .openHelperFactory(factory)
                 .addMigrations(
-                    AppDatabase.MIGRATION_4_5,
-                    AppDatabase.MIGRATION_5_6,
-                    AppDatabase.MIGRATION_6_7,
-                    AppDatabase.MIGRATION_7_8,
-                    AppDatabase.MIGRATION_8_9,
-                    AppDatabase.MIGRATION_9_10,
-                    AppDatabase.MIGRATION_10_11,
-                    AppDatabase.MIGRATION_11_12
+                    AppDatabaseMigrations.MIGRATION_4_5,
+                    AppDatabaseMigrations.MIGRATION_5_6,
+                    AppDatabaseMigrations.MIGRATION_6_7,
+                    AppDatabaseMigrations.MIGRATION_7_8,
+                    AppDatabaseMigrations.MIGRATION_8_9,
+                    AppDatabaseMigrations.MIGRATION_9_10,
+                    AppDatabaseMigrations.MIGRATION_10_11,
+                    AppDatabaseMigrations.MIGRATION_11_12,
+                    AppDatabaseMigrations.MIGRATION_12_13
                 )
                 .build()
         } catch (e: RuntimeException) {
@@ -60,4 +63,10 @@ object DatabaseModule {
     @Provides fun provideGoalDao(db: AppDatabase): com.example.expncetracker.exptkr.data.db.dao.GoalDao = db.goalDao()
     @Provides fun provideMerchantMappingDao(db: AppDatabase): MerchantMappingDao = db.merchantMappingDao()
     @Provides fun provideRawSmsDao(db: AppDatabase): RawSmsDao = db.rawSmsDao()
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface DatabaseEntryPoint {
+        fun database(): AppDatabase
+    }
 }

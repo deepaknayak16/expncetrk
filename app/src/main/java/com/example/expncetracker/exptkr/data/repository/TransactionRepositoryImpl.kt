@@ -95,6 +95,8 @@ class TransactionRepositoryImpl @Inject constructor(
         }
         return db.withTransaction {
             val id = transactionDao.insertTransaction(transaction.toEntity())
+            if (id == -1L) return@withTransaction -1L // Duplicate SMS/transaction ignored
+
             if (delta != 0.0) {
                 if (transaction.accountId != 0L) {
                     accountDao.adjustBalanceById(transaction.accountId, delta)
@@ -200,4 +202,8 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun sumAmountByCategory(category: String, type: String): Double =
         transactionDao.sumAmountByCategoryAndType(category, type)
+
+    override suspend fun cleanupDuplicates() {
+        transactionDao.deleteDuplicateSmsTransactions()
+    }
 }

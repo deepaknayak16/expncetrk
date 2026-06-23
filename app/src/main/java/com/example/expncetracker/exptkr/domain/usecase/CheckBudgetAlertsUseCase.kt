@@ -44,7 +44,16 @@ class CheckBudgetAlertsUseCase @Inject constructor(
             if (budget.limitAmount > 0) {
                 val progress = (spent / budget.limitAmount).toFloat()
                 if (progress >= threshold) {
-                    notificationHelper.showBudgetAlert(budget.category, (progress * 100).toInt())
+                    val lastAlert = budget.lastAlertSentAt?.let {
+                        LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(it), ZoneId.systemDefault())
+                    }
+                    val currentMonth = YearMonth.now()
+                    val shouldNotify = lastAlert == null || YearMonth.from(lastAlert).isBefore(currentMonth)
+
+                    if (shouldNotify) {
+                        notificationHelper.showBudgetAlert(budget.category, (progress * 100).toInt())
+                        budgetDao.insertBudget(budget.copy(lastAlertSentAt = System.currentTimeMillis()))
+                    }
                 }
             }
         }

@@ -2,16 +2,15 @@ package com.example.expncetracker.exptkr.ui.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.DateFilter
-import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
-import com.example.expncetracker.exptkr.data.db.dao.AccountDao
+import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -45,12 +44,11 @@ data class SmartFilter(
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
-    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase,
-    private val accountDao: AccountDao,
-    categoryDao: com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+    private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
+    categoryRepository: CategoryRepository
 ) : ViewModel() {
 
-    val categories = categoryDao.getAllCategories()
+    val categories = categoryRepository.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _searchQuery = MutableStateFlow("")

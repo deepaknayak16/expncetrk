@@ -34,10 +34,18 @@ class SmsWorker @AssistedInject constructor(
 
         return try {
             processSms(body, address, timestamp)
+            db.rawSmsDao().updateStatus(timestamp, "COMPLETE")
             Result.success()
         } catch (e: Exception) {
             Logger.e("SmsWorker", "Error processing SMS: ${e.message}", e)
-            Result.retry()
+            db.rawSmsDao().updateStatus(timestamp, "FAILED")
+            
+            when (e) {
+                is NumberFormatException, 
+                is IllegalArgumentException,
+                is IllegalStateException -> Result.failure()
+                else -> Result.retry()
+            }
         }
     }
 
@@ -69,14 +77,14 @@ class SmsWorker @AssistedInject constructor(
         val status = if (isAnomaly) "NEEDS_REVIEW" else "COMPLETE"
 
         // 5. Idempotency Hash (Phase 1)
-        val hash = SecurityUtils.generateHash("${parsedSms.amount}${timestamp}${parsedSms.merchant}${address}")
+        val hash = SecurityUtils.calculateTransactionHash(parsedSms.amount, timestamp, parsedSms.merchant, address)
 
         // 6. Get Account ID
         val accountId = db.accountDao().getAccountIdByName(parsedSms.bankName) ?: 0L
 
         // 7. Create Transaction
         val transaction = Transaction(
-            smsId = timestamp,
+            smsId = null, // Set to null for live SMS to rely on idempotencyHash deduplication
             amount = parsedSms.amount,
             type = parsedSms.type,
             categoryName = categoryName,

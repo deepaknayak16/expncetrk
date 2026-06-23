@@ -14,7 +14,7 @@ class GenericParser(private val bankName: String = "Bank") : BankParser {
 
     override fun parse(smsBody: String, timestamp: Long): ParsedSms? {
         val time = timestamp.toLocalDateTime()
-        val cleanBody = smsBody.replace("\n", " ")
+        val cleanBody = smsBody.replace(Regex("\\s+"), " ").trim()
 
         if (cleanBody.contains(debitKeywords.toRegex(RegexOption.IGNORE_CASE))) {
             amountPattern.toRegex(RegexOption.IGNORE_CASE).find(cleanBody)?.let { match ->

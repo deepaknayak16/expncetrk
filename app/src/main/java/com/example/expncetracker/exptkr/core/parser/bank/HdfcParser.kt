@@ -8,8 +8,10 @@ class HdfcParser : BaseBankParser("HDFC") {
     override val creditRegex = "(?:credited|deposited|received|added)".toRegex(RegexOption.IGNORE_CASE)
     
     // Pattern 1: Capture names following common action keywords
-    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO[:*])\\s+(.+?)(?:\\s+On|\\s+Ref|\\s+RefNo|\\.|$)".toRegex()
+    // Priority given to "To" field for UPI/P2P transfers
+    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO[:*])\\s+(.+?)(?:\\s+On|\\s+Ref|\\s+RefNo|\\s+at|\\s+towards|\\.|$)".toRegex()
     
     // Pattern 2: Specific fallback for UPI and "To" formats
-    override val secondaryMerchantRegex = "(?i)To\\s+(.+?)(?:\\s|\\.|$)".toRegex()
+    // Updated to ensure it captures the full name before common sentinels
+    override val secondaryMerchantRegex = "(?i)To\\s+(.+?)(?=\\s+On|\\s+Ref|\\s+RefNo|\\.|$)".toRegex()
 }

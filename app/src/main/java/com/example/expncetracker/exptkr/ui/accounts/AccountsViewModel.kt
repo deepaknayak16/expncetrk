@@ -2,10 +2,10 @@ package com.example.expncetracker.exptkr.ui.accounts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.entity.AccountEntity
-import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.repository.AccountRepository
+import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -14,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
-    private val accountDao: AccountDao,
+    private val accountRepository: AccountRepository,
     private val getSummaryUseCase: GetSummaryUseCase
 ) : ViewModel() {
 
@@ -27,7 +27,7 @@ class AccountsViewModel @Inject constructor(
     val summary = getSummaryUseCase(DateFilter.MONTH)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val accounts = accountDao.getAllAccounts()
+    val accounts = accountRepository.getAllAccounts()
         .map { list ->
             list.map { entity ->
                 AccountUiModel(
@@ -63,7 +63,7 @@ class AccountsViewModel @Inject constructor(
 
     fun addAccount(name: String, balance: Double, type: String) {
         viewModelScope.launch {
-            val existing = accountDao.getAccountByName(name)
+            val existing = accountRepository.getAccountByName(name)
             if (existing != null) {
                 _statusEvent.send("An account named \"$name\" already exists")
                 return@launch
@@ -75,7 +75,7 @@ class AccountsViewModel @Inject constructor(
                 "Credit Card" -> 0xFFEF4444.toInt()
                 else -> 0xFF64748B.toInt()
             }
-            accountDao.insertAccount(
+            accountRepository.insertAccount(
                 AccountEntity(
                     name = name,
                     balance = balance,
@@ -89,7 +89,7 @@ class AccountsViewModel @Inject constructor(
 
     fun updateAccount(id: Long, name: String, balance: Double, type: String) {
         viewModelScope.launch {
-            val existing = accountDao.getAccountByName(name)
+            val existing = accountRepository.getAccountByName(name)
             if (existing != null && existing.id != id) {
                 _statusEvent.send("An account named \"$name\" already exists")
                 return@launch
@@ -101,7 +101,7 @@ class AccountsViewModel @Inject constructor(
                 "Credit Card" -> 0xFFEF4444.toInt()
                 else -> 0xFF64748B.toInt()
             }
-            accountDao.updateAccount(
+            accountRepository.updateAccount(
                 AccountEntity(
                     id = id,
                     name = name,
@@ -116,7 +116,7 @@ class AccountsViewModel @Inject constructor(
 
     fun deleteAccount(id: Long) {
         viewModelScope.launch {
-            accountDao.deleteAccountAndTransactions(id)
+            accountRepository.deleteAccountAndTransactions(id)
             _statusEvent.send("Account deleted")
         }
     }

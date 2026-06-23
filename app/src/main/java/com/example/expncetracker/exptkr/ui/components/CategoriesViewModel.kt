@@ -2,11 +2,10 @@ package com.example.expncetracker.exptkr.ui.categories
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
 import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
-import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -15,7 +14,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(
-    private val categoryDao: CategoryDao,
+    private val categoryRepository: CategoryRepository,
     getSummaryUseCase: GetSummaryUseCase
 ) : ViewModel() {
 
@@ -28,7 +27,7 @@ class CategoriesViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
-    val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
+    val categories: StateFlow<List<CategoryEntity>> = categoryRepository.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun triggerAddCategory() {
@@ -53,7 +52,7 @@ class CategoriesViewModel @Inject constructor(
 
     fun addCategory(name: String, type: String, iconName: String, color: Int) {
         viewModelScope.launch {
-            categoryDao.insertCategory(
+            categoryRepository.insertCategory(
                 CategoryEntity(
                     name = name,
                     type = type,

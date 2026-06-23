@@ -3,6 +3,7 @@ package com.example.expncetracker.exptkr.core.parser
 import com.example.expncetracker.exptkr.data.db.dao.MerchantMappingDao
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import kotlinx.coroutines.flow.first
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.ln
@@ -22,7 +23,7 @@ class CategoryDetector @Inject constructor(
     suspend fun detect(
         merchant: String,
         type: TransactionType,
-        history: List<com.example.expncetracker.exptkr.domain.model.Transaction> = emptyList()
+        history: List<com.example.expncetracker.exptkr.domain.model.Transaction>? = null
     ): String {
         val cleanMerchant = merchant.trim()
         val upperMerchant = cleanMerchant.uppercase(Locale.ROOT)
@@ -33,15 +34,18 @@ class CategoryDetector @Inject constructor(
             return mapping.categoryName
         }
 
+        // Resolve history from repository if not provided by caller
+        val resolvedHistory = history ?: repository.getAllTransactions().first()
+
         // 2. EXACT HISTORY MATCH
-        val exactMatch = history.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
+        val exactMatch = resolvedHistory.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
         if (exactMatch != null) {
             return exactMatch.categoryName
         }
 
         // 3. ML CLASSIFIER (Naive Bayes)
-        if (history.size >= 10) { 
-            val prediction = classifyMerchant(cleanMerchant, history)
+        if (resolvedHistory.size >= 10) { 
+            val prediction = classifyMerchant(cleanMerchant, resolvedHistory)
             if (prediction.confidence > 0.8) {
                 return prediction.category
             }

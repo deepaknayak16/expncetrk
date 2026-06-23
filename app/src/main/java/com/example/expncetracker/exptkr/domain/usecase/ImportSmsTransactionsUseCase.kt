@@ -7,6 +7,8 @@ import com.example.expncetracker.exptkr.core.sms.SmsReader
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao 
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class ImportSmsTransactionsUseCase @Inject constructor(
@@ -27,7 +29,9 @@ class ImportSmsTransactionsUseCase @Inject constructor(
         
         Logger.d("ImportSmsTransactions", "Starting sync since timestamp: $fetchSince (30d ago was $thirtyDaysAgo)")
         
-        val rawSmsList = smsReader.fetchSmsSince(fetchSince)
+        val rawSmsList = withContext(Dispatchers.IO) {
+            smsReader.fetchSmsSince(fetchSince)
+        }
         Logger.d("ImportSmsTransactions", "Fetched ${rawSmsList.size} raw candidate messages")
 
         val parsedTransactions = rawSmsList.mapNotNull { raw ->
@@ -35,8 +39,8 @@ class ImportSmsTransactionsUseCase @Inject constructor(
             val categoryName = categoryDetector.detect(parsedSms.merchant, parsedSms.type)
             val accountId = accountDao.getAccountIdByName(parsedSms.bankName) ?: 0L 
 
-            val hash = com.example.expncetracker.exptkr.core.common.SecurityUtils.generateHash(
-                "${parsedSms.amount}${parsedSms.timestamp}${parsedSms.merchant}${raw.address}"
+            val hash = com.example.expncetracker.exptkr.core.common.SecurityUtils.calculateTransactionHash(
+                parsedSms.amount, raw.timestamp, parsedSms.merchant, raw.address
             )
 
             Transaction(
@@ -63,6 +67,13 @@ class ImportSmsTransactionsUseCase @Inject constructor(
             } catch (e: Exception) {
                 Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")
             }
+        }
+
+        // One-time cleanup of any legacy duplicates caused by previous hashing issues
+        try {
+            repository.cleanupDuplicates()
+        } catch (e: Exception) {
+            Logger.e("ImportSmsTransactions", "Cleanup failed: ${e.message}")
         }
     }
 }

@@ -14,6 +14,8 @@ import androidx.glance.GlanceTheme
 import com.example.expncetracker.exptkr.R
 import com.example.expncetracker.exptkr.MainActivity
 import com.example.expncetracker.exptkr.data.db.AppDatabase
+import com.example.expncetracker.exptkr.di.DatabaseModule
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -29,7 +31,11 @@ class ExpenseWidget : GlanceAppWidget() {
         }
 
         val database = try {
-            AppDatabase.getInstance(context)
+            val entryPoint = EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                DatabaseModule.DatabaseEntryPoint::class.java
+            )
+            entryPoint.database()
         } catch (e: Exception) {
             provideContent { Text("Database error") }
             return

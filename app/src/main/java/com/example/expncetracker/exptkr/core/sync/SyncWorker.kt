@@ -37,6 +37,10 @@ class SyncWorker @AssistedInject constructor(
     companion object {
         private const val SYNC_WORK_NAME = "cloud_sync_work"
 
+        fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
+        }
+
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)

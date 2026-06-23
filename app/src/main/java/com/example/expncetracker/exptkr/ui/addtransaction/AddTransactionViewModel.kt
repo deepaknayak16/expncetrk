@@ -2,13 +2,11 @@ package com.example.expncetracker.exptkr.ui.addtransaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.data.db.dao.AccountDao
-import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
+import com.example.expncetracker.exptkr.data.db.entity.MerchantMappingEntity
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
-import com.example.expncetracker.exptkr.domain.repository.GoalRepository
-import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.domain.repository.*
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -56,20 +54,20 @@ private fun suggestCategory(merchant: String): String? {
 class AddTransactionViewModel @Inject constructor(
     private val repository: TransactionRepository,
     private val goalRepository: GoalRepository,
-    private val accountDao: AccountDao,
-    private val categoryDao: CategoryDao,
-    private val merchantMappingDao: com.example.expncetracker.exptkr.data.db.dao.MerchantMappingDao
+    private val accountRepository: AccountRepository,
+    private val categoryRepository: CategoryRepository,
+    private val merchantMappingRepository: MerchantMappingRepository
 ) : ViewModel() {
 
     // ── Exposed state ──────────────────────────────────────────────────────────
 
-    val accounts: StateFlow<List<AccountUiModel>> = accountDao.getAllAccounts()
+    val accounts: StateFlow<List<AccountUiModel>> = accountRepository.getAllAccounts()
         .map { list ->
             list.map { AccountUiModel(it.id, it.name, it.balance, it.type, it.color) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val categories = categoryDao.getAllCategories()
+    val categories = categoryRepository.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _transactionToEdit = MutableStateFlow<Transaction?>(null)
@@ -178,7 +176,7 @@ class AddTransactionViewModel @Inject constructor(
                 // Resolve account ID: prefer explicit accountId, fall back to name lookup
                 val resolvedAccountId = when {
                     accountId != 0L -> accountId
-                    else -> accountDao.getAccountIdByName(bankName) ?: 0L
+                    else -> accountRepository.getAccountByName(bankName)?.id ?: 0L
                 }
 
                 val transaction = Transaction(
@@ -210,8 +208,8 @@ class AddTransactionViewModel @Inject constructor(
                 // Save merchant mapping (Phase 3 Learning)
                 viewModelScope.launch {
                     if (merchant.isNotBlank() && category.isNotBlank()) {
-                        merchantMappingDao.insertMapping(
-                            com.example.expncetracker.exptkr.data.db.entity.MerchantMappingEntity(
+                        merchantMappingRepository.insertMapping(
+                            MerchantMappingEntity(
                                 merchantName = merchant.trim(),
                                 categoryName = category
                             )

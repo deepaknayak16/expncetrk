@@ -42,9 +42,10 @@ interface AccountDao {
     @Query("DELETE FROM transactions WHERE account_id = :accountId")
     suspend fun deleteTransactionsByAccountId(accountId: Long)
 
-    // FIX #11: Rely on ForeignKey CASCADE; manual delete removed
+    // FIX: Manual cascade since ForeignKey was removed in Migration 11->12
     @Transaction
     suspend fun deleteAccountAndTransactions(accountId: Long) {
-        deleteAccountById(accountId) // DB cascades transactions automatically
+        deleteTransactionsByAccountId(accountId)
+        deleteAccountById(accountId)
     }
 }

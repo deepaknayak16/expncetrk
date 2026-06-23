@@ -2,28 +2,23 @@ package com.example.expncetracker.exptkr.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.domain.model.FinancialSummary
-import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
-import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
-import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
-import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
-import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
-import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
-import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
+import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
+import com.example.expncetracker.exptkr.domain.repository.GoalRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
-import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
-import com.example.expncetracker.exptkr.data.db.dao.GoalDao
+import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
+import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
+import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
+import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-
-import com.example.expncetracker.exptkr.domain.model.TransactionType
 import java.time.LocalDateTime
 import java.time.ZoneId
+import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -32,9 +27,8 @@ class DashboardViewModel @Inject constructor(
     private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
     private val getTrendsUseCase: GetTrendsUseCase,
     private val repository: TransactionRepository,
-    private val categoryDao: CategoryDao,
-    private val goalDao: GoalDao,
-    private val accountDao: com.example.expncetracker.exptkr.data.db.dao.AccountDao
+    private val categoryRepository: CategoryRepository,
+    private val goalRepository: GoalRepository
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -98,8 +92,8 @@ class DashboardViewModel @Inject constructor(
         .distinctUntilChanged()
         .combine(getRecentTransactionsUseCase(10).distinctUntilChanged()) { summary, recent -> summary to recent }
         .combine(repository.getAllRecurringTransactions().distinctUntilChanged()) { (summary, recent), recurring -> Triple(summary, recent, recurring) }
-        .combine(categoryDao.getAllCategories().distinctUntilChanged()) { triple, categories -> triple to categories }
-        .combine(goalDao.getAllGoals().distinctUntilChanged()) { pair, goals -> pair to goals }
+        .combine(categoryRepository.getAllCategories().distinctUntilChanged()) { triple, categories -> triple to categories }
+        .combine(goalRepository.getAllGoals().distinctUntilChanged()) { pair, goals -> pair to goals }
         .combine(trends) { pair, trendMap ->
             val (summaryRecentRecurring, categories) = pair.first
             val (summary, recent, recurring) = summaryRecentRecurring

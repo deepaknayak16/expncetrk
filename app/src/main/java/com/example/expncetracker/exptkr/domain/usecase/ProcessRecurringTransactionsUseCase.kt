@@ -21,8 +21,8 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
         val dueTransactions = repository.getDueRecurringTransactions(currentMillis)
         
         dueTransactions.forEach { tx ->
-            val account = accountDao.getAllAccounts().first().find { it.name == tx.bankName }
-            var accumulatedBalance = account?.balance
+            val account = accountDao.getAllAccounts().first().find { it.name == tx.bankName || it.id == tx.accountId }
+            var totalDelta = 0.0
 
             // Generate one instance for every period that has elapsed since the last due date,
             // so missed periods (e.g. app/worker not run for a while) are caught up.
@@ -42,12 +42,22 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
                     parentTransactionId = tx.id,
                     createdAt = now
                 )
-                repository.insertTransactionWithBalance(newTransaction)
+                repository.insertTransaction(newTransaction)
+
+                val delta = when (newTransaction.type) {
+                    TransactionType.CREDIT, TransactionType.BORROW -> newTransaction.amount
+                    TransactionType.DEBIT, TransactionType.LEND -> -newTransaction.amount
+                    else -> 0.0
+                }
+                totalDelta += delta
 
                 nextDate = calculateNextDate(nextDate, tx.frequency!!)
             }
 
             // Persist the account balance once after catching up all periods.
+            if (account != null && totalDelta != 0.0) {
+                accountDao.adjustBalanceById(account.id, totalDelta)
+            }
 
             // Update the parent recurring transaction with the new next due date,
             // stopping recurrence if the end date has been reached.

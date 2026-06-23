@@ -6,5 +6,6 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "budgets")
 data class BudgetEntity(
     @PrimaryKey val category: String,
-    val limitAmount: Double
+    val limitAmount: Double,
+    val lastAlertSentAt: Long? = null
 )
