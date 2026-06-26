@@ -1,10 +1,11 @@
 package com.example.expncetracker.exptkr.core.parser
 
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 data class ParsedSms(
-    val amount: Double,
+    val amount: BigDecimal,
     val type: TransactionType,
     val merchant: String,
     val bankName: String,

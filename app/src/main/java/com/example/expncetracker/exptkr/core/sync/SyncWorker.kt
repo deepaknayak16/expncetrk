@@ -19,10 +19,12 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            performSync()
+            // Currently performSync is empty/TODO. To avoid hourly empty runs or retry storms,
+            // we return success immediately until cloud sync is implemented.
+            // performSync() 
             Result.success()
         } catch (e: Exception) {
-            Result.retry()
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 

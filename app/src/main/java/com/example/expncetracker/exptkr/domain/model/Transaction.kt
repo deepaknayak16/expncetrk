@@ -1,12 +1,13 @@
 package com.example.expncetracker.exptkr.domain.model
 
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 data class Transaction(
     val id: Long = 0,
-    val smsId: Long? = null,
+    val smsId: String? = null,
     val accountId: Long = 0,
-    val amount: Double,
+    val amount: BigDecimal,
     val type: TransactionType,
     val categoryName: String,
     val merchant: String,
@@ -26,5 +27,6 @@ data class Transaction(
     // Phase 1 Additions
     val idempotencyHash: String? = null,
     val confidenceScore: Float = 1.0f,
-    val parsingStatus: String = "COMPLETE"
+    val parsingStatus: String = "COMPLETE",
+    val isCategoryManuallyCorrected: Boolean = false
 )

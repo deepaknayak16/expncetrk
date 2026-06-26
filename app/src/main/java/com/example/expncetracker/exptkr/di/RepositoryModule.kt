@@ -5,12 +5,14 @@ import com.example.expncetracker.exptkr.data.repository.BudgetRepositoryImpl
 import com.example.expncetracker.exptkr.data.repository.CategoryRepositoryImpl
 import com.example.expncetracker.exptkr.data.repository.GoalRepositoryImpl
 import com.example.expncetracker.exptkr.data.repository.MerchantMappingRepositoryImpl
+import com.example.expncetracker.exptkr.data.repository.RuleRepositoryImpl
 import com.example.expncetracker.exptkr.data.repository.TransactionRepositoryImpl
 import com.example.expncetracker.exptkr.domain.repository.AccountRepository
 import com.example.expncetracker.exptkr.domain.repository.BudgetRepository
 import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import com.example.expncetracker.exptkr.domain.repository.GoalRepository
 import com.example.expncetracker.exptkr.domain.repository.MerchantMappingRepository
+import com.example.expncetracker.exptkr.domain.repository.RuleRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -27,4 +29,5 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindAccountRepository(impl: AccountRepositoryImpl): AccountRepository
     @Binds @Singleton abstract fun bindBudgetRepository(impl: BudgetRepositoryImpl): BudgetRepository
     @Binds @Singleton abstract fun bindMerchantMappingRepository(impl: MerchantMappingRepositoryImpl): MerchantMappingRepository
+    @Binds @Singleton abstract fun bindRuleRepository(impl: RuleRepositoryImpl): RuleRepository
 }

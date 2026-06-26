@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.core.common.Logger
+import com.example.expncetracker.exptkr.core.common.SecurityUtils
 import com.example.expncetracker.exptkr.data.db.entity.RawSmsEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -59,14 +60,20 @@ class SmsReader @Inject constructor(
                         val containsCurrency = body.contains("Rs", ignoreCase = true) || 
                                              body.contains("INR", ignoreCase = true) ||
                                              body.contains("₹")
+                        
+                        // FIX #H10: Require an actual transaction keyword to filter out promotional SMS
+                        val txKeywords = "(?:debited|spent|withdrawn|transferred|paid|sent|credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned)"
+                        val containsKeyword = body.contains(txKeywords.toRegex(RegexOption.IGNORE_CASE))
 
-                        val isRelevant = isBankBySender || isWalletBySender || (isShortCode && containsCurrency)
+                        val isRelevant = isBankBySender || isWalletBySender || (isShortCode && containsCurrency && containsKeyword)
 
                         if (isRelevant) {
                             Logger.d("SmsReader", "Found relevant SMS from $address: ${body.take(20)}...")
+                            // FIX #H8: Use content-derived hash as PK
+                            val smsHash = SecurityUtils.generateHash("$address|$body|$date")
                             smsList.add(
                                 RawSmsEntity(
-                                    smsId = id,
+                                    smsId = smsHash,
                                     address = address,
                                     body = body,
                                     timestamp = date

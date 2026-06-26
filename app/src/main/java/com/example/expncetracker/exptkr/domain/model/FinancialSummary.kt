@@ -1,14 +1,16 @@
 package com.example.expncetracker.exptkr.domain.model
 
+import java.math.BigDecimal
+
 data class FinancialSummary(
-    val totalIncome: Double,
-    val totalExpense: Double,
-    val balance: Double,
-    val totalLent: Double = 0.0,
-    val totalBorrowed: Double = 0.0,
-    val totalAssets: Double = 0.0,
-    val totalLiabilities: Double = 0.0,
-    val netWorth: Double = 0.0,
-    val budget: Double? = null,
-    val categoryDistribution: Map<String, Double>
+    val totalIncome: BigDecimal,
+    val totalExpense: BigDecimal,
+    val balance: BigDecimal,
+    val totalLent: BigDecimal = BigDecimal.ZERO,
+    val totalBorrowed: BigDecimal = BigDecimal.ZERO,
+    val totalAssets: BigDecimal = BigDecimal.ZERO,
+    val totalLiabilities: BigDecimal = BigDecimal.ZERO,
+    val netWorth: BigDecimal = BigDecimal.ZERO,
+    val budget: BigDecimal? = null,
+    val categoryDistribution: Map<String, BigDecimal>
 )

@@ -9,7 +9,7 @@ interface MerchantMappingDao {
     @Query("SELECT * FROM merchant_mappings")
     fun getAllMappings(): Flow<List<MerchantMappingEntity>>
 
-    @Query("SELECT * FROM merchant_mappings WHERE merchantName = :merchantName")
+    @Query("SELECT * FROM merchant_mappings WHERE merchantName = :merchantName COLLATE NOCASE")
     suspend fun getMappingForMerchant(merchantName: String): MerchantMappingEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

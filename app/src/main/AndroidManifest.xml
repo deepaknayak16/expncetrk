@@ -42,7 +42,7 @@
 
         <receiver
             android:name=".ui.widget.ExpenseWidgetReceiver"
-            android:exported="false"
+            android:exported="true"
             android:label="Expense Tracker Widget">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

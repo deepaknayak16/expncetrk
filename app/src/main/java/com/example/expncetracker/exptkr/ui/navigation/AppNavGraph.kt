@@ -94,6 +94,21 @@ private val bottomNavItems = listOf(
 fun AppNavGraph(startRoute: String? = null) {
     val navController = rememberNavController()
     val context = LocalContext.current
+    
+    // Handle deep-links from startRoute
+    LaunchedEffect(startRoute) {
+        if (!startRoute.isNullOrBlank()) {
+            navController.navigate(startRoute) {
+                // Ensure we don't pile up routes if multiple deep links are clicked
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
     val activity = remember(context) { context.findActivity() }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()

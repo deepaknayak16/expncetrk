@@ -1,18 +1,21 @@
 package com.example.expncetracker.exptkr.data.model
 
+import com.example.expncetracker.exptkr.core.common.BigDecimalSerializer
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.core.common.toEpochMilli
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import kotlinx.serialization.Serializable
+import java.math.BigDecimal
 
 @Serializable
 data class TransactionDto(
     val id: Long = 0,
-    val smsId: Long? = null,
+    val smsId: String? = null,
     val accountId: Long = 0, // <-- ADDED
-    val amount: Double,
+    @Serializable(with = BigDecimalSerializer::class)
+    val amount: BigDecimal,
     val type: TransactionType,
     val category: String,
     val merchant: String,
@@ -27,7 +30,10 @@ data class TransactionDto(
     val counterparty: String? = null,
     val isSettled: Boolean = false,
     val tags: List<String> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis() // <-- ADDED
+    val createdAt: Long = System.currentTimeMillis(),
+    val idempotencyHash: String? = null,
+    val confidenceScore: Float = 1.0f,
+    val parsingStatus: String = "COMPLETE"
 )
 
 fun TransactionDto.toDomain() = Transaction(
@@ -42,14 +48,17 @@ fun TransactionDto.toDomain() = Transaction(
     note = note,
     timestamp = timestamp.toLocalDateTime(),
     isRecurring = isRecurring,
-    frequency = frequency?.let { RecurrenceFrequency.valueOf(it) },
+    frequency = frequency?.let { runCatching { RecurrenceFrequency.valueOf(it) }.getOrNull() },
     nextDueDate = nextDueDate?.toLocalDateTime(),
     recurrenceEndDate = recurrenceEndDate?.toLocalDateTime(),
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
     isSettled = isSettled,
     tags = tags,
-    createdAt = createdAt.toLocalDateTime() // <-- ADDED
+    createdAt = createdAt.toLocalDateTime(),
+    idempotencyHash = idempotencyHash,
+    confidenceScore = confidenceScore,
+    parsingStatus = parsingStatus
 )
 
 fun Transaction.toDto() = TransactionDto(
@@ -71,5 +80,8 @@ fun Transaction.toDto() = TransactionDto(
     counterparty = counterparty,
     isSettled = isSettled,
     tags = tags,
-    createdAt = createdAt.toEpochMilli() // <-- ADDED
+    createdAt = createdAt.toEpochMilli(),
+    idempotencyHash = idempotencyHash,
+    confidenceScore = confidenceScore,
+    parsingStatus = parsingStatus
 )

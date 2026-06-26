@@ -4,6 +4,8 @@ import com.example.expncetracker.exptkr.core.common.Logger
 import com.example.expncetracker.exptkr.core.parser.CategoryDetector
 import com.example.expncetracker.exptkr.core.parser.ParserRegistry
 import com.example.expncetracker.exptkr.core.sms.SmsReader
+import com.example.expncetracker.exptkr.data.db.AppDatabase
+import androidx.room.withTransaction
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao 
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
@@ -16,7 +18,8 @@ class ImportSmsTransactionsUseCase @Inject constructor(
     private val parserRegistry: ParserRegistry,
     private val categoryDetector: CategoryDetector,
     private val repository: TransactionRepository,
-    private val accountDao: AccountDao
+    private val accountDao: AccountDao,
+    private val db: AppDatabase
 ) {
     suspend fun execute() {
         // FETCH WIDE: Look back 30 days to ensure we don't miss anything 
@@ -61,19 +64,15 @@ class ImportSmsTransactionsUseCase @Inject constructor(
 
         Logger.d("ImportSmsTransactions", "Total valid transactions parsed: ${parsedTransactions.size}")
 
-        parsedTransactions.forEach { transaction ->
-            try {
-                repository.insertTransactionWithBalance(transaction)
-            } catch (e: Exception) {
-                Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")
+        // FIX #H17: Wrap batch in a single transaction for efficiency
+        db.withTransaction {
+            parsedTransactions.forEach { transaction ->
+                try {
+                    repository.insertTransactionWithBalance(transaction)
+                } catch (e: Exception) {
+                    Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")
+                }
             }
-        }
-
-        // One-time cleanup of any legacy duplicates caused by previous hashing issues
-        try {
-            repository.cleanupDuplicates()
-        } catch (e: Exception) {
-            Logger.e("ImportSmsTransactions", "Cleanup failed: ${e.message}")
         }
     }
 }

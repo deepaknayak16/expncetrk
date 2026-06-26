@@ -6,11 +6,13 @@ import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 fun TransactionEntity.toDomain(): Transaction = Transaction(
     id = id,
     smsId = smsId,
-    accountId = accountId ?: 0L,
+    accountId = accountId,
     amount = amount,
     type = runCatching { TransactionType.valueOf(type) }.getOrDefault(TransactionType.DEBIT),
     categoryName = category,
@@ -25,11 +27,15 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
     isSettled = isSettled,
-    tags = tags?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+    tags = tags?.let { 
+        if (it.startsWith("[")) runCatching { Json.decodeFromString<List<String>>(it) }.getOrDefault(emptyList())
+        else it.split(",").filter { t -> t.isNotBlank() }
+    } ?: emptyList(),
     createdAt = createdAt.toLocalDateTime(),
     idempotencyHash = idempotencyHash,
     confidenceScore = confidenceScore,
-    parsingStatus = parsingStatus
+    parsingStatus = parsingStatus,
+    isCategoryManuallyCorrected = isCategoryManuallyCorrected
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
@@ -50,9 +56,10 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
     isSettled = isSettled,
-    tags = if (tags.isEmpty()) null else tags.joinToString(","),
+    tags = if (tags.isEmpty()) null else Json.encodeToString(tags),
     createdAt = createdAt.toEpochMilli(),
     idempotencyHash = idempotencyHash,
     confidenceScore = confidenceScore,
-    parsingStatus = parsingStatus
+    parsingStatus = parsingStatus,
+    isCategoryManuallyCorrected = isCategoryManuallyCorrected
 )

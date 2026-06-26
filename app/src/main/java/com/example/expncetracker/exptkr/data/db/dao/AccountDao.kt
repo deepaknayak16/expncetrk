@@ -10,7 +10,7 @@ interface AccountDao {
     fun getAllAccounts(): Flow<List<AccountEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAccount(account: AccountEntity)
+    suspend fun insertAccount(account: AccountEntity): Long
 
     @Update
     suspend fun updateAccount(account: AccountEntity)
@@ -28,10 +28,10 @@ interface AccountDao {
     suspend fun getAccountIdByName(name: String): Long?
 
     @Query("UPDATE accounts SET balance = balance + :delta WHERE name = :name")
-    suspend fun adjustBalance(name: String, delta: Double): Int
+    suspend fun adjustBalance(name: String, delta: java.math.BigDecimal): Int
 
     @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
-    suspend fun adjustBalanceById(accountId: Long, delta: Double): Int
+    suspend fun adjustBalanceById(accountId: Long, delta: java.math.BigDecimal): Int
 
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getAccountById(id: Long): AccountEntity?
@@ -42,9 +42,13 @@ interface AccountDao {
     @Query("DELETE FROM transactions WHERE account_id = :accountId")
     suspend fun deleteTransactionsByAccountId(accountId: Long)
 
+    @Query("UPDATE goals SET linked_account_id = NULL WHERE linked_account_id = :accountId")
+    suspend fun clearGoalLinksByAccountId(accountId: Long)
+
     // FIX: Manual cascade since ForeignKey was removed in Migration 11->12
     @Transaction
     suspend fun deleteAccountAndTransactions(accountId: Long) {
+        clearGoalLinksByAccountId(accountId)
         deleteTransactionsByAccountId(accountId)
         deleteAccountById(accountId)
     }

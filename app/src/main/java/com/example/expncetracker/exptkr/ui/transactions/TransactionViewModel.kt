@@ -29,8 +29,8 @@ data class TransactionFilter(
     val query: String = "",
     val startDate: Long? = null,
     val endDate: Long? = null,
-    val minAmount: Double? = null,
-    val maxAmount: Double? = null,
+    val minAmount: java.math.BigDecimal? = null,
+    val maxAmount: java.math.BigDecimal? = null,
     val categoryName: String? = null,
     val accountName: String? = null
 )
@@ -103,6 +103,7 @@ class TransactionViewModel @Inject constructor(
         _isLoading.value = true
         repository.searchTransactions(params.startMillis, params.endMillis, params.query).map { list ->
             list.filter { tx ->
+                val isNotRecurring = !tx.isRecurring
                 val amountMatch = (params.adv.minAmount == null || tx.amount >= params.adv.minAmount) &&
                     (params.adv.maxAmount == null || tx.amount <= params.adv.maxAmount)
                 val categoryMatch = params.adv.categoryName == null || tx.categoryName == params.adv.categoryName
@@ -115,7 +116,7 @@ class TransactionViewModel @Inject constructor(
                         tx.bankName.contains(params.adv.query, ignoreCase = true)
                 } else true
 
-                amountMatch && categoryMatch && accountMatch && textMatch
+                isNotRecurring && amountMatch && categoryMatch && accountMatch && textMatch
             }.let { filteredList ->
                 when (params.sort) {
                     SortOrder.DATE_DESC -> filteredList.sortedByDescending { it.timestamp }
@@ -193,8 +194,8 @@ class TransactionViewModel @Inject constructor(
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
             when {
-                transaction.smsId != null -> {
-                    _statusEvent.send("SMS transactions cannot be deleted")
+                transaction.smsId != null || transaction.idempotencyHash != null -> {
+                    _statusEvent.send("Auto-detect SMS transactions cannot be deleted")
                 }
                 Duration.between(transaction.createdAt, LocalDateTime.now()).toMinutes() > 60 -> {
                     _statusEvent.send("Manual transactions older than 1 hour cannot be deleted")
@@ -208,7 +209,7 @@ class TransactionViewModel @Inject constructor(
     }
 
     // FIX #10: Atomic split with balance — moved to repository
-    fun splitTransaction(parent: Transaction, splits: List<Pair<String, Double>>) {
+    fun splitTransaction(parent: Transaction, splits: List<Pair<String, java.math.BigDecimal>>) {
         viewModelScope.launch {
             try {
                 val subTransactions = splits.map { (catName, amt) ->

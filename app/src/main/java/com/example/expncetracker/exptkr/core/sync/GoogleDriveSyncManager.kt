@@ -29,11 +29,13 @@ class GoogleDriveSyncManager @Inject constructor(
 ) {
 
     private var driveService: Drive? = null
+    private val httpTransport = NetHttpTransport()
+    private val lock = Any()
 
     /**
      * Get the Drive service, initializing it if necessary.
      */
-    fun getDriveService(): Drive? {
+    fun getDriveService(): Drive? = synchronized(lock) {
         if (driveService == null) {
             initializeDriveService()
         }
@@ -44,7 +46,7 @@ class GoogleDriveSyncManager @Inject constructor(
      * Initialize the Google Drive service using the last signed-in account.
      * @return True if initialized successfully, false otherwise.
      */
-    fun initializeDriveService(): Boolean {
+    fun initializeDriveService(): Boolean = synchronized(lock) {
         val account = GoogleSignIn.getLastSignedInAccount(context) ?: return false
 
         val credential = GoogleAccountCredential.usingOAuth2(
@@ -54,7 +56,7 @@ class GoogleDriveSyncManager @Inject constructor(
         credential.selectedAccount = account.account
 
         driveService = Drive.Builder(
-            NetHttpTransport(),
+            httpTransport,
             GsonFactory.getDefaultInstance(),
             credential
         )
@@ -79,6 +81,7 @@ class GoogleDriveSyncManager @Inject constructor(
             val fileMetadata = com.google.api.services.drive.model.File().apply {
                 name = "expense_tracker_backup.json"
                 mimeType = "application/json"
+                parents = listOf("appDataFolder")
             }
 
             val mediaContent = com.google.api.client.http.FileContent(
@@ -135,7 +138,7 @@ class GoogleDriveSyncManager @Inject constructor(
 
         val result = drive.files().list()
             .setQ(query)
-            .setSpaces("drive")
+            .setSpaces("appDataFolder")
             .setFields("files(id, name)")
             .execute()
 
@@ -147,12 +150,19 @@ class GoogleDriveSyncManager @Inject constructor(
     }
 
     suspend fun signOut() {
-        driveService = null
+        synchronized(lock) {
+            driveService = null
+            try {
+                httpTransport.shutdown()
+            } catch (e: Exception) {
+                Log.e("GDriveSync", "Error shutting down transport", e)
+            }
+        }
         try {
             // Inject GoogleSignInClient into this class instead of recreating it
             googleSignInClient.signOut().await()
         } catch (e: Exception) {
             Log.e("GDriveSync", "Sign out failed", e)
-                }
+        }
     }
 }

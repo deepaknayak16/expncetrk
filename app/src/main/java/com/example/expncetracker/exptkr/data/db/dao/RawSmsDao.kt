@@ -15,5 +15,5 @@ interface RawSmsDao {
     suspend fun getAllRawSms(): List<RawSmsEntity>
 
     @Query("UPDATE raw_sms SET parsingStatus = :status WHERE smsId = :id")
-    suspend fun updateStatus(id: Long, status: String)
+    suspend fun updateStatus(id: String, status: String)
 }

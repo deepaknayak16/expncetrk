@@ -41,30 +41,36 @@ import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
-import com.example.expncetracker.exptkr.ui.dashboard.DistributionSection
+import com.example.expncetracker.exptkr.ui.components.DistributionSection
+import com.example.expncetracker.exptkr.ui.components.SpendingTrendSection
 import com.example.expncetracker.exptkr.ui.dashboard.TimeFilterRow
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
 import com.example.expncetracker.exptkr.ui.components.getIconByName
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
+import com.patrykandpatrick.vico.compose.cartesian.Scroll
+import com.patrykandpatrick.vico.compose.cartesian.Zoom
+import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.compose.cartesian.data.columnSeries
+import com.patrykandpatrick.vico.compose.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.compose.cartesian.layer.ColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
+import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.columnSeries
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
-import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
-import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
-import com.patrykandpatrick.vico.core.common.shape.Shape
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
+import java.time.format.TextStyle as TimeTextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
@@ -117,6 +123,25 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
     }
 
+    val lineScrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
+    val columnScrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
+
+    // Ensure charts stay at the end when data updates
+    LaunchedEffect(trends) {
+        if (trends.isNotEmpty()) {
+            // Give a small delay for the chart to process the model update
+            kotlinx.coroutines.delay(100)
+            lineScrollState.scroll(Scroll.Absolute.End)
+        }
+    }
+
+    LaunchedEffect(dailyTotals, selectedFilter) {
+        if (dailyTotals.isNotEmpty()) {
+            kotlinx.coroutines.delay(100)
+            columnScrollState.scroll(Scroll.Absolute.End)
+        }
+    }
+
     val today = LocalDate.now()
     var currentPeriodStart by remember {
         mutableStateOf(
@@ -137,65 +162,88 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
         }
     }
 
-    val axisLabel = rememberTextComponent(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val axisLabel = rememberTextComponent(style = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onSurfaceVariant))
     val axisGuideline = rememberLineComponent(
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
+        fill = Fill(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f))
     )
 
-    val lineChart = rememberCartesianChart(
-        rememberLineCartesianLayer(
-            lineProvider = LineCartesianLayer.LineProvider.series(
-                listOf(
-                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(MaterialTheme.colorScheme.primary))),
-                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFFF44336)))),
-                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFF4CAF50)))),
-                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFFFF9800)))),
-                    rememberLine(fill = LineCartesianLayer.LineFill.single(com.patrykandpatrick.vico.compose.common.fill(Color(0xFF9C27B0)))),
-                )
-            )
-        ),
-        startAxis = rememberStartAxis(label = axisLabel, tick = null, guideline = axisGuideline),
-        bottomAxis = rememberBottomAxis(
-            label = axisLabel,
-            tick = null,
-            guideline = null,
-            valueFormatter = { value, _, _ -> trends["Total"]?.getOrNull(value.toInt())?.label ?: "" }
-        )
-    )
-
-    val columnChart = rememberCartesianChart(
-        rememberColumnCartesianLayer(
-            columnProvider = ColumnCartesianLayer.ColumnProvider.series(
-                rememberLineComponent(
-                    color = MaterialTheme.colorScheme.primary,
-                    thickness = 10.dp,
-                    shape = Shape.rounded(50)
-                )
-            )
-        ),
-        startAxis = rememberStartAxis(label = axisLabel, tick = null, guideline = axisGuideline),
-        bottomAxis = rememberBottomAxis(
-            label = axisLabel,
-            valueFormatter = { value, _, _ ->
-                // NEW: correct axis labels per filter
-                when (selectedFilter) {
-                    DateFilter.WEEK -> {
-                        val day = currentPeriodStart.plusDays(value.toLong())
-                        day.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
-                    }
-                    DateFilter.WEEK_RANGE -> {
-                        val day = currentPeriodStart.plusDays(value.toLong())
-                        day.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
-                    }
-                    DateFilter.MONTH -> "W${(value.toInt() + 1)}"
-                    DateFilter.YEAR -> DateTimeFormatter.ofPattern("MMM").format(
-                        java.time.Month.of((value.toInt() + 1).coerceIn(1, 12))
+    val lineChart = key(trends) {
+        rememberCartesianChart(
+            rememberLineCartesianLayer(
+                lineProvider = LineCartesianLayer.LineProvider.series(
+                    listOf(
+                        LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(Fill(MaterialTheme.colorScheme.primary))),
+                        LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(Fill(Color(0xFFF44336)))),
+                        LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(Fill(Color(0xFF4CAF50)))),
+                        LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(Fill(Color(0xFFFF9800)))),
+                        LineCartesianLayer.rememberLine(fill = LineCartesianLayer.LineFill.single(Fill(Color(0xFF9C27B0)))),
                     )
-                    else -> value.toInt().toString()
+                )
+            ),
+            startAxis = VerticalAxis.rememberStart(
+                label = axisLabel,
+                tick = null,
+                guideline = axisGuideline
+            ),
+            bottomAxis = HorizontalAxis.rememberBottom(
+                label = axisLabel,
+                tick = null,
+                guideline = null,
+                itemPlacer = HorizontalAxis.ItemPlacer.aligned(
+                    spacing = { 1 },
+                    addExtremeLabelPadding = true
+                ),
+                valueFormatter = { _, value, _ -> 
+                    val label = trends["Total"]?.getOrNull(value.toInt())?.label 
+                    if (label.isNullOrBlank()) "\u2022" else label
                 }
-            }
+            ),
+            getXStep = { _, _, _ -> if (trendWindow == TrendWindow.W1) 1.0 else 1.0 }
         )
-    )
+    }
+
+    val columnChart = key(selectedFilter, currentPeriodStart) {
+        rememberCartesianChart(
+            rememberColumnCartesianLayer(
+                columnProvider = ColumnCartesianLayer.ColumnProvider.series(
+                    rememberLineComponent(
+                        fill = Fill(MaterialTheme.colorScheme.primary),
+                        thickness = 10.dp,
+                        shape = RoundedCornerShape(percent = 50)
+                    )
+                )
+            ),
+            startAxis = VerticalAxis.rememberStart(
+                label = axisLabel,
+                tick = null,
+                guideline = axisGuideline
+            ),
+            bottomAxis = HorizontalAxis.rememberBottom(
+                label = axisLabel,
+                valueFormatter = { _, value, _ ->
+                    // NEW: correct axis labels per filter
+                    val label = when (selectedFilter) {
+                        DateFilter.WEEK -> {
+                            val day = currentPeriodStart.plusDays(value.toLong())
+                            day.dayOfWeek.getDisplayName(TimeTextStyle.SHORT, locale)
+                        }
+                        DateFilter.WEEK_RANGE -> {
+                            val day = currentPeriodStart.plusDays(value.toLong())
+                            day.dayOfWeek.getDisplayName(TimeTextStyle.SHORT, locale)
+                        }
+                        DateFilter.MONTH -> "W${(value.toInt() + 1)}"
+                        DateFilter.YEAR -> {
+                            val month = (value.toInt() + 1).coerceIn(1, 12)
+                            DateTimeFormatter.ofPattern("MMM").format(java.time.Month.of(month))
+                        }
+                        else -> value.toInt().toString()
+                    }
+                    if (label.isNullOrBlank()) "\u2022" else label
+                }
+            ),
+            getXStep = { _, _, _ -> 1.0 }
+        )
+    }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showRangePicker by remember { mutableStateOf(false) }
@@ -251,10 +299,17 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
             }
         }
         
-        // NEW: robust grouping logic for Month/Year data
+        // NEW: robust grouping logic for Month/Year data that prevents hole skipping
         val groupedData: List<Float> = when (selectedFilter) {
-            DateFilter.DAY, DateFilter.WEEK, DateFilter.WEEK_RANGE ->
-                dailyTotals.entries.sortedBy { it.key }.map { it.value.toFloat() }
+            DateFilter.DAY -> {
+                listOf(dailyTotals[currentPeriodStart]?.toFloat() ?: 0f)
+            }
+            DateFilter.WEEK, DateFilter.WEEK_RANGE -> {
+                (0..6).map { i ->
+                    val date = currentPeriodStart.plusDays(i.toLong())
+                    dailyTotals[date]?.toFloat() ?: 0f
+                }
+            }
 
             DateFilter.MONTH -> {
                 // Always create 5 buckets (weeks) to keep chart stable
@@ -313,7 +368,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    val catAmount = summary?.categoryDistribution?.get(drillDownCategory) ?: 0.0
+                    val catAmount = summary?.categoryDistribution?.get(drillDownCategory)?.toDouble() ?: 0.0
                     Text(
                         catAmount.formatAsCurrency(),
                         style = MaterialTheme.typography.titleMedium,
@@ -503,12 +558,12 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     // SUMMARY
                     // ─────────────────────────────
 
-                    val expense = summary?.totalExpense ?: 0.0
-                    val income = summary?.totalIncome ?: 0.0
-                    val balance = summary?.balance ?: 0.0
+                    val expense = summary?.totalExpense?.toDouble() ?: 0.0
+                    val income = summary?.totalIncome?.toDouble() ?: 0.0
+                    val balance = summary?.balance?.toDouble() ?: 0.0
 
-                    val prevExpense = previousSummary?.totalExpense ?: 0.0
-                    val prevIncome = previousSummary?.totalIncome ?: 0.0
+                    val prevExpense = previousSummary?.totalExpense?.toDouble() ?: 0.0
+                    val prevIncome = previousSummary?.totalIncome?.toDouble() ?: 0.0
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -556,8 +611,9 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     // ─────────────────────────────
                     // BUDGET (COMPACTED SPACING ONLY)
                     // ─────────────────────────────
-                    summary?.budget?.let { budget ->
-                        if (budget > 0) {
+                    summary?.budget?.let { budgetBigDecimal ->
+                        val budget = budgetBigDecimal.toDouble()
+                        if (budget > 0.0) {
 
                             val fraction = (expense / budget).toFloat().coerceIn(0f, 1f)
                             val overBudget = expense > budget
@@ -611,7 +667,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             (0..6).map { currentPeriodStart.plusDays(it.toLong()) } 
                         }
                         val maxAmount by remember(dailyTotals) {
-                            derivedStateOf { dailyTotals.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0 }
+                            derivedStateOf { dailyTotals.values.maxOrNull()?.toDouble()?.coerceAtLeast(1.0) ?: 1.0 }
                         }
 
                         Row(
@@ -619,7 +675,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             days.forEach { day ->
-                                val amount = dailyTotals[day] ?: 0.0
+                                val amount = dailyTotals[day]?.toDouble() ?: 0.0
                                 val fraction = (amount / maxAmount).toFloat().coerceIn(0f, 1f)
                                 val isToday = day == today
 
@@ -628,7 +684,7 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text(
-                                        text = day.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
+                                        text = day.dayOfWeek.getDisplayName(TimeTextStyle.NARROW, locale),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (isToday) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurfaceVariant
@@ -697,99 +753,106 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
 
             // ── 3. Spending trend with period selector ─────────────────────
             item(key = "trend_chart") {
-                AnalyticsCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Spending trend",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        // NEW: window selector chips
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TrendWindow.entries.forEach { window ->
-                                val isSelected = trendWindow == window
-                                Surface(
-                                    onClick = {
-                                        trendWindow = window
-                                        viewModel.loadTrends(window.days)
-                                    },
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                                    else Color.Transparent,
-                                    border = if (isSelected) null
-                                    else BorderStroke(
-                                        0.5.dp,
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    )
-                                ) {
-                                    Text(
-                                        text = window.label,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    if (trends.isNotEmpty()) {
-                        // NEW: quick total above chart
-                        val trendTotal = trends["Total"]?.sumOf { it.amount } ?: 0.0
-                        Text(
-                            text = trendTotal.formatAsCurrency(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        CartesianChartHost(
-                            chart = lineChart,
-                            modelProducer = lineModelProducer,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp)
-                        )
-                        
-                        // NEW: simple legend
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                            maxItemsInEachRow = 3
+                key(trends) {
+                    AnalyticsCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                Color(0xFFF44336),
-                                Color(0xFF4CAF50),
-                                Color(0xFFFF9800),
-                                Color(0xFF9C27B0)
+                            Text(
+                                "Spending trend",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium
                             )
-                            trends.keys.forEachIndexed { index, cat ->
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(colors.getOrElse(index) { Color.Gray })
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        text = cat,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                            // NEW: window selector chips
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TrendWindow.entries.forEach { window ->
+                                    val isSelected = trendWindow == window
+                                    Surface(
+                                        onClick = {
+                                            trendWindow = window
+                                            viewModel.loadTrends(window.days)
+                                        },
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                                        else Color.Transparent,
+                                        border = if (isSelected) null
+                                        else BorderStroke(
+                                            0.5.dp,
+                                            MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                    ) {
+                                        Text(
+                                            text = window.label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
-                    } else {
-                        ChartEmptyState("No trend data for this period")
+
+                        Spacer(Modifier.height(12.dp))
+
+                        if (trends.isNotEmpty()) {
+                            // NEW: quick total above chart
+                            val trendTotal = trends["Total"]?.sumOf { it.amount }?.toDouble() ?: 0.0
+                            Text(
+                                text = trendTotal.formatAsCurrency(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            CartesianChartHost(
+                                chart = lineChart,
+                                modelProducer = lineModelProducer,
+                                scrollState = lineScrollState,
+                                zoomState = rememberVicoZoomState(
+                                    initialZoom = if (trendWindow == TrendWindow.W1) Zoom.Content 
+                                                 else Zoom.x(7.0)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                            )
+                            
+                            // NEW: simple legend
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                                maxItemsInEachRow = 3
+                            ) {
+                                val colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    Color(0xFFF44336),
+                                    Color(0xFF4CAF50),
+                                    Color(0xFFFF9800),
+                                    Color(0xFF9C27B0)
+                                )
+                                trends.keys.forEachIndexed { index, cat ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(colors.getOrElse(index) { Color.Gray })
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = cat,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            ChartEmptyState("No trend data for this period")
+                        }
                     }
                 }
             }
@@ -831,10 +894,10 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
 
                         // NEW: top spender insight callout
                         val topCategory = dist.maxByOrNull { it.value }
-                        val totalSpend = dist.values.sum()
+                        val totalSpend = dist.values.sumOf { it }
                         topCategory?.let { (name, amount) ->
-                            if (totalSpend > 0) {
-                                val pct = ((amount / totalSpend) * 100).toInt()
+                            if (totalSpend > BigDecimal.ZERO) {
+                                val pct = (amount.toDouble() / totalSpend.toDouble() * 100).toInt()
                                 Spacer(Modifier.height(10.dp))
                                 HorizontalDivider(
                                     thickness = 0.5.dp,
@@ -882,6 +945,10 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                         CartesianChartHost(
                             chart = columnChart,
                             modelProducer = columnModelProducer,
+                            scrollState = columnScrollState,
+                            zoomState = rememberVicoZoomState(
+                                initialZoom = Zoom.Content
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(180.dp)

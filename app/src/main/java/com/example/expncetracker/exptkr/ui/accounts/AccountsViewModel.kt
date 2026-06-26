@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import javax.inject.Inject
 
 @HiltViewModel
@@ -61,7 +62,7 @@ class AccountsViewModel @Inject constructor(
         }
     }
 
-    fun addAccount(name: String, balance: Double, type: String) {
+    fun addAccount(name: String, balance: BigDecimal, type: String) {
         viewModelScope.launch {
             val existing = accountRepository.getAccountByName(name)
             if (existing != null) {
@@ -87,7 +88,7 @@ class AccountsViewModel @Inject constructor(
         }
     }
 
-    fun updateAccount(id: Long, name: String, balance: Double, type: String) {
+    fun updateAccount(id: Long, name: String, balance: BigDecimal, type: String) {
         viewModelScope.launch {
             val existing = accountRepository.getAccountByName(name)
             if (existing != null && existing.id != id) {

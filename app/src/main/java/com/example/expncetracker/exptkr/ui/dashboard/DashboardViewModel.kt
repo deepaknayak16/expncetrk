@@ -43,18 +43,22 @@ class DashboardViewModel @Inject constructor(
     private val _statusEvent = Channel<String>(Channel.BUFFERED)
     val statusEvent = _statusEvent.receiveAsFlow()
 
-    val trends: StateFlow<Map<String, List<SpendingTrend>>> = _selectedFilter.flatMapLatest { filter ->
-        val rangeDays = when (filter) {
-            DateFilter.DAY, DateFilter.WEEK -> filter.toDays()
-            else -> 30
-        }
-        getTrendsUseCase(rangeDays)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+    private val _refreshTrigger = MutableStateFlow(0)
+
+    val trends: StateFlow<Map<String, List<SpendingTrend>>> = combine(_selectedFilter, _refreshTrigger) { filter, _ -> filter }
+        .flatMapLatest { filter ->
+            val rangeDays = when (filter) {
+                DateFilter.DAY, DateFilter.WEEK -> filter.toDays()
+                else -> 30
+            }
+            getTrendsUseCase(rangeDays)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val uiState: StateFlow<DashboardUiState> = combine(
         _selectedFilter,
-        _selectedDate
-    ) { filter, date -> filter to date }
+        _selectedDate,
+        _refreshTrigger
+    ) { filter, date, _ -> filter to date }
         .flatMapLatest { (filter, date) ->
             val startMillis: Long
             val endMillis: Long
@@ -87,36 +91,73 @@ class DashboardViewModel @Inject constructor(
                     endMillis = date.atZone(zone).toInstant().toEpochMilli()
                 }
             }
+
+            val prevSummaryFlow = if (filter == DateFilter.WEEK_RANGE) flowOf(null) 
+            else {
+                val (pStart, pEnd) = when (filter) {
+                    DateFilter.DAY -> {
+                        val d = date.minusDays(1)
+                        d.withHour(0).withMinute(0).atZone(zone).toInstant().toEpochMilli() to 
+                        d.withHour(23).withMinute(59).atZone(zone).toInstant().toEpochMilli()
+                    }
+                    DateFilter.WEEK -> {
+                        val dEnd = date.minusDays(7)
+                        val dStart = dEnd.minusDays(6)
+                        dStart.withHour(0).withMinute(0).atZone(zone).toInstant().toEpochMilli() to
+                        dEnd.withHour(23).withMinute(59).atZone(zone).toInstant().toEpochMilli()
+                    }
+                    DateFilter.MONTH -> {
+                        val d = date.minusMonths(1)
+                        d.withDayOfMonth(1).withHour(0).withMinute(0).atZone(zone).toInstant().toEpochMilli() to
+                        d.withDayOfMonth(d.toLocalDate().lengthOfMonth()).withHour(23).withMinute(59).atZone(zone).toInstant().toEpochMilli()
+                    }
+                    DateFilter.YEAR -> {
+                        val d = date.minusYears(1)
+                        d.withDayOfYear(1).withHour(0).withMinute(0).atZone(zone).toInstant().toEpochMilli() to
+                        d.withDayOfYear(d.toLocalDate().lengthOfYear()).withHour(23).withMinute(59).atZone(zone).toInstant().toEpochMilli()
+                    }
+                    else -> 0L to 0L
+                }
+                if (pStart != 0L) getSummaryUseCase(pStart, pEnd).distinctUntilChanged() else flowOf(null)
+            }
+
             getSummaryUseCase(startMillis, endMillis)
-        }
-        .distinctUntilChanged()
-        .combine(getRecentTransactionsUseCase(10).distinctUntilChanged()) { summary, recent -> summary to recent }
-        .combine(repository.getAllRecurringTransactions().distinctUntilChanged()) { (summary, recent), recurring -> Triple(summary, recent, recurring) }
-        .combine(categoryRepository.getAllCategories().distinctUntilChanged()) { triple, categories -> triple to categories }
-        .combine(goalRepository.getAllGoals().distinctUntilChanged()) { pair, goals -> pair to goals }
-        .combine(trends) { pair, trendMap ->
-            val (summaryRecentRecurring, categories) = pair.first
-            val (summary, recent, recurring) = summaryRecentRecurring
-            val goals = pair.second
+                .distinctUntilChanged()
+                .combine(prevSummaryFlow) { current, previous -> current to previous }
+                .combine(getRecentTransactionsUseCase(10).distinctUntilChanged()) { (current, previous), recent -> Triple(current, previous, recent) }
+                .combine(repository.getAllRecurringTransactions().distinctUntilChanged()) { triple, recurring -> triple to recurring }
+                .combine(categoryRepository.getAllCategories().distinctUntilChanged()) { pair, categories -> pair to categories }
+                .combine(goalRepository.getAllGoals().distinctUntilChanged()) { pair, goals -> pair to goals }
+                .combine(repository.getTransactionsInRange(startMillis, endMillis).distinctUntilChanged()) { pair, allTxsInRange -> pair to allTxsInRange }
+                .combine(trends) { pair, trendMap ->
+                    val (tripleWithGoals, allTxsInRange) = pair
+                    val (tripleWithCats, goals) = tripleWithGoals
+                    val (tripleWithRecurring, categories) = tripleWithCats
+                    val (tripleSummaryRecent, recurring) = tripleWithRecurring
+                    val (currentSummary, previousSummary, recent) = tripleSummaryRecent
 
-            val distribution = recent.groupBy { it.categoryName }
-                .mapValues { it.value.sumOf { t -> t.amount } }
+                    val distribution = allTxsInRange
+                        .filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
+                        .groupBy { it.categoryName }
+                        .mapValues { it.value.sumOf { t -> t.amount } }
 
-            DashboardUiState.Success(
-                DashboardData(
-                    summary = summary,
-                    recentTransactions = recent,
-                    recurringTransactions = recurring,
-                    trends = trendMap.getOrDefault("Total", emptyList()),
-                    distribution = distribution,
-                    allCategories = categories,
-                    goals = goals
-                )
-            ) as DashboardUiState
+                    DashboardUiState.Success(
+                        DashboardData(
+                            summary = currentSummary,
+                            previousSummary = previousSummary,
+                            recentTransactions = recent,
+                            recurringTransactions = recurring,
+                            trends = trendMap.getOrDefault("Total", emptyList()),
+                            distribution = distribution,
+                            allCategories = categories,
+                            goals = goals
+                        )
+                    ) as DashboardUiState
+                }
+                .catch { e ->
+                    emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
+                }
         }
-    .catch { e ->
-        emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
-    }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
     fun syncTransactions() {
@@ -124,8 +165,10 @@ class DashboardViewModel @Inject constructor(
             _isSyncing.value = true
             try {
                 importSmsTransactionsUseCase.execute()
+                _refreshTrigger.value++
             } catch (e: Exception){
                 _statusEvent.send("Sync failed: ${e.localizedMessage}")
+                _refreshTrigger.value++ // Also trigger refresh on exception to recover if DB state changed
             } finally {
                 _isSyncing.value = false
             }
@@ -143,8 +186,8 @@ class DashboardViewModel @Inject constructor(
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
             try {
-                if (transaction.smsId != null) {
-                    _statusEvent.send("SMS transactions cannot be deleted")
+                if (transaction.smsId != null || transaction.idempotencyHash != null) {
+                    _statusEvent.send("Auto-detect SMS transactions cannot be deleted")
                     return@launch
                 }
 

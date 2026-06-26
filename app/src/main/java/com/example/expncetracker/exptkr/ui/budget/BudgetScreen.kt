@@ -28,6 +28,7 @@ import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.components.EmptyState
 import com.example.expncetracker.exptkr.ui.theme.*
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -352,7 +353,7 @@ fun BudgetItem(budget: BudgetUiModel, onEditClick: () -> Unit, onDeleteClick: ()
                 Text(
                     text = "${budget.remaining.formatAsCurrency()} left",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (budget.remaining > 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense),
+                    color = if (budget.remaining > BigDecimal.ZERO) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense),
                     fontWeight = FontWeight.Bold
                 )
             }

@@ -17,6 +17,7 @@ import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.di.DatabaseModule
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
+import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.time.ZoneId
 import android.content.Intent
@@ -57,10 +58,10 @@ class ExpenseWidget : GlanceAppWidget() {
 
         // Fetching Data safely inside a suspend context
         val todayTransactions = transactionDao.getTransactionsInRange(startOfDay, endOfDay).first()
-        val todaySpending = todayTransactions.filter { it.type == "DEBIT" }.sumOf { it.amount }
+        val todaySpending = todayTransactions.filter { !it.isRecurring && it.type == "DEBIT" }.sumOf { it.amount }
 
         val monthTransactions = transactionDao.getTransactionsInRange(startOfMonth, endOfDay).first()
-        val monthSpending = monthTransactions.filter { it.type == "DEBIT" }.sumOf { it.amount }
+        val monthSpending = monthTransactions.filter { !it.isRecurring && it.type == "DEBIT" }.sumOf { it.amount }
 
         val budgets = budgetDao.getAllBudgets().first()
         val totalMonthlyBudget = budgets.sumOf { it.limitAmount }
@@ -74,7 +75,7 @@ class ExpenseWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun WidgetContent(todaySpending: Double, remaining: Double) {
+    private fun WidgetContent(todaySpending: BigDecimal, remaining: BigDecimal) {
         val context = LocalContext.current
         Column(
             modifier = GlanceModifier
@@ -108,7 +109,7 @@ class ExpenseWidget : GlanceAppWidget() {
                     )
                     Text(
                         text = "₹${"%.2f".format(remaining)}",
-                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (remaining < 0) GlanceTheme.colors.error else androidx.glance.color.ColorProvider(Color.Green, Color.Green))
+                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (remaining.signum() < 0) GlanceTheme.colors.error else androidx.glance.color.ColorProvider(Color.Green, Color.Green))
                     )
                 }
             }

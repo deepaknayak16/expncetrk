@@ -1,7 +1,6 @@
 package com.example.expncetracker.exptkr.data.export
 
 import android.content.Context
-import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.itextpdf.kernel.colors.ColorConstants
@@ -12,7 +11,6 @@ import com.itextpdf.layout.Document
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.Paragraph
 import com.itextpdf.layout.element.Table
-import com.itextpdf.layout.properties.HorizontalAlignment
 import com.itextpdf.layout.properties.TextAlignment
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -31,7 +29,7 @@ import kotlinx.coroutines.withContext
  */
 @Singleton
 class PdfExporter @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val transactionRepository: TransactionRepository
 ) {
 
@@ -51,6 +49,7 @@ class PdfExporter @Inject constructor(
             // Fetch transactions from repository
             val transactions = transactionRepository.getAllTransactions().first()
                 .filter { transaction ->
+                    if (transaction.isRecurring) return@filter false
                     val txDate = transaction.timestamp.toLocalDate()
                     when {
                         startDate != null && endDate != null ->
@@ -78,7 +77,7 @@ class PdfExporter @Inject constructor(
                     // Add title
                     val title = Paragraph("Expense Report")
                         .setFontSize(20f)
-                        .setBold()
+                        .simulateBold()
                         .setTextAlignment(TextAlignment.CENTER)
                         .setMarginBottom(20f)
                     doc.add(title)
@@ -102,20 +101,20 @@ class PdfExporter @Inject constructor(
 
                     doc.add(Paragraph("Summary")
                         .setFontSize(16f)
-                        .setBold()
+                        .simulateBold()
                         .setMarginTop(20f)
                         .setMarginBottom(10f))
 
                     doc.add(Paragraph("Total Income: ₹${String.format(Locale.US, "%.2f", totalIncome)}"))
                     doc.add(Paragraph("Total Expense: ₹${String.format(Locale.US, "%.2f", totalExpense)}"))
                     doc.add(Paragraph("Balance: ₹${String.format(Locale.US, "%.2f", balance)}")
-                        .setBold()
+                        .simulateBold()
                         .setMarginBottom(20f))
 
                     // Add transactions table
                     doc.add(Paragraph("Transaction Details")
                         .setFontSize(16f)
-                        .setBold()
+                        .simulateBold()
                         .setMarginTop(20f)
                         .setMarginBottom(10f))
 
@@ -123,21 +122,21 @@ class PdfExporter @Inject constructor(
 
                     // Table header
                     listOf("Date", "Category", "Type", "Description", "Amount").forEach { header ->
-                        table.addHeaderCell(header)
+                        table.addStyledHeaderCell(header)
                     }
 
                     // Table data
                     transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
-                        table.addCell(transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
-                        table.addCell(transaction.categoryName.lowercase().replaceFirstChar { it.uppercase() })
-                        table.addCell(when(transaction.type) {
+                        table.addStyledCell(transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                        table.addStyledCell(transaction.categoryName.lowercase().replaceFirstChar { it.uppercase() })
+                        table.addStyledCell(when(transaction.type) {
                             TransactionType.CREDIT -> "Income"
                             TransactionType.DEBIT -> "Expense"
                             TransactionType.TRANSFER -> "Transfer"
                             TransactionType.LEND -> "Lent"
                             TransactionType.BORROW -> "Borrowed"
                         })
-                        table.addCell(transaction.merchant.take(20))
+                        table.addStyledCell(transaction.merchant.take(20))
                         val amountText = when (transaction.type) {
                             TransactionType.DEBIT -> "-₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                             TransactionType.CREDIT -> "+₹${String.format(Locale.US, "%.2f", transaction.amount)}"
@@ -145,7 +144,7 @@ class PdfExporter @Inject constructor(
                             TransactionType.LEND -> "↗ ₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                             TransactionType.BORROW -> "↙ ₹${String.format(Locale.US, "%.2f", transaction.amount)}"
                         }
-                        table.addCell(amountText)
+                        table.addStyledCell(amountText)
                     }
 
                     doc.add(table)
@@ -164,17 +163,17 @@ class PdfExporter @Inject constructor(
         }
     }
 
-    private fun Table.addHeaderCell(text: String) {
+    private fun Table.addStyledHeaderCell(text: String) {
         addCell(
             Cell()
                 .add(Paragraph(text))
-                .setBold()
+                .simulateBold()
                 .setBackgroundColor(ColorConstants.LIGHT_GRAY)
                 .setTextAlignment(TextAlignment.CENTER)
         )
     }
 
-    private fun Table.addCell(text: String) {
+    private fun Table.addStyledCell(text: String) {
         addCell(
             Cell()
                 .add(Paragraph(text))

@@ -19,13 +19,15 @@ import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
 
+import java.math.BigDecimal
+
 data class BudgetUiModel(
     val categoryName: String,
     val displayName: String,
     val iconName: String,
-    val limit: Double,
-    val spent: Double,
-    val remaining: Double,
+    val limit: BigDecimal,
+    val spent: BigDecimal,
+    val remaining: BigDecimal,
     val progress: Float
 )
 
@@ -60,9 +62,9 @@ class BudgetViewModel @Inject constructor(
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
 
             budgets.map { budget ->
-                val spent = categorySpent[budget.category] ?: 0.0
-                val remaining = (budget.limitAmount - spent).coerceAtLeast(0.0)
-                val progress = if (budget.limitAmount > 0) (spent / budget.limitAmount).toFloat().coerceIn(0f, 1f) else 0f
+                val spent = categorySpent[budget.category] ?: BigDecimal.ZERO
+                val remaining = (budget.limitAmount - spent).coerceAtLeast(BigDecimal.ZERO)
+                val progress = if (budget.limitAmount > BigDecimal.ZERO) (spent.divide(budget.limitAmount, 4, java.math.RoundingMode.HALF_UP)).toFloat().coerceIn(0f, 1f) else 0f
                 
                 BudgetUiModel(
                     categoryName = budget.category,
@@ -75,11 +77,12 @@ class BudgetViewModel @Inject constructor(
                 )
             }
         }.flowOn(Dispatchers.Default)
-    }.catch { e ->
-        _statusEvent.send("Budget load failed: ${e.message}")
-        emit(emptyList())
+        .catch { e ->
+            _statusEvent.send("Budget load failed: ${e.message}")
+            emit(emptyList())
+        }
     }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
@@ -121,7 +124,7 @@ class BudgetViewModel @Inject constructor(
                 _statusEvent.send("Budget limit must be greater than 0")
                 return@launch
             }
-            budgetRepository.insertBudget(BudgetEntity(categoryName, limit))
+            budgetRepository.insertBudget(BudgetEntity(categoryName, limit.toBigDecimal()))
         }
     }
 

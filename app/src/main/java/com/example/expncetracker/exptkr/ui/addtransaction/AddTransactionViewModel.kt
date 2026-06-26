@@ -11,6 +11,7 @@ import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -23,31 +24,6 @@ data class AddTransactionUiState(
     val error: String? = null
 )
 
-// ─── Merchant → category hint map ─────────────────────────────────────────────
-// Extracted so it's testable and easy to extend without touching ViewModel logic
-
-private val MERCHANT_CATEGORY_HINTS: List<Pair<Regex, String>> = listOf(
-    Regex("swiggy|zomato|restaurant|cafe|food|kitchen|bakery", RegexOption.IGNORE_CASE) to "Food",
-    Regex("grocery|supermarket|bigbasket|blinkit|zepto|dmart", RegexOption.IGNORE_CASE) to "Groceries",
-    Regex("uber|ola|rapido|auto|cab|taxi|metro|bus|train", RegexOption.IGNORE_CASE) to "Cabs",
-    Regex("amazon|flipkart|myntra|meesho|nykaa|ajio|shopping", RegexOption.IGNORE_CASE) to "Shopping",
-    Regex("fuel|petrol|diesel|bharat petroleum|hp|ioc", RegexOption.IGNORE_CASE) to "Travel",
-    Regex("rent|pgm|hostel|landlord|housing", RegexOption.IGNORE_CASE) to "Rent",
-    Regex("netflix|hotstar|prime|spotify|youtube|entertainment", RegexOption.IGNORE_CASE) to "Entertainment",
-    Regex("hospital|clinic|pharmacy|medicine|doctor|health", RegexOption.IGNORE_CASE) to "Healthcare",
-    Regex("school|college|tuition|course|udemy|coursera|education", RegexOption.IGNORE_CASE) to "Education",
-    Regex("electricity|water|gas|broadband|wifi|mobile|recharge|bill", RegexOption.IGNORE_CASE) to "Bills",
-    Regex("salary|payroll|stipend|income|credit|employer", RegexOption.IGNORE_CASE) to "Salary",
-    Regex("mutual fund|sip|stocks|zerodha|groww|invest|nps", RegexOption.IGNORE_CASE) to "Investments",
-)
-
-private fun suggestCategory(merchant: String): String? {
-    if (merchant.isBlank()) return null
-    return MERCHANT_CATEGORY_HINTS
-        .firstOrNull { (pattern, _) -> pattern.containsMatchIn(merchant) }
-        ?.second
-}
-
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 @HiltViewModel
@@ -56,7 +32,8 @@ class AddTransactionViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
-    private val merchantMappingRepository: MerchantMappingRepository
+    private val merchantMappingRepository: MerchantMappingRepository,
+    private val ruleRepository: RuleRepository
 ) : ViewModel() {
 
     // ── Exposed state ──────────────────────────────────────────────────────────
@@ -118,9 +95,16 @@ class AddTransactionViewModel @Inject constructor(
             return
         }
         if (userSelectedCategory) return  // don't stomp on explicit user choice
-        val suggestion = suggestCategory(merchant)
-        if (suggestion != null && (currentCategory.isEmpty() || currentCategory == "Others")) {
-            _suggestedCategory.value = suggestion
+
+        viewModelScope.launch {
+            val dbRules = ruleRepository.getActiveRulesList()
+            val suggestion = dbRules.find { rule ->
+                merchant.contains(rule.pattern, ignoreCase = true)
+            }?.categoryName
+
+            if (suggestion != null && (currentCategory.isEmpty() || currentCategory == "Others")) {
+                _suggestedCategory.value = suggestion
+            }
         }
     }
 
@@ -150,12 +134,12 @@ class AddTransactionViewModel @Inject constructor(
         if (_uiState.value.isSaving) return
 
         // Evaluate and Validate
-        val amountResult = runCatching { evaluate(amountText) }
-        val amount = amountResult.getOrDefault(-1.0)
+        val amountResult = runCatching { evaluate(amountText).toBigDecimal() }
+        val amount = amountResult.getOrDefault(BigDecimal.valueOf(-1))
 
         val validationError = when {
             amountResult.isFailure -> "Invalid expression"
-            amount <= 0.0 -> "Amount must be greater than zero"
+            amount.signum() <= 0 -> "Amount must be greater than zero"
             merchant.isBlank() -> "Merchant / payee is required"
             category.isBlank() -> "Please select a category"
             bankName.isBlank() -> "Please select an account"
@@ -179,9 +163,19 @@ class AddTransactionViewModel @Inject constructor(
                     else -> accountRepository.getAccountByName(bankName)?.id ?: 0L
                 }
 
+                val oldTx = _transactionToEdit.value
+                val isSms = oldTx?.smsId != null
+                val categoryChanged = oldTx?.categoryName != category
+                
+                val finalIsCategoryManuallyCorrected = if (isSms) {
+                    (oldTx?.isCategoryManuallyCorrected == true) || categoryChanged
+                } else {
+                    false
+                }
+
                 val transaction = Transaction(
                     id = id,
-                    smsId = _transactionToEdit.value?.smsId,
+                    smsId = oldTx?.smsId,
                     accountId = resolvedAccountId,
                     amount = amount,
                     type = type,
@@ -194,7 +188,8 @@ class AddTransactionViewModel @Inject constructor(
                     frequency = frequency,
                     nextDueDate = if (isRecurring) calculateNextDueDate(timestamp, frequency) else null,
                     counterparty = counterparty.takeIf { !it.isNullOrBlank() },
-                    tags = tags
+                    tags = tags,
+                    isCategoryManuallyCorrected = finalIsCategoryManuallyCorrected
                 )
 
                 if (id != 0L) {
@@ -215,9 +210,8 @@ class AddTransactionViewModel @Inject constructor(
                             )
                         )
                     }
-                }
-                
-                // FIX: recalculation on both paths, once
+
+                    // FIX: recalculation on both paths, once
                     if (category == "Savings" || category == "Investment") {
                         runCatching { goalRepository.recalculateGoalsByCategory(category) }
                     }
@@ -225,6 +219,7 @@ class AddTransactionViewModel @Inject constructor(
                     _uiState.update { it.copy(isSaving = false, isSaved = true) }
                     _statusEvent.emit(message)
                 }
+            }
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(isSaving = false, error = e.message ?: "Something went wrong")

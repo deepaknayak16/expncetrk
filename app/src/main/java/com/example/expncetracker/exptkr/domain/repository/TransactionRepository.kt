@@ -30,7 +30,7 @@ interface TransactionRepository {
 
     // NEW for Step 2
     suspend fun splitTransactionWithBalance(parent: Transaction, subTransactions: List<Transaction>)
-    suspend fun sumAmountByCategory(category: String, type: String): Double
+    suspend fun sumAmountByCategory(category: String, type: String): java.math.BigDecimal
     
     suspend fun cleanupDuplicates()
 }

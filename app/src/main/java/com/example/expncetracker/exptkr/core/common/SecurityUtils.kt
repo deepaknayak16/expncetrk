@@ -42,10 +42,10 @@ object SecurityUtils {
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    fun calculateTransactionHash(amount: Double, timestamp: Long, merchant: String, sender: String): String {
+    fun calculateTransactionHash(amount: java.math.BigDecimal, timestamp: Long, merchant: String, sender: String): String {
         // Use a consistent format to ensure the hash is identical across different parts of the app
         // 1. Force Locale.US for decimal consistency
-        val amountStr = String.format(Locale.US, "%.2f", amount)
+        val amountStr = amount.setScale(2, java.math.RoundingMode.HALF_EVEN).toPlainString()
         
         // 2. Normalize merchant (remove extra spaces, uppercase)
         val normalizedMerchant = merchant.trim().uppercase()
@@ -55,7 +55,7 @@ object SecurityUtils {
         val normalizedSender = if (cleanSender.length > 6) cleanSender.takeLast(6) else cleanSender
         
         // 4. Round timestamp to nearest second to avoid millisecond drift in some SMS providers
-        val normalizedTimestamp = (timestamp / 1000) * 1000
+        val normalizedTimestamp = kotlin.math.round(timestamp / 1000.0).toLong() * 1000
         
         return generateHash("$amountStr|$normalizedTimestamp|$normalizedMerchant|$normalizedSender")
     }

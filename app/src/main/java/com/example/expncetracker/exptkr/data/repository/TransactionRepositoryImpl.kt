@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.data.repository
 
 import androidx.room.withTransaction
+import com.example.expncetracker.exptkr.core.common.Logger
 import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
@@ -11,6 +12,7 @@ import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.math.BigDecimal
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,15 +53,18 @@ class TransactionRepositoryImpl @Inject constructor(
         val delta = when (transaction.type) {
             TransactionType.CREDIT, TransactionType.BORROW -> -transaction.amount
             TransactionType.DEBIT, TransactionType.LEND -> transaction.amount
-            else -> 0.0
+            else -> BigDecimal.ZERO
         }
         db.withTransaction {
             transactionDao.deleteById(id)
-            if (delta != 0.0) {
-                if (transaction.accountId != 0L) {
+            if (delta.signum() != 0) {
+                val rows = if (transaction.accountId != 0L) {
                     accountDao.adjustBalanceById(transaction.accountId, delta)
                 } else {
                     accountDao.adjustBalance(transaction.bankName, delta)
+                }
+                if (rows == 0) {
+                    Logger.e("TransactionRepo", "Balance adjustment failed for transaction $id: No matching account (ID=${transaction.accountId}, Name=${transaction.bankName})")
                 }
             }
         }
@@ -91,17 +96,20 @@ class TransactionRepositoryImpl @Inject constructor(
         val delta = when (transaction.type) {
             TransactionType.CREDIT, TransactionType.BORROW -> transaction.amount
             TransactionType.DEBIT, TransactionType.LEND -> -transaction.amount
-            else -> 0.0
+            else -> BigDecimal.ZERO
         }
         return db.withTransaction {
             val id = transactionDao.insertTransaction(transaction.toEntity())
             if (id == -1L) return@withTransaction -1L // Duplicate SMS/transaction ignored
 
-            if (delta != 0.0) {
-                if (transaction.accountId != 0L) {
+            if (delta.signum() != 0) {
+                val rows = if (transaction.accountId != 0L) {
                     accountDao.adjustBalanceById(transaction.accountId, delta)
                 } else {
                     accountDao.adjustBalance(transaction.bankName, delta)
+                }
+                if (rows == 0) {
+                    Logger.e("TransactionRepo", "Balance adjustment failed for new transaction (hash=${transaction.idempotencyHash}): No matching account (ID=${transaction.accountId}, Name=${transaction.bankName})")
                 }
             }
             id
@@ -114,30 +122,36 @@ class TransactionRepositoryImpl @Inject constructor(
             when (old.type) {
                 TransactionType.CREDIT, TransactionType.BORROW -> -old.amount
                 TransactionType.DEBIT, TransactionType.LEND -> old.amount
-                else -> 0.0
+                else -> BigDecimal.ZERO
             }
-        } ?: 0.0
+        } ?: BigDecimal.ZERO
 
         val newDelta = when (newTransaction.type) {
             TransactionType.CREDIT, TransactionType.BORROW -> newTransaction.amount
             TransactionType.DEBIT, TransactionType.LEND -> -newTransaction.amount
-            else -> 0.0
+            else -> BigDecimal.ZERO
         }
 
         db.withTransaction {
-            if (oldTransaction != null && reverseDelta != 0.0) {
-                if (oldTransaction.accountId != 0L) {
+            if (oldTransaction != null && reverseDelta.signum() != 0) {
+                val rows = if (oldTransaction.accountId != 0L) {
                     accountDao.adjustBalanceById(oldTransaction.accountId, reverseDelta)
                 } else {
                     accountDao.adjustBalance(oldTransaction.bankName, reverseDelta)
                 }
+                if (rows == 0) {
+                    Logger.e("TransactionRepo", "Balance reversal failed for update (ID=${oldTransaction.id}): No matching account")
+                }
             }
             transactionDao.updateTransaction(newTransaction.toEntity())
-            if (newDelta != 0.0) {
-                if (newTransaction.accountId != 0L) {
+            if (newDelta.signum() != 0) {
+                val rows = if (newTransaction.accountId != 0L) {
                     accountDao.adjustBalanceById(newTransaction.accountId, newDelta)
                 } else {
                     accountDao.adjustBalance(newTransaction.bankName, newDelta)
+                }
+                if (rows == 0) {
+                    Logger.e("TransactionRepo", "Balance adjustment failed for update (ID=${newTransaction.id}): No matching account")
                 }
             }
         }
@@ -148,15 +162,18 @@ class TransactionRepositoryImpl @Inject constructor(
         val delta = when (transaction.type) {
             TransactionType.LEND -> transaction.amount
             TransactionType.BORROW -> -transaction.amount
-            else -> 0.0
+            else -> BigDecimal.ZERO
         }
         db.withTransaction {
             transactionDao.updateTransaction(transaction.copy(isSettled = true).toEntity())
-            if (delta != 0.0) {
-                if (transaction.accountId != 0L) {
+            if (delta.signum() != 0) {
+                val rows = if (transaction.accountId != 0L) {
                     accountDao.adjustBalanceById(transaction.accountId, delta)
                 } else {
                     accountDao.adjustBalance(transaction.bankName, delta)
+                }
+                if (rows == 0) {
+                    Logger.e("TransactionRepo", "Balance adjustment failed for settlement (ID=${transaction.id}): No matching account")
                 }
             }
         }
@@ -167,15 +184,18 @@ class TransactionRepositoryImpl @Inject constructor(
         val parentDelta = when (parent.type) {
             TransactionType.CREDIT, TransactionType.BORROW -> -parent.amount
             TransactionType.DEBIT, TransactionType.LEND -> parent.amount
-            else -> 0.0
+            else -> BigDecimal.ZERO
         }
         db.withTransaction {
             // Reverse parent balance
-            if (parentDelta != 0.0) {
-                if (parent.accountId != 0L) {
+            if (parentDelta.signum() != 0) {
+                val rows = if (parent.accountId != 0L) {
                     accountDao.adjustBalanceById(parent.accountId, parentDelta)
                 } else {
                     accountDao.adjustBalance(parent.bankName, parentDelta)
+                }
+                if (rows == 0) {
+                    Logger.e("TransactionRepo", "Balance reversal failed for split (Parent ID=${parent.id}): No matching account")
                 }
             }
             // Delete parent and insert children
@@ -187,20 +207,23 @@ class TransactionRepositoryImpl @Inject constructor(
                 val childDelta = when (child.type) {
                     TransactionType.CREDIT, TransactionType.BORROW -> child.amount
                     TransactionType.DEBIT, TransactionType.LEND -> -child.amount
-                    else -> 0.0
+                    else -> BigDecimal.ZERO
                 }
-                if (childDelta != 0.0) {
-                    if (child.accountId != 0L) {
+                if (childDelta.signum() != 0) {
+                    val rows = if (child.accountId != 0L) {
                         accountDao.adjustBalanceById(child.accountId, childDelta)
                     } else {
                         accountDao.adjustBalance(child.bankName, childDelta)
+                    }
+                    if (rows == 0) {
+                        Logger.e("TransactionRepo", "Balance adjustment failed for split child: No matching account")
                     }
                 }
             }
         }
     }
 
-    override suspend fun sumAmountByCategory(category: String, type: String): Double =
+    override suspend fun sumAmountByCategory(category: String, type: String): BigDecimal =
         transactionDao.sumAmountByCategoryAndType(category, type)
 
     override suspend fun cleanupDuplicates() {

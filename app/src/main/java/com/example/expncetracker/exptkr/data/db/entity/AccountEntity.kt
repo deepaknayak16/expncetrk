@@ -11,7 +11,7 @@ import androidx.room.Index
 data class AccountEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val balance: Double,
+    val balance: java.math.BigDecimal,
     val type: String, // e.g., "Cash", "Bank", "Credit Card"
     val color: Int // Store color as Int
 )

@@ -4,7 +4,11 @@
 # For more details, see
 #   https://d.android.com/r/tools/r8/keep-rules
 
-# SQLCipher keep rules
+# SQLCipher keep rules (Zetetic SQLCipher for Android)
+-keep class net.zetetic.database.sqlcipher.** { *; }
+-keepclassmembers class net.zetetic.database.sqlcipher.** { *; }
+
+# Also keep the legacy package just in case of transitive dependencies
 -keep class net.sqlcipher.** { *; }
 -keep class net.sqlcipher.database.** { *; }
 

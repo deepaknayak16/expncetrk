@@ -21,8 +21,8 @@ class SmsReceiver : BroadcastReceiver() {
             // Concatenate all message bodies into a single string
             val completeBody = messages.joinToString("") { it.messageBody ?: "" }
 
-            // Take the address and timestamp from the first part
-            val address = messages[0].originatingAddress ?: "Unknown"
+            // Take the address from the first non-null entry and timestamp from the first part
+            val address = messages.firstNotNullOfOrNull { it.originatingAddress } ?: "Unknown"
             val timestamp = messages[0].timestampMillis
 
             Logger.d("SmsReceiver", "New SMS from $address: $completeBody")

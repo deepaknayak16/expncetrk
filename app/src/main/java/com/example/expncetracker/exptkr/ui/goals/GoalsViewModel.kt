@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import javax.inject.Inject
 
 @HiltViewModel
@@ -45,7 +46,7 @@ class GoalsViewModel @Inject constructor(
             repository.insertGoal(
                 GoalEntity(
                     name = name,
-                    targetAmount = targetAmount,
+                    targetAmount = targetAmount.toBigDecimal(),
                     color = color,
                     deadline = deadline,
                     linkedCategory = linkedCategory,
@@ -58,7 +59,7 @@ class GoalsViewModel @Inject constructor(
     fun updateGoalAmount(id: Long, additionalAmount: Double) {
         viewModelScope.launch {
             repository.getGoalById(id)?.let { goal ->
-                val newAmount = (goal.currentAmount + additionalAmount).coerceAtLeast(0.0)
+                val newAmount = (goal.currentAmount + additionalAmount.toBigDecimal()).coerceAtLeast(BigDecimal.ZERO)
                 repository.updateGoal(
                     goal.copy(
                         currentAmount = newAmount,
@@ -72,7 +73,7 @@ class GoalsViewModel @Inject constructor(
     fun contributeToGoal(id: Long, amount: Double) {
         viewModelScope.launch {
             try {
-                repository.contributeToGoal(id, amount)
+                repository.contributeToGoal(id, amount.toBigDecimal())
                 _statusEvent.send("₹$amount moved to goal")
             } catch (e: IllegalStateException) {
                 _statusEvent.send(e.message ?: "Contribution failed")

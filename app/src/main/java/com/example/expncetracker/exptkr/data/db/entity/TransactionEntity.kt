@@ -12,13 +12,17 @@ import androidx.room.ForeignKey
         Index(value = ["smsId"], unique = true),
         Index(value = ["createdAt"]),
         Index(value = ["account_id"]),
-        Index(value = ["idempotencyHash"], unique = true)
+        Index(value = ["idempotencyHash"], unique = true),
+        Index(value = ["parentTransactionId", "timestamp"], unique = true),
+        Index(value = ["timestamp"]),
+        Index(value = ["category", "type"]),
+        Index(value = ["isRecurring", "nextDueDate"])
     ]
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val smsId: Long?,
-    val amount: Double,
+    val smsId: String?,
+    val amount: java.math.BigDecimal,
     val type: String,
     val category: String,
     val merchant: String,
@@ -41,5 +45,6 @@ data class TransactionEntity(
     // Phase 1 Additions
     val idempotencyHash: String? = null,
     val confidenceScore: Float = 1.0f,
-    val parsingStatus: String = "COMPLETE"
+    val parsingStatus: String = "COMPLETE",
+    val isCategoryManuallyCorrected: Boolean = false
 )

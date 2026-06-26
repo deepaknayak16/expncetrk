@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
@@ -43,26 +44,28 @@ import androidx.core.content.ContextCompat
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
-import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
+import java.math.BigDecimal
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.ui.components.EmptyState
+import com.example.expncetracker.exptkr.ui.components.DistributionSection
+import com.example.expncetracker.exptkr.ui.components.SpendingTrendSection
 import com.example.expncetracker.exptkr.ui.components.SectionHeader
 import com.example.expncetracker.exptkr.ui.components.getIconByName
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
 import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.compose.common.fill
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
-import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
+import com.patrykandpatrick.vico.compose.common.Fill
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.compose.cartesian.data.lineSeries
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -81,6 +84,7 @@ private const val MAX_RECENT_TRANSACTIONS = 25
 
 // ─── DashboardScreen ──────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
@@ -151,6 +155,7 @@ fun DashboardScreen(
                     DashboardContent(
                         viewModel = viewModel,
                         summary = state.data.summary,
+                        previousSummary = state.data.previousSummary,
                         recent = state.data.recentTransactions,
                         categories = state.data.allCategories,
                         recurring = state.data.recurringTransactions,
@@ -211,6 +216,7 @@ fun DashboardScreen(
 fun DashboardContent(
     viewModel: DashboardViewModel,
     summary: FinancialSummary,
+    previousSummary: FinancialSummary?,
     recent: List<Transaction>,
     categories: List<CategoryEntity>,
     recurring: List<Transaction>,
@@ -265,7 +271,11 @@ fun DashboardContent(
 
         if (trends.isNotEmpty()) {
             item(key = "trend_chart") {
-                SpendingTrendSection(trends = trends)
+                SpendingTrendSection(
+                    trends = trends,
+                    previousSummary = previousSummary,
+                    currentSummary = summary
+                )
             }
         }
 
@@ -401,109 +411,14 @@ fun DashboardContent(
     }
 }
 
-// ─── SpendingTrendSection (REDESIGNED - Area Chart with Gradient) ────────────
-
-@Composable
-private fun SpendingTrendSection(trends: List<SpendingTrend>) {
-    val modelProducer = remember { CartesianChartModelProducer() }
-    val totalSpending = remember(trends) { trends.sumOf { it.amount } }
-    val percentageChange = remember(trends) {
-        if (trends.size >= 2) {
-            val first = trends.first().amount
-            val last = trends.last().amount
-            if (first > 0) ((last - first) / first * 100).toInt() else 0
-        } else 0
-    }
-
-    LaunchedEffect(trends) {
-        modelProducer.runTransaction {
-            lineSeries { series(trends.map { it.amount.toFloat() }) }
-        }
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Spending Trend",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = totalSpending.formatAsCurrency(),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (percentageChange >= 0)
-                            MaterialTheme.colorScheme.tertiaryContainer
-                        else
-                            MaterialTheme.colorScheme.errorContainer
-                    ) {
-                        Text(
-                            text = "${if (percentageChange >= 0) "+" else ""}$percentageChange%",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (percentageChange >= 0)
-                                MaterialTheme.colorScheme.onTertiaryContainer
-                            else
-                                MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            val line = rememberLine(
-                fill = LineCartesianLayer.LineFill.single(fill(MaterialTheme.colorScheme.primary)),
-                thickness = 3.dp,
-                areaFill = LineCartesianLayer.AreaFill.single(
-                    fill(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                )
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-            ) {
-                CartesianChartHost(
-                    chart = rememberCartesianChart(
-                        rememberLineCartesianLayer(
-                            lineProvider = LineCartesianLayer.LineProvider.series(line)
-                        )
-                    ),
-                    modelProducer = modelProducer,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
-    }
-}
+// ─── SpendingTrendSection removed ────────────────────────────
 
 // ─── GoalProgressItem ─────────────────────────────────────────────────────────
 
 @Composable
 fun GoalProgressItem(goal: GoalEntity, modifier: Modifier = Modifier) {
-    val targetProgress = if (goal.targetAmount > 0)
-        (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
+    val targetProgress = if (goal.targetAmount.toDouble() > 0)
+        (goal.currentAmount.toDouble() / goal.targetAmount.toDouble()).toFloat().coerceIn(0f, 1f)
     else 0f
 
     val animatedProgress by animateFloatAsState(
@@ -646,8 +561,8 @@ fun ModernDashboardHeader(
     onSyncClick: () -> Unit
 ) {
     val healthScore = remember(summary) {
-        if (summary.totalAssets > 0) {
-            ((summary.netWorth / summary.totalAssets) * 100).toInt().coerceIn(0, 100)
+        if (summary.totalAssets.toDouble() > 0) {
+            ((summary.netWorth.toDouble() / summary.totalAssets.toDouble()) * 100).toInt().coerceIn(0, 100)
         } else 0
     }
 
@@ -1120,230 +1035,7 @@ private fun RowScope.LendBorrowItem(
         )
     }
 }
-@Composable
-fun DistributionSection(
-    distribution: Map<String, Double>,
-    allCategories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
-    modifier: Modifier = Modifier,
-    showTitle: Boolean = true,
-    showCard: Boolean = true,
-    onCategoryClick: ((String) -> Unit)? = null
-) {
-    val isDarkTheme = MaterialTheme.isDark
-    val distributionData = remember(
-        distribution,
-        allCategories,
-        isDarkTheme
-    ) {
-        allCategories.mapNotNull { entity ->
-
-            val amount = distribution[entity.name]
-                ?: return@mapNotNull null
-
-            if (amount <= 0.0) return@mapNotNull null
-
-            val categoryEnum =
-                Category.entries.find {
-                    it.displayName == entity.name
-                } ?: Category.OTHERS
-
-            DistributionItem(
-                name = entity.name,
-                amount = amount,
-                category = categoryEnum,
-                color = getCategoryColor(
-                    categoryEnum,
-                    isDarkTheme
-                )
-            )
-        }.sortedByDescending { it.amount }
-    }
-
-    if (distributionData.isEmpty()) return
-
-    val maxAmount = remember(distributionData) {
-        distributionData.maxOf { it.amount }
-            .coerceAtLeast(1.0)
-    }
-
-    Column(modifier = modifier) {
-
-        if (showTitle) {
-            Text(
-                text = "Spending Distribution",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(Modifier.height(4.dp))
-        }
-
-        if (showCard) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.small,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                DistributionList(
-                    distributionData = distributionData,
-                    maxAmount = maxAmount,
-                    onCategoryClick = onCategoryClick
-                )
-            }
-        } else {
-            DistributionList(
-                distributionData = distributionData,
-                maxAmount = maxAmount,
-                onCategoryClick = onCategoryClick
-            )
-        }
-    }
-}
-
-@Composable
-private fun DistributionList(
-    distributionData: List<DistributionItem>,
-    maxAmount: Double,
-    onCategoryClick: ((String) -> Unit)?
-) {
-    Column(
-        modifier = Modifier
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        distributionData.forEach { item ->
-
-            val progress =
-                (item.amount / maxAmount)
-                    .toFloat()
-                    .coerceIn(0f, 1f)
-
-            // Guarantees text visibility
-            val minBarWidth = 180.dp
-            val extraWidth = 180.dp
-
-            val barWidth =
-                minBarWidth + (extraWidth * progress)
-
-            Box(
-                modifier = Modifier
-                    .width(barWidth)
-                    .height(18.dp)
-                    .clip(MaterialTheme.shapes.small)
-                    .clickable(enabled = onCategoryClick != null) {
-                        onCategoryClick?.invoke(item.name)
-                    }
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant
-                            .copy(alpha = 0.15f)
-                    )
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.45f),
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.12f)
-                            )
-                        ),
-                        shape = MaterialTheme.shapes.small
-                    )
-            ) {
-
-                // Main liquid color layer
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                listOf(
-                                    item.color.copy(alpha = 0.95f),
-                                    item.color.copy(alpha = 0.75f),
-                                    item.color.copy(alpha = 0.55f)
-                                )
-                            )
-                        )
-                )
-
-                // Glass highlight
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.45f)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.35f),
-                                    Color.White.copy(alpha = 0.12f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-
-                // Bottom shadow
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.12f)
-                                )
-                            )
-                        )
-                )
-
-                // Content
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                        )
-
-                        Spacer(Modifier.width(6.dp))
-
-                        Text(
-                            text = item.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-
-                    Text(
-                        text = item.amount.formatAsCurrency(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                }
-            }
-        }
-    }
-}
+// ─── DistributionSection removed ──────────────────────────────────────────
 
 // ─── TimeFilterRow ────────────────────────────────────────────────────────────
 
@@ -1389,47 +1081,11 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
     }
 }
 
-// ─── getCategoryColor ─────────────────────────────────────────────────────────
-
-fun getCategoryColor(category: Category, isDarkTheme: Boolean): Color {
-    return when (category) {
-        Category.FOOD          -> if (isDarkTheme) CategoryFoodDark else CategoryFood
-        Category.CABS          -> if (isDarkTheme) CategoryCabsDark else CategoryCabs
-        Category.RENT          -> if (isDarkTheme) CategoryRentDark else CategoryRent
-        Category.BILLS         -> if (isDarkTheme) CategoryBillsDark else CategoryBills
-        Category.SHOPPING      -> if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        Category.SALARY        -> if (isDarkTheme) CategorySalaryDark else CategorySalary
-        Category.INVESTMENTS   -> if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
-        Category.TRAVEL        -> if (isDarkTheme) CategoryTravelDark else CategoryTravel
-        Category.ENTERTAINMENT -> if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES     -> if (isDarkTheme) CategoryGroceriesDark else CategoryGroceries
-        Category.HEALTHCARE    -> if (isDarkTheme) CategoryHealthDark else CategoryHealth
-        Category.EDUCATION     -> if (isDarkTheme) CategoryEducationDark else CategoryEducation
-        Category.OTHERS        -> if (isDarkTheme) CategoryOthersDark else CategoryOthers
-    }
-}
-
-@Composable
-fun DashboardInfoItem(label: String, value: String) {
-    Column {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
+// ─── DistributionItem removed ──────────────────────────────────────────────
 
 private data class DistributionItem(
     val name: String,
-    val amount: Double,
-    val category: Category,
+    val amount: java.math.BigDecimal,
+    val iconName: String,
     val color: Color
 )

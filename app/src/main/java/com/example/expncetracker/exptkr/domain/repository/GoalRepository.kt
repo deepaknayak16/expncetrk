@@ -11,7 +11,7 @@ interface GoalRepository {
     suspend fun deleteGoal(goal: GoalEntity)
 
     // NEW for Step 3
-    suspend fun contributeToGoal(goalId: Long, amount: Double)
+    suspend fun contributeToGoal(goalId: Long, amount: java.math.BigDecimal)
     suspend fun recalculateGoalProgress(goalId: Long)
     suspend fun recalculateGoalsByCategory(category: String)
 }

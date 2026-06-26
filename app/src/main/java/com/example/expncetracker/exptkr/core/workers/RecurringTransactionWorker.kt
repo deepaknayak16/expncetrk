@@ -42,8 +42,8 @@ class RecurringTransactionWorker @AssistedInject constructor(
                     .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
-                    WorkRequest.MIN_BACKOFF_MILLIS,
-                    TimeUnit.MILLISECONDS
+                    10,
+                    TimeUnit.MINUTES
                 )
                 .build()
 

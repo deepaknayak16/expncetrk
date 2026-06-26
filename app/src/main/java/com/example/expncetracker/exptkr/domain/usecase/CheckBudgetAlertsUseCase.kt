@@ -35,14 +35,14 @@ class CheckBudgetAlertsUseCase @Inject constructor(
         val budgets = budgetDao.getAllBudgets().first()
         val txList = repository.getTransactionsInRange(startMillis, endMillis).first()
         
-        val categorySpent = txList.filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
+        val categorySpent = txList.filter { !it.isRecurring && it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
             .groupBy { it.categoryName }
-            .mapValues { entry -> entry.value.sumOf { it.amount } }
+            .mapValues { entry -> entry.value.fold(java.math.BigDecimal.ZERO) { acc, t -> acc.add(t.amount) } }
 
         budgets.forEach { budget ->
-            val spent = categorySpent[budget.category] ?: 0.0
-            if (budget.limitAmount > 0) {
-                val progress = (spent / budget.limitAmount).toFloat()
+            val spent = categorySpent[budget.category] ?: java.math.BigDecimal.ZERO
+            if (budget.limitAmount > java.math.BigDecimal.ZERO) {
+                val progress = spent.divide(budget.limitAmount, 4, java.math.RoundingMode.HALF_EVEN).toFloat()
                 if (progress >= threshold) {
                     val lastAlert = budget.lastAlertSentAt?.let {
                         LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(it), ZoneId.systemDefault())

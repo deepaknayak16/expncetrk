@@ -123,11 +123,26 @@ fun TransactionListItem(
                     )
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val displayCategory = remember(transaction) {
+                            val isSms = transaction.smsId != null
+                            val categoryTrimmed = transaction.categoryName.trim()
+                            val isUncategorized = categoryTrimmed.equals("Others", ignoreCase = true)
+                            
+                            // User requirement: Show Category | Sub for ONLY (SMS-Others OR Manual entries)
+                            if (!isSms || isUncategorized) {
+                                "$categoryTrimmed | ${transaction.merchant}"
+                            } else {
+                                categoryTrimmed
+                            }
+                        }
+                        
                         Text(
-                            text = transaction.categoryName,
+                            text = displayCategory,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (transaction.counterparty != null) {
                             Surface(

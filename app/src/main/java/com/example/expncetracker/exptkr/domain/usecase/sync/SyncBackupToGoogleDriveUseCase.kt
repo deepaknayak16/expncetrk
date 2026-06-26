@@ -35,7 +35,14 @@ class SyncBackupToGoogleDriveUseCase @Inject constructor(
             val jsonString = Json.encodeToString(dtoList)
 
             val backupFile = File(context.cacheDir, "gdrive_backup_${System.currentTimeMillis()}.json")
-            backupFile.writeText(jsonString)
+            return@withContext try{
+                backupFile.writeText(jsonString)
+                val fileId = driveSyncManager.uploadBackup(backupFile)
+                if (fileId != null) Result.success("Backup synced to Google Drive successfully")
+                else Result.failure(Exception("Failed to upload backup to Google Drive"))
+            } finally {
+                backupFile.delete()
+            }
 
             val fileId = driveSyncManager.uploadBackup(backupFile)
             backupFile.delete()

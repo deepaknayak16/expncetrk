@@ -45,10 +45,11 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
             .build()
 
         // WHY: hashCode() can collide for different strings (e.g. "FB" and "Ea" both = 2236).
-        //      We combine the hash with a category-specific prefix so each category
-        //      gets a stable, unique notification ID. Same category updates its old alert;
-        //      different categories never overwrite each other.
-        val notificationId = (31 * 17 + categoryName.hashCode()) and 0x7FFFFFFF
+        //      Collisions are rare but possible. We use a combination of category name
+        //      and a prime-based prefix to generate a stable notification ID.
+        //      Using categoryName directly in notify() tag would be safer for avoiding overwrites,
+        //      but using a unique ID is standard.
+        val notificationId = (categoryName.hashCode() xor (categoryName.length shl 16)) and 0x7FFFFFFF
         notificationManager.notify(notificationId, notification)
     }
 

@@ -542,12 +542,12 @@ fun SplitTransactionDialog(
     transaction: Transaction,
     categories: List<com.example.expncetracker.exptkr.data.db.entity.CategoryEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (List<Pair<String, Double>>) -> Unit
+    onConfirm: (List<Pair<String, java.math.BigDecimal>>) -> Unit
 ) {
     var splitList by remember { 
         mutableStateOf(mutableListOf(
-            transaction.categoryName to (transaction.amount / 2),
-            categories.firstOrNull { it.name != transaction.categoryName }?.name.orEmpty() to (transaction.amount / 2)
+            transaction.categoryName to (transaction.amount.divide(java.math.BigDecimal(2), 2, java.math.RoundingMode.HALF_UP)),
+            categories.firstOrNull { it.name != transaction.categoryName }?.name.orEmpty() to (transaction.amount.divide(java.math.BigDecimal(2), 2, java.math.RoundingMode.HALF_UP))
         )) 
     }
 
@@ -594,8 +594,8 @@ fun SplitTransactionDialog(
                         }
                         
                         OutlinedTextField(
-                            value = if (split.second == 0.0) "" else split.second.toString(),
-                            onValueChange = { val amt = it.toDoubleOrNull() ?: 0.0
+                            value = if (split.second.compareTo(java.math.BigDecimal.ZERO) == 0) "" else split.second.toString(),
+                            onValueChange = { val amt = it.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO
                                 val newList = splitList.toMutableList()
                                 newList[index] = split.first to amt
                                 splitList = newList
@@ -621,7 +621,7 @@ fun SplitTransactionDialog(
                 TextButton(
                     onClick = {
                         val newList = splitList.toMutableList()
-                        newList.add("" to 0.0)
+                        newList.add("" to java.math.BigDecimal.ZERO)
                         splitList = newList
                     },
                     modifier = Modifier.align(Alignment.End)
@@ -631,11 +631,11 @@ fun SplitTransactionDialog(
                 }
 
                 val currentTotal = splitList.sumOf { it.second }
-                val remaining = transaction.amount - currentTotal
+                val remaining = transaction.amount.subtract(currentTotal)
                 Text(
                     text = "Total Split: ₹$currentTotal | Remaining: ₹$remaining",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (remaining == 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    color = if (remaining.compareTo(java.math.BigDecimal.ZERO) == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -643,7 +643,7 @@ fun SplitTransactionDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(splitList) },
-                enabled = kotlin.math.abs(splitList.sumOf { it.second } - transaction.amount) < 0.01 && splitList.all { it.first.isNotEmpty() }
+                enabled = (splitList.sumOf { it.second }.subtract(transaction.amount).abs()).compareTo(java.math.BigDecimal("0.01")) < 0 && splitList.all { it.first.isNotEmpty() }
             ) {
                 Text("Confirm Split")
             }
@@ -741,7 +741,7 @@ fun AdvancedFilterBottomSheet(
                 value = sliderPosition,
                 onValueChange = { 
                     sliderPosition = it
-                    onUpdate(currentFilter.copy(minAmount = it.start.toDouble(), maxAmount = it.endInclusive.toDouble()))
+                    onUpdate(currentFilter.copy(minAmount = it.start.toDouble().toBigDecimal(), maxAmount = it.endInclusive.toDouble().toBigDecimal()))
                 },
                 valueRange = min..max,
                 steps = 100,

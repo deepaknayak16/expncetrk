@@ -18,6 +18,10 @@ class CategoriesViewModel @Inject constructor(
     getSummaryUseCase: GetSummaryUseCase
 ) : ViewModel() {
 
+    init {
+        // Seeding handled by DatabaseModule callback
+    }
+
     val summary: StateFlow<FinancialSummary?> = getSummaryUseCase(DateFilter.MONTH)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 

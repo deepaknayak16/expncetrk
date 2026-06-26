@@ -12,9 +12,11 @@ class ParserRegistry @Inject constructor(
     private val genericParser = GenericParser()
 
     fun parseSms(sender: String, body: String, timestamp: Long): ParsedSms? {
-        val norm = sender.uppercase()
+        // FIX #H9: Normalize sender to strip AD-/IM- prefixes for better account matching
+        val cleanSender = sender.uppercase().replace(Regex("^[A-Z]{2}-"), "")
+        val norm = cleanSender
         
-        Logger.d("ParserRegistry", "Attempting to parse SMS from $sender: ${body.take(30)}...")
+        Logger.d("ParserRegistry", "Attempting to parse SMS from $sender (normalized: $cleanSender): ${body.take(30)}...")
 
         // Find a specific parser that matches the sender
         val specificParser = parsers.firstOrNull { parser ->
@@ -27,7 +29,7 @@ class ParserRegistry @Inject constructor(
                 ?: genericParser.parse(body, timestamp)?.copy(bankName = specificParser.bankKey)
         } else {
             Logger.d("ParserRegistry", "No specific parser found, trying generic")
-            genericParser.parse(body, timestamp)?.copy(bankName = sender)
+            genericParser.parse(body, timestamp)?.copy(bankName = cleanSender)
         }
 
         if (result != null) {

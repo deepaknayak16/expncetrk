@@ -14,14 +14,14 @@ class AccountRepositoryImpl @Inject constructor(
     override fun getAllAccounts(): Flow<List<AccountEntity>> = accountDao.getAllAccounts()
     override suspend fun getAccountById(id: Long): AccountEntity? = accountDao.getAccountById(id)
     override suspend fun getAccountByName(name: String): AccountEntity? = accountDao.getAccountByName(name)
-    override suspend fun insertAccount(account: AccountEntity) = accountDao.insertAccount(account)
+    override suspend fun insertAccount(account: AccountEntity): Long = accountDao.insertAccount(account)
     override suspend fun updateAccount(account: AccountEntity) = accountDao.updateAccount(account)
     override suspend fun deleteAccount(account: AccountEntity) = accountDao.deleteAccount(account)
     override suspend fun deleteAccountAndTransactions(id: Long) = accountDao.deleteAccountAndTransactions(id)
-    override suspend fun adjustBalance(name: String, delta: Double) {
+    override suspend fun adjustBalance(name: String, delta: java.math.BigDecimal) {
         accountDao.adjustBalance(name, delta)
     }
-    override suspend fun adjustBalanceById(id: Long, delta: Double) {
+    override suspend fun adjustBalanceById(id: Long, delta: java.math.BigDecimal) {
         accountDao.adjustBalanceById(id, delta)
     }
 }

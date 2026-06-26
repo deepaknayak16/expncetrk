@@ -27,6 +27,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -51,6 +52,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
+import java.math.BigDecimal
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,6 +65,10 @@ fun AddTransactionScreen(
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val transactionToEdit by viewModel.transactionToEdit.collectAsStateWithLifecycle()
+    val isSms = transactionToEdit?.smsId != null
+    // Restricted if it is an SMS transaction AND it belongs to "Others" (case-insensitive, trimmed)
+    val isRestrictedSms = isSms && (transactionToEdit?.categoryName?.trim()?.equals("Others", ignoreCase = true) == true)
+    
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
     val allCategories by viewModel.categories.collectAsStateWithLifecycle()
     val suggestedCategory by viewModel.suggestedCategory.collectAsStateWithLifecycle()
@@ -124,7 +130,7 @@ fun AddTransactionScreen(
 
     LaunchedEffect(transactionToEdit) {
         transactionToEdit?.let {
-            amountText = if (it.amount % 1.0 == 0.0) it.amount.toInt().toString() else "%.2f".format(it.amount)
+            amountText = if (it.amount.remainder(BigDecimal.ONE).signum() == 0) it.amount.toBigInteger().toString() else "%.2f".format(it.amount)
             merchantName = it.merchant
             note = it.note ?: ""
             selectedType = it.type
@@ -308,6 +314,7 @@ fun AddTransactionScreen(
                         TypePill(
                             label = label,
                             isSelected = selectedType == type,
+                            enabled = !isRestrictedSms,
                             selectedColor = when (type) {
                                 TransactionType.CREDIT -> MaterialTheme.colorScheme.primary
                                 TransactionType.DEBIT -> MaterialTheme.colorScheme.error
@@ -343,6 +350,7 @@ fun AddTransactionScreen(
                     DropdownSelector(
                         value = selectedAccount?.name ?: "Account",
                         icon = Icons.Default.AccountBalanceWallet,
+                        enabled = !isRestrictedSms,
                         modifier = Modifier.weight(1f)
                     ) { showAccountSheet = true }
 
@@ -353,14 +361,14 @@ fun AddTransactionScreen(
                     ) { showCategorySheet = true }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(10.dp))
 
                 // ── Amount display ──────────────────────────────────────────
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .height(72.dp),
+                        .padding(horizontal = 10.dp)
+                        .height(52.dp),
                     shape = MaterialTheme.shapes.extraLarge,
                     color = typeColor.copy(alpha = 0.1f),
                     border = BorderStroke(1.dp, typeColor.copy(alpha = 0.3f))
@@ -368,7 +376,7 @@ fun AddTransactionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 20.dp),
+                            .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -390,7 +398,7 @@ fun AddTransactionScreen(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(10.dp))
 
                 // ── Text fields ─────────────────────────────────────────────
                 Column(
@@ -400,25 +408,25 @@ fun AddTransactionScreen(
                     // Counterparty (lend/borrow only)
                     if (selectedType == TransactionType.LEND || selectedType == TransactionType.BORROW) {
                         FormField(
-                            value = counterparty,
-                            onValueChange = { counterparty = it },
-                            placeholder = if (selectedType == TransactionType.LEND)
-                                "Lent to" else "Borrowed from",
-                            leadingIcon = Icons.Default.Person,
-                            trailingContent = {
-                                IconButton(
-                                    onClick = { contactPicker.launch(null) },
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ContactPage,
-                                        "Pick contact",
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                        value = counterparty,
+                        onValueChange = { counterparty = it },
+                        placeholder = if (selectedType == TransactionType.LEND)
+                            "Lent to" else "Borrowed from",
+                        leadingIcon = Icons.Default.Person,
+                        trailingContent = {
+                            IconButton(
+                                onClick = { contactPicker.launch(null) },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.ContactPage,
+                                    "Pick contact",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
-                        )
+                        }
+                    )
                     }
 
                     FormField(
@@ -428,6 +436,7 @@ fun AddTransactionScreen(
                             viewModel.onMerchantNameChanged(it, selectedCategoryName, userSelectedCategory)
                         },
                         placeholder = "Merchant / payee",
+                        enabled = !isRestrictedSms,
                         leadingIcon = Icons.Default.Store
                     )
 
@@ -435,6 +444,7 @@ fun AddTransactionScreen(
                         value = note,
                         onValueChange = { note = it },
                         placeholder = "Note (optional)",
+                        enabled = !isRestrictedSms,
                         leadingIcon = Icons.AutoMirrored.Filled.Notes
                     )
 
@@ -442,6 +452,7 @@ fun AddTransactionScreen(
                         value = tagsInput,
                         onValueChange = { tagsInput = it },
                         placeholder = "Labels / tags",
+                        enabled = !isRestrictedSms,
                         leadingIcon = Icons.AutoMirrored.Filled.Label
                     )
                 }
@@ -452,7 +463,7 @@ fun AddTransactionScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -475,6 +486,7 @@ fun AddTransactionScreen(
                     Switch(
                         checked = isRecurring,
                         onCheckedChange = { isRecurring = it },
+                        enabled = !isRestrictedSms,
                         modifier = Modifier.scale(0.8f)
                     )
                 }
@@ -484,7 +496,7 @@ fun AddTransactionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         RecurrenceFrequency.entries.forEach { freq ->
@@ -510,6 +522,7 @@ fun AddTransactionScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .alpha(if (isSms) 0.8f else 1f)
                     .background(MaterialTheme.colorScheme.surface)
             ) {
                 // Date / time row
@@ -523,6 +536,7 @@ fun AddTransactionScreen(
                 ) {
                     TextButton(
                         onClick = { showDatePicker = true },
+                        enabled = !isRestrictedSms,
                         modifier = Modifier.weight(2f),
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -545,6 +559,7 @@ fun AddTransactionScreen(
 
                     TextButton(
                         onClick = { showTimePicker = true },
+                        enabled = !isRestrictedSms,
                         modifier = Modifier.weight(2f),
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -562,9 +577,10 @@ fun AddTransactionScreen(
                 // Calculator keypad
                 CalculatorKeypad(
                     modifier = Modifier
-                        .height(268.dp)
+                        .height(248.dp)
                         .padding(horizontal = 8.dp)
                         .navigationBarsPadding(),
+                    enabled = !isRestrictedSms,
                     onDigitClick = { digit ->
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (amountText == "0") amountText = digit
@@ -847,24 +863,28 @@ fun AddTransactionScreen(
 fun TypePill(
     label: String,
     isSelected: Boolean,
+    enabled: Boolean = true,
     selectedColor: Color,
     onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) selectedColor else Color.Transparent,
-        border = if (isSelected) null
-        else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-            color = if (isSelected) Color.White
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Box(modifier = Modifier.alpha(if (enabled) 1f else 0.5f)) {
+        Surface(
+            onClick = onClick,
+            enabled = enabled,
+            shape = RoundedCornerShape(20.dp),
+            color = if (isSelected) selectedColor else Color.Transparent,
+            border = if (isSelected) null
+            else BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                color = if (isSelected) Color.White
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -874,19 +894,22 @@ fun TypePill(
 fun DropdownSelector(
     value: String,
     icon: ImageVector,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
+        onClick = onClick,
         modifier = modifier.height(42.dp),
+        enabled = enabled,
         shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        onClick = onClick
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
+                .alpha(if (enabled) 1f else 0.5f)
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(7.dp)
@@ -921,11 +944,13 @@ fun FormField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     leadingIcon: ImageVector,
+    enabled: Boolean = true,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp),
@@ -954,6 +979,7 @@ fun FormField(
 @Composable
 fun CalculatorKeypad(
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onDigitClick: (String) -> Unit,
     onOperatorClick: (String) -> Unit,
     onDecimalClick: () -> Unit,
@@ -974,6 +1000,7 @@ fun CalculatorKeypad(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .alpha(if (enabled) 1f else 0.5f)
             .background(MaterialTheme.colorScheme.surface)
             .padding(8.dp)
     ) {
@@ -983,43 +1010,44 @@ fun CalculatorKeypad(
         val gap = 6.dp
 
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
-            CalcKey("AC", Modifier.weight(1f), clearBg, clearFg) { onClearClick() }
-            CalcKey("( )", Modifier.weight(1f), opBg, opFg) { onBracketClick() }
-            CalcKey("%", Modifier.weight(1f), opBg, opFg) { onOperatorClick("%") }
-            CalcKey("÷", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("/") }
+            CalcKey("AC", Modifier.weight(1f), clearBg, clearFg, enabled = enabled) { onClearClick() }
+            CalcKey("( )", Modifier.weight(1f), opBg, opFg, enabled = enabled) { onBracketClick() }
+            CalcKey("%", Modifier.weight(1f), opBg, opFg, enabled = enabled) { onOperatorClick("%") }
+            CalcKey("÷", Modifier.weight(1f), opBg, accentFg, enabled = enabled) { onOperatorClick("/") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
-            CalcKey("7", Modifier.weight(1f)) { onDigitClick("7") }
-            CalcKey("8", Modifier.weight(1f)) { onDigitClick("8") }
-            CalcKey("9", Modifier.weight(1f)) { onDigitClick("9") }
-            CalcKey("×", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("*") }
+            CalcKey("7", Modifier.weight(1f), enabled = enabled) { onDigitClick("7") }
+            CalcKey("8", Modifier.weight(1f), enabled = enabled) { onDigitClick("8") }
+            CalcKey("9", Modifier.weight(1f), enabled = enabled) { onDigitClick("9") }
+            CalcKey("×", Modifier.weight(1f), opBg, accentFg, enabled = enabled) { onOperatorClick("*") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
-            CalcKey("4", Modifier.weight(1f)) { onDigitClick("4") }
-            CalcKey("5", Modifier.weight(1f)) { onDigitClick("5") }
-            CalcKey("6", Modifier.weight(1f)) { onDigitClick("6") }
-            CalcKey("−", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("-") }
+            CalcKey("4", Modifier.weight(1f), enabled = enabled) { onDigitClick("4") }
+            CalcKey("5", Modifier.weight(1f), enabled = enabled) { onDigitClick("5") }
+            CalcKey("6", Modifier.weight(1f), enabled = enabled) { onDigitClick("6") }
+            CalcKey("−", Modifier.weight(1f), opBg, accentFg, enabled = enabled) { onOperatorClick("-") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
-            CalcKey("1", Modifier.weight(1f)) { onDigitClick("1") }
-            CalcKey("2", Modifier.weight(1f)) { onDigitClick("2") }
-            CalcKey("3", Modifier.weight(1f)) { onDigitClick("3") }
-            CalcKey("+", Modifier.weight(1f), opBg, accentFg) { onOperatorClick("+") }
+            CalcKey("1", Modifier.weight(1f), enabled = enabled) { onDigitClick("1") }
+            CalcKey("2", Modifier.weight(1f), enabled = enabled) { onDigitClick("2") }
+            CalcKey("3", Modifier.weight(1f), enabled = enabled) { onDigitClick("3") }
+            CalcKey("+", Modifier.weight(1f), opBg, accentFg, enabled = enabled) { onOperatorClick("+") }
         }
         Spacer(Modifier.height(gap))
         Row(rowMod, horizontalArrangement = Arrangement.spacedBy(gap)) {
-            CalcKey("0", Modifier.weight(1f)) { onDigitClick("0") }
-            CalcKey(".", Modifier.weight(1f)) { onDecimalClick() }
+            CalcKey("0", Modifier.weight(1f), enabled = enabled) { onDigitClick("0") }
+            CalcKey(".", Modifier.weight(1f), enabled = enabled) { onDecimalClick() }
             CalcKey(
                 icon = Icons.AutoMirrored.Filled.Backspace,
                 modifier = Modifier.weight(1f),
                 backgroundColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                enabled = enabled
             ) { onDeleteClick() }
-            CalcKey("=", Modifier.weight(1f), eqBg, eqFg) { onEqualsClick() }
+            CalcKey("=", Modifier.weight(1f), eqBg, eqFg, enabled = enabled) { onEqualsClick() }
         }
     }
 }
@@ -1031,25 +1059,29 @@ private fun RowScope.CalcKey(
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     icon: ImageVector? = null,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
+        targetValue = if (isPressed && enabled) 0.92f else 1f,
         animationSpec = tween(100), label = ""
     )
     Surface(
         onClick = {
-            isPressed = true
-            onClick()
-            coroutineScope.launch { delay(100); isPressed = false }
+            if (enabled) {
+                isPressed = true
+                onClick()
+                coroutineScope.launch { delay(100); isPressed = false }
+            }
         },
         modifier = modifier
             .fillMaxHeight()
             .scale(scale)
             .minimumInteractiveComponentSize(),
         shape = RoundedCornerShape(10.dp),
+        enabled = enabled,
         color = backgroundColor
     )
     {

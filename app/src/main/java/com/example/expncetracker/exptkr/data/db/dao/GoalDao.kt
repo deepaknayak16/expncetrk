@@ -26,25 +26,32 @@ interface GoalDao {
 
     @Query("""
         UPDATE goals
-        SET currentAmount = (
-            SELECT COALESCE(SUM(amount), 0)
-            FROM transactions
-            WHERE category = :category AND type = 'DEBIT'
-        ),
-        isCompleted = (
-            SELECT COALESCE(SUM(amount), 0)
-            FROM transactions
-            WHERE category = :category AND type = 'DEBIT'
-        ) >= targetAmount
+        SET currentAmount = :spent,
+        isCompleted = :spent >= targetAmount
         WHERE id = :goalId
     """)
-    suspend fun recalculateGoalProgress(goalId: Long, category: String)
+    suspend fun updateGoalProgress(goalId: Long, spent: java.math.BigDecimal)
 
     @Query("""
-        SELECT COALESCE(SUM(amount), 0.0)
+        SELECT COALESCE(SUM(amount), '0.0')
+        FROM transactions
+        WHERE isRecurring = 0 AND category = :category
+        AND type = :type
+        AND timestamp >= :sinceMillis
+    """)
+    suspend fun sumAmountByCategorySince(category: String, type: String, sinceMillis: Long): java.math.BigDecimal
+
+    @Transaction
+    suspend fun recalculateGoalProgress(goalId: Long, category: String, sinceMillis: Long = 0) {
+        val spent = sumAmountByCategorySince(category, "DEBIT", sinceMillis)
+        updateGoalProgress(goalId, spent)
+    }
+
+    @Query("""
+        SELECT COALESCE(SUM(amount), '0.0')
         FROM transactions
         WHERE category = :category
         AND type = :type
     """)
-    suspend fun sumAmountByCategory(category: String, type: String): Double
+    suspend fun sumAmountByCategory(category: String, type: String): java.math.BigDecimal
 }

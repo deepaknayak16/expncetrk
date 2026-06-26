@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "raw_sms")
 data class RawSmsEntity(
-    @PrimaryKey val smsId: Long,
+    @PrimaryKey val smsId: String, // FIX #H8: Use content-derived hash (String) as PK
     val body: String,
     val address: String,
     val timestamp: Long,

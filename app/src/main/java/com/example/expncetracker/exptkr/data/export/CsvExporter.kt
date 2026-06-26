@@ -40,6 +40,7 @@ class CsvExporter @Inject constructor(
             // Fetch transactions from repository
             val transactions = transactionRepository.getAllTransactions().first()
                 .filter { transaction ->
+                    if (transaction.isRecurring) return@filter false
                     val txDate = transaction.timestamp.toLocalDate()
                     when {
                         startDate != null && endDate != null ->
@@ -60,27 +61,35 @@ class CsvExporter @Inject constructor(
 
             val outputFile = File(outputDir, fileName)
 
-            FileWriter(outputFile).use { writer ->
-                // Write CSV header
-                writer.appendLine("ID,Date,Time,Category,Type,Description,Bank,Amount")
+            java.io.FileOutputStream(outputFile).use { fos ->
+                // Write UTF-8 BOM for Excel compatibility
+                fos.write(0xEF)
+                fos.write(0xBB)
+                fos.write(0xBF)
 
-                // Write transactions
-                transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
-                    val date = transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
-                    val time = transaction.timestamp.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME)
-                    val category = escapeCsvField(transaction.categoryName)
-                    val type = when(transaction.type) {
-                        TransactionType.CREDIT -> "Income"
-                        TransactionType.DEBIT -> "Expense"
-                        TransactionType.TRANSFER -> "Transfer"
-                        TransactionType.LEND -> "Lent"
-                        TransactionType.BORROW -> "Borrowed"
+                java.io.OutputStreamWriter(fos, Charsets.UTF_8).use { writer ->
+                    // Write CSV header
+                    writer.appendLine("ID,Date,Time,Category,Type,Description,Bank,Amount")
+
+                    // Write transactions
+                    transactions.sortedByDescending { it.timestamp }.forEach { transaction ->
+                        val date = transaction.timestamp.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
+                        val time = transaction.timestamp.toLocalTime().format(DateTimeFormatter.ISO_LOCAL_TIME)
+                        val category = escapeCsvField(transaction.categoryName)
+                        val type = when(transaction.type) {
+                            TransactionType.CREDIT -> "Income"
+                            TransactionType.DEBIT -> "Expense"
+                            TransactionType.TRANSFER -> "Transfer"
+                            TransactionType.LEND -> "Lent"
+                            TransactionType.BORROW -> "Borrowed"
+                        }
+                        val description = escapeCsvField(transaction.merchant)
+                        val bank = escapeCsvField(transaction.bankName)
+                        val amount = String.format(Locale.US, "%.2f", transaction.amount)
+
+                        writer.appendLine("${transaction.id},$date,$time,$category,$type,$description,$bank,$amount")
                     }
-                    val description = escapeCsvField(transaction.merchant)
-                    val bank = escapeCsvField(transaction.bankName)
-                    val amount = String.format(Locale.US, "%.2f", transaction.amount)
-
-                    writer.appendLine("${transaction.id},$date,$time,$category,$type,$description,$bank,$amount")
+                    writer.flush()
                 }
             }
 
@@ -91,13 +100,20 @@ class CsvExporter @Inject constructor(
     }
 
     /**
-     * Escapes a CSV field by wrapping in quotes if it contains special characters.
+     * Escapes a CSV field by wrapping in quotes if it contains special characters and prevents CSV Formula Injection.
      */
     private fun escapeCsvField(field: String): String {
-        return if (field.contains(",") || field.contains("\"") || field.contains("\n")) {
-            "\"${field.replace("\"", "\"\"")}\""
+        var cleanField = field
+        // Prevent CSV Formula Injection by prepending a single quote if it starts with dynamic formula triggers
+        if (cleanField.startsWith("=") || cleanField.startsWith("+") || cleanField.startsWith("-") || 
+            cleanField.startsWith("@") || cleanField.startsWith("\t") || cleanField.startsWith("\r")) {
+            cleanField = "'$cleanField"
+        }
+
+        return if (cleanField.contains(",") || cleanField.contains("\"") || cleanField.contains("\n") || cleanField.contains("\r")) {
+            "\"${cleanField.replace("\"", "\"\"")}\""
         } else {
-            field
+            cleanField
         }
     }
 }

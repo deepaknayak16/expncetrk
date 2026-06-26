@@ -2,15 +2,18 @@ package com.example.expncetracker.exptkr.core.parser
 
 import com.example.expncetracker.exptkr.data.db.dao.MerchantMappingDao
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.domain.repository.RuleRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.first
 import java.util.Locale
 import javax.inject.Inject
+import kotlin.math.exp
 import kotlin.math.ln
 
 class CategoryDetector @Inject constructor(
     private val repository: TransactionRepository,
-    private val merchantMappingDao: MerchantMappingDao
+    private val merchantMappingDao: MerchantMappingDao,
+    private val ruleRepository: RuleRepository
 ) {
     /**
      * Smartly detects the category for a given merchant.
@@ -35,7 +38,8 @@ class CategoryDetector @Inject constructor(
         }
 
         // Resolve history from repository if not provided by caller
-        val resolvedHistory = history ?: repository.getAllTransactions().first()
+        // FIX #H7: Only fetch recent history to avoid performance hit on large DBs
+        val resolvedHistory = history ?: repository.getRecentTransactions(50).first()
 
         // 2. EXACT HISTORY MATCH
         val exactMatch = resolvedHistory.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
@@ -51,24 +55,24 @@ class CategoryDetector @Inject constructor(
             }
         }
 
-        // 4. FALLBACK: Static Rules
-        if (type == TransactionType.CREDIT) {
-            if (containsAny(upperMerchant, "SALARY", "PAYROLL", "WIPRO", "INFOSYS", "TCS", "HCL"))
-                return "Salary"
+        // 4. FALLBACK: Database Rules
+        val dbRules = ruleRepository.getActiveRulesList()
+        val matchedRule = dbRules.find { rule ->
+            val typeMatches = rule.transactionType == null || rule.transactionType == type.name
+            typeMatches && containsAny(upperMerchant, rule.pattern)
+        }
+        if (matchedRule != null) {
+            return matchedRule.categoryName
         }
 
-        return when {
-            containsAny(upperMerchant, "BIGBASKET", "ZEPTO", "GROCERY", "MILK", "RETAIL", "SUPERMARKET", "PROVISION", "INSTAMART") -> "Groceries"
-            containsAny(upperMerchant, "SWIGGY", "ZOMATO", "RESTAU", "FOOD", "CAFE", "HOTEL", "EATS", "KITCHEN") -> "Food"
-            containsAny(upperMerchant, "UBER", "OLA", "RAPIDO", "NAMA", "METRO", "TAXI", "AUTO", "TRAIN") -> "Cabs"
-            containsAny(upperMerchant, "HOSPITAL", "PHARMACY", "DR ", "CLINIC", "MEDPLUS", "APOLLO", "HEALTH", "DIAGNOSTICS") -> "Healthcare"
-            containsAny(upperMerchant, "SCHOOL", "COLLEGE", "FEE", "UNIVERSITY", "UDEMY", "COURSERA", "EDUCATION", "COURSE") -> "Education"
-            else -> "Others"
-        }
+        return "Others"
     }
 
     private fun containsAny(text: String, vararg keywords: String): Boolean {
-        return keywords.any { text.contains(it) }
+        return keywords.any { kw ->
+            val regex = Regex("\\b" + Regex.escape(kw) + "\\b", RegexOption.IGNORE_CASE)
+            regex.containsMatchIn(text)
+        }
     }
 
     private fun classifyMerchant(merchant: String, history: List<com.example.expncetracker.exptkr.domain.model.Transaction>): Prediction {
@@ -109,10 +113,15 @@ class CategoryDetector @Inject constructor(
         }
 
         val confidence = if (probabilities.size > 1) {
-            val sorted = probabilities.values.sortedDescending()
-            val totalRange = sorted[0] - sorted.last()
-            if (totalRange != 0.0) ((sorted[0] - sorted[1]) / totalRange).coerceIn(0.0, 1.0) else 0.0
-        } else 1.0
+            // Softmax conversion for real probabilities
+            val maxLog = probabilities.values.maxOrNull() ?: 0.0
+            val expProbs = probabilities.values.map { exp(it - maxLog) }
+            val sumExp = expProbs.sum()
+            val sortedProbs = expProbs.map { it / sumExp }.sortedDescending()
+            
+            // Confidence is the margin between the best and second-best probability
+            if (sortedProbs.size >= 2) (sortedProbs[0] - sortedProbs[1]) else 1.0
+        } else if (probabilities.size == 1) 1.0 else 0.0
 
         return Prediction(bestCategory, confidence)
     }

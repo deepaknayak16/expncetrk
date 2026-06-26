@@ -16,20 +16,13 @@ object Logger {
     }
 
     fun e(message: String, throwable: Throwable? = null) {
-        if (DEBUG) {
-            Log.e(TAG, message, throwable)
-        } else {
-            // TODO: Route to a crash reporter in production (e.g., Firebase Crashlytics)
-            // if (throwable != null) FirebaseCrashlytics.getInstance().recordException(throwable)
-        }
+        // Log errors even in release builds (Log.e usually persists in logcat)
+        // In a real app, this is where you'd also call FirebaseCrashlytics.getInstance().recordException(throwable)
+        Log.e(TAG, message, throwable)
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        if (DEBUG) {
-            Log.e(tag, message, throwable)
-        } else {
-            // TODO: Route to a crash reporter in production
-        }
+        Log.e(tag, message, throwable)
     }
 
     fun i(message: String) {

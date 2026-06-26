@@ -2,6 +2,7 @@ package com.example.expncetracker.exptkr.data.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.expncetracker.exptkr.data.db.dao.*
@@ -15,11 +16,13 @@ import com.example.expncetracker.exptkr.data.db.entity.*
         GoalEntity::class,
         BudgetEntity::class,
         RawSmsEntity::class,
-        MerchantMappingEntity::class
+        MerchantMappingEntity::class,
+        RuleEntity::class
     ],
-    version = 13,
+    version = 18,
     exportSchema = true
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun accountDao(): AccountDao
@@ -28,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
     abstract fun rawSmsDao(): RawSmsDao
     abstract fun merchantMappingDao(): MerchantMappingDao
+    abstract fun ruleDao(): RuleDao
 }
 
 object AppDatabaseMigrations {
@@ -195,6 +199,44 @@ object AppDatabaseMigrations {
     val MIGRATION_12_13 = object : Migration(12, 13) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE budgets ADD COLUMN lastAlertSentAt INTEGER")
+        }
+    }
+
+    val MIGRATION_13_14 = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_parentTransactionId_timestamp` ON `transactions` (`parentTransactionId`, `timestamp`)")
+        }
+    }
+
+    val MIGRATION_14_15 = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Placeholder for missing version 15
+        }
+    }
+
+    val MIGRATION_15_16 = object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN isCategoryManuallyCorrected INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `classification_rules` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `pattern` TEXT NOT NULL, 
+                    `categoryName` TEXT NOT NULL, 
+                    `priority` INTEGER NOT NULL, 
+                    `isActive` INTEGER NOT NULL
+                )
+            """)
+        }
+    }
+
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE classification_rules ADD COLUMN transactionType TEXT")
         }
     }
 }

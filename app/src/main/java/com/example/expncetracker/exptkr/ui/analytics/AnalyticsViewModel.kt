@@ -17,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.WeekFields
@@ -79,7 +80,7 @@ class AnalyticsViewModel @Inject constructor(
             getTrendsUseCase(days)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    val dailyTotals: StateFlow<Map<LocalDate, Double>> = combine(_weekRange, _refreshTrigger) { range, _ -> range }
+    val dailyTotals: StateFlow<Map<LocalDate, BigDecimal>> = combine(_weekRange, _refreshTrigger) { range, _ -> range }
         .flatMapLatest { range ->
             getDailyTotalsUseCase(range.first, range.second)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())

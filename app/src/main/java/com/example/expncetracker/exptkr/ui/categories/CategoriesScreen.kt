@@ -28,6 +28,8 @@ import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
 import com.example.expncetracker.exptkr.ui.components.availableIcons
 import com.example.expncetracker.exptkr.ui.components.presetColors
+import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,11 +42,11 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
-    val incomeCategories = allCategories.filter { it.type == "INCOME" }
-    val expenseCategories = allCategories.filter { it.type == "EXPENSE" }
+    val incomeCategories = allCategories.filter { it.type.uppercase() == "INCOME" }
+    val expenseCategories = allCategories.filter { it.type.uppercase() == "EXPENSE" }
     
-    val totalExpenseVolume = summary?.totalExpense ?: 0.0
-    val totalIncomeVolume = summary?.totalIncome ?: 0.0
+    val totalExpenseVolume = summary?.totalExpense ?: BigDecimal.ZERO
+    val totalIncomeVolume = summary?.totalIncome ?: BigDecimal.ZERO
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -112,8 +114,8 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                 item { CategoryHeader("Income Categories") }
                 items(incomeCategories) { category ->
                     val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                    val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                    val percentage = if (totalIncomeVolume > 0) (amount / totalIncomeVolume * 100).roundToInt() else 0
+                    val amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO
+                    val percentage = if (totalIncomeVolume > BigDecimal.ZERO) (amount.divide(totalIncomeVolume, 4, RoundingMode.HALF_UP).multiply(BigDecimal(100))).toInt() else 0
                     
                     CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
                     HorizontalDivider(
@@ -125,8 +127,8 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                 item { CategoryHeader("Expense Categories") }
                 items(expenseCategories) { category ->
                     val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                    val amount = summary?.categoryDistribution?.get(category.name) ?: 0.0
-                    val percentage = if (totalExpenseVolume > 0) (amount / totalExpenseVolume * 100).toInt() else 0
+                    val amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO
+                    val percentage = if (totalExpenseVolume > BigDecimal.ZERO) (amount.divide(totalExpenseVolume, 4, RoundingMode.HALF_UP).multiply(BigDecimal(100))).toInt() else 0
                     
                     CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
                     HorizontalDivider(
@@ -250,7 +252,7 @@ private fun AddCategoryDialog(
 }
 
 @Composable
-private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: Double, percentage: Int = 0, color: Color, type: String = "EXPENSE") {
+private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: BigDecimal, percentage: Int = 0, color: Color, type: String = "EXPENSE") {
     val amountColor = when (type) {
         "INCOME" -> if (isDark) DarkIncome else LightIncome
         else -> if (isDark) DarkExpense else LightExpense
@@ -286,7 +288,7 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold
             )
-            if (amount > 0 && percentage >= 0) {
+            if (amount > BigDecimal.ZERO && percentage >= 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = amount.formatAsCurrency(),
@@ -300,7 +302,7 @@ private fun CategoryListItem(displayName: String, category: Category, isDark: Bo
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
-            } else if (amount > 0) {
+            } else if (amount > BigDecimal.ZERO) {
                 Text(
                     text = amount.formatAsCurrency(),
                     color = amountColor,

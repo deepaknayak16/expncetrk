@@ -33,6 +33,7 @@ import com.example.expncetracker.exptkr.security.BiometricResult
 import com.example.expncetracker.exptkr.core.notification.AppNotificationManager
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
 import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
+import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -46,9 +47,13 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var biometricAuthManager: BiometricAuthManager
 
+    private var currentStartRoute = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        currentStartRoute.value = intent.getStringExtra("navigate_to")
 
         val preferencesFlow = dataStore.data
         val biometricEnabled = preferencesFlow.map { it[BIOMETRIC_ENABLED_KEY] ?: false }
@@ -67,8 +72,9 @@ class MainActivity : FragmentActivity() {
             val scope = rememberCoroutineScope()
 
             var hasAskedNotificationThisSession by remember { mutableStateOf(false) }
+            var wasRationaleNeededBefore by remember { mutableStateOf(false) }
 
-            val startRoute = remember { intent.getStringExtra("navigate_to") }
+            val startRoute by currentStartRoute
 
             var showPermissionRationale by remember(isRationaleShown, isSmsPermanentlyDenied) {
                 mutableStateOf(
@@ -81,7 +87,7 @@ class MainActivity : FragmentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result ->
-                if (result[Manifest.permission.READ_SMS] == true || result[Manifest.permission.RECEIVE_SMS] == true) {
+                if (result[Manifest.permission.READ_SMS] == true && result[Manifest.permission.RECEIVE_SMS] == true) {
                     Toast.makeText(this@MainActivity, "SMS permissions granted", Toast.LENGTH_SHORT).show()
                     scope.launch {
                         dataStore.edit { 
@@ -92,6 +98,7 @@ class MainActivity : FragmentActivity() {
                 }
                 // WHY: Detect true permanent denial: user checked "Don't ask again".
                 if (result[Manifest.permission.READ_SMS] == false &&
+                    wasRationaleNeededBefore &&
                     !shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
                 ) {
                     scope.launch {
@@ -146,6 +153,7 @@ class MainActivity : FragmentActivity() {
                     text = { Text("This app tracks expenses automatically by reading transaction SMS. Please grant SMS access to enable this feature.") },
                     confirmButton = {
                         Button(onClick = {
+                            wasRationaleNeededBefore = shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
                             permissionLauncher.launch(SmsPermissionManager.permissions)
                             showPermissionRationale = false
                         }) { Text("Grant Access") }
@@ -221,5 +229,11 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        currentStartRoute.value = intent.getStringExtra("navigate_to")
     }
 }

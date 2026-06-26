@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.math.BigDecimal
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.ui.theme.*
 
@@ -251,7 +252,7 @@ private fun AccountCard(
             Column(horizontalAlignment = Alignment.End) {
                 val balanceColor = when (account.type) {
                     "Credit Card" -> MaterialTheme.colorScheme.onSurface
-                    else -> if (account.balance >= 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense)
+                    else -> if (account.balance.signum() >= 0) (if (isDark) DarkIncome else LightIncome) else (if (isDark) DarkExpense else LightExpense)
                 }
                 Text(
                     text = account.balance.formatAsCurrency(),
@@ -310,7 +311,7 @@ private fun AccountDialog(
     initialBalance: String = "",
     initialType: String = "Bank Account",
     onDismiss: () -> Unit,
-    onConfirm: (String, Double, String) -> Unit
+    onConfirm: (String, BigDecimal, String) -> Unit
 ) {
     var name by remember { mutableStateOf(initialName) }
     var balance by remember { mutableStateOf(initialBalance) }
@@ -370,7 +371,7 @@ private fun AccountDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val b = balance.toDoubleOrNull() ?: 0.0
+                    val b = balance.toBigDecimalOrNull() ?: BigDecimal.ZERO
                     if (name.isNotBlank()) onConfirm(name, b, type)
                 },
                 enabled = name.isNotBlank(),

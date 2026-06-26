@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.math.BigDecimal
 import javax.inject.Inject
 
 class GetSummaryUseCase @Inject constructor(
@@ -44,51 +45,49 @@ class GetSummaryUseCase @Inject constructor(
             accountDao.getAllAccounts(),
             budgetDao.getAllBudgets()
         ) { txList, accounts, budgets ->
-            var income = 0.0
-            var expense = 0.0
-            var lent = 0.0
-            var borrowed = 0.0
-            val map = mutableMapOf<String, Double>()
+            var income = BigDecimal.ZERO
+            var expense = BigDecimal.ZERO
+            var lent = BigDecimal.ZERO
+            var borrowed = BigDecimal.ZERO
+            val map = mutableMapOf<String, BigDecimal>()
 
-            txList.forEach { tx ->
+            txList.filter { !it.isRecurring }.forEach { tx ->
                 when (tx.type) {
-                    TransactionType.CREDIT -> income += tx.amount
+                    TransactionType.CREDIT -> income = income.add(tx.amount)
                     TransactionType.DEBIT -> {
-                        expense += tx.amount
-                        map[tx.categoryName] = (map[tx.categoryName] ?: 0.0) + tx.amount
+                        expense = expense.add(tx.amount)
+                        map[tx.categoryName] = (map[tx.categoryName] ?: BigDecimal.ZERO).add(tx.amount)
                     }
                     TransactionType.LEND -> {
-                        if (!tx.isSettled) lent += tx.amount
-                        // LENDING is money going out, it reflects in account balance already
+                        if (!tx.isSettled) lent = lent.add(tx.amount)
                     }
                     TransactionType.BORROW -> {
-                        if (!tx.isSettled) borrowed += tx.amount
-                        // BORROWING is money coming in, it reflects in account balance already
+                        if (!tx.isSettled) borrowed = borrowed.add(tx.amount)
                     }
                     TransactionType.TRANSFER -> { }
                 }
             }
 
-            val totalAccountBalance = accounts.sumOf { it.balance }
-            val accountAssets = accounts.filter { it.balance > 0 }.sumOf { it.balance }
-            val accountLiabilities = accounts.filter { it.balance < 0 }.sumOf { kotlin.math.abs(it.balance) }
+            val totalAccountBalance = accounts.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance) }
+            val accountAssets = accounts.filter { it.balance > BigDecimal.ZERO }.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance) }
+            val accountLiabilities = accounts.filter { it.balance < BigDecimal.ZERO }.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance.abs()) }
             
-            val totalAssets = accountAssets + lent
-            val totalLiabilities = accountLiabilities + borrowed
-            val netWorth = totalAccountBalance + lent - borrowed
+            val totalAssets = accountAssets.add(lent)
+            val totalLiabilities = accountLiabilities.add(borrowed)
+            val netWorth = totalAccountBalance.add(lent).subtract(borrowed)
             
-            val totalBudget = budgets.sumOf { it.limitAmount }
+            val totalBudget = budgets.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.limitAmount) }
 
             FinancialSummary(
                 totalIncome = income,
                 totalExpense = expense,
-                balance = income - expense,
+                balance = income.subtract(expense),
                 totalLent = lent,
                 totalBorrowed = borrowed,
                 totalAssets = totalAssets,
                 totalLiabilities = totalLiabilities,
                 netWorth = netWorth,
-                budget = if (totalBudget > 0) totalBudget else null,
+                budget = if (totalBudget > BigDecimal.ZERO) totalBudget else null,
                 categoryDistribution = map
             )
         }

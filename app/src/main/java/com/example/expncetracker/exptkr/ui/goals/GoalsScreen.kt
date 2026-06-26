@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.ui.components.EmptyState
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,8 +90,8 @@ fun GoalsScreen(viewModel: GoalsViewModel) {
 
 @Composable
 fun GoalCard(goal: GoalEntity) {
-    val progress = if (goal.targetAmount > 0) {
-        (goal.currentAmount / goal.targetAmount).toFloat().coerceIn(0f, 1f)
+    val progress = if (goal.targetAmount > BigDecimal.ZERO) {
+        (goal.currentAmount.divide(goal.targetAmount, 4, RoundingMode.HALF_UP)).toFloat().coerceIn(0f, 1f)
     } else 0f
     val animatedProgress by animateFloatAsState(
         targetValue = progress,

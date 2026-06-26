@@ -11,18 +11,18 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions WHERE isRecurring = 0 ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions ORDER BY timestamp DESC LIMIT :limit")
+    @Query("SELECT * FROM transactions WHERE isRecurring = 0 ORDER BY timestamp DESC LIMIT :limit")
     fun getRecentTransactions(limit: Int): Flow<List<TransactionEntity>>
 
-    @Query("SELECT * FROM transactions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions WHERE isRecurring = 0 AND timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
     fun getTransactionsInRange(start: Long, end: Long): Flow<List<TransactionEntity>>
 
     @Query("""
         SELECT * FROM transactions
-        WHERE timestamp BETWEEN :start AND :end
+        WHERE isRecurring = 0 AND timestamp BETWEEN :start AND :end
         AND (merchant LIKE '%' || :query || '%' OR note LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%')
         ORDER BY timestamp DESC
     """)
@@ -56,7 +56,7 @@ interface TransactionDao {
     suspend fun getDueRecurringTransactions(timestamp: Long): List<TransactionEntity>
 
     // FIX #19: Renamed parameter from categoryName → category for consistency with DB column
-    @Query("SELECT * FROM transactions WHERE category = :category ORDER BY timestamp DESC")
+    @Query("SELECT * FROM transactions WHERE isRecurring = 0 AND category = :category ORDER BY timestamp DESC")
     fun getTransactionsByCategory(category: String): Flow<List<TransactionEntity>>
 
     @Query("DELETE FROM transactions")
@@ -74,17 +74,17 @@ interface TransactionDao {
         insertTransactions(children)
     }
 
-    @Query("SELECT SUM(amount) FROM transactions WHERE category = :category AND type = 'DEBIT'")
-    suspend fun getTotalSpentByCategory(category: String): Double?
+    @Query("SELECT SUM(amount) FROM transactions WHERE isRecurring = 0 AND category = :category AND type = 'DEBIT'")
+    suspend fun getTotalSpentByCategory(category: String): java.math.BigDecimal?
 
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE category = :category AND type = :type")
-    suspend fun sumAmountByCategoryAndType(category: String, type: String): Double
+    @Query("SELECT COALESCE(SUM(amount), '0.0') FROM transactions WHERE isRecurring = 0 AND category = :category AND type = :type")
+    suspend fun sumAmountByCategoryAndType(category: String, type: String): java.math.BigDecimal
 
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE account_id = :accountId AND type = 'DEBIT'")
-    suspend fun sumDebitsByAccount(accountId: Long): Double
+    @Query("SELECT COALESCE(SUM(amount), '0.0') FROM transactions WHERE isRecurring = 0 AND account_id = :accountId AND type = 'DEBIT'")
+    suspend fun sumDebitsByAccount(accountId: Long): java.math.BigDecimal
 
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM transactions WHERE account_id = :accountId AND type = 'CREDIT'")
-    suspend fun sumCreditsByAccount(accountId: Long): Double
+    @Query("SELECT COALESCE(SUM(amount), '0.0') FROM transactions WHERE isRecurring = 0 AND account_id = :accountId AND type = 'CREDIT'")
+    suspend fun sumCreditsByAccount(accountId: Long): java.math.BigDecimal
 
     @Transaction
     suspend fun deleteDuplicateSmsTransactions() {
@@ -100,7 +100,8 @@ interface TransactionDao {
         SELECT id FROM transactions 
         WHERE id NOT IN (
             SELECT MIN(id) FROM transactions 
-            GROUP BY amount, timestamp, merchant, bankName
+            WHERE smsId IS NOT NULL 
+            GROUP BY amount, timestamp, merchant, bankName, type
         )
         AND smsId IS NOT NULL
     """)
@@ -108,10 +109,10 @@ interface TransactionDao {
 
     @Query("""
     SELECT
-        COALESCE(SUM(CASE WHEN type = 'CREDIT' OR type = 'BORROW' THEN amount ELSE 0 END), 0.0) -
-        COALESCE(SUM(CASE WHEN type = 'DEBIT' OR type = 'LEND' THEN amount ELSE 0 END), 0.0)
+        COALESCE(SUM(CASE WHEN type = 'CREDIT' OR type = 'BORROW' THEN amount ELSE 0 END), '0.0') -
+        COALESCE(SUM(CASE WHEN type = 'DEBIT' OR type = 'LEND' THEN amount ELSE 0 END), '0.0')
     FROM transactions
-    WHERE account_id = :accountId
+    WHERE isRecurring = 0 AND account_id = :accountId
     """)
-    suspend fun calculateNetBalanceByAccount(accountId: Long): Double
+    suspend fun calculateNetBalanceByAccount(accountId: Long): java.math.BigDecimal
 }
