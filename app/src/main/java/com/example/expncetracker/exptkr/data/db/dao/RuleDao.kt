@@ -6,14 +6,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface RuleDao {
-    @Query("SELECT * FROM classification_rules WHERE isActive = 1 ORDER BY priority DESC")
+    @Query("SELECT * FROM classification_rules WHERE isActive = 1 ORDER BY priority DESC, keyword ASC")
     fun getActiveRules(): Flow<List<RuleEntity>>
 
-    @Query("SELECT * FROM classification_rules WHERE isActive = 1 ORDER BY priority DESC")
+    @Query("SELECT * FROM classification_rules WHERE isActive = 1 ORDER BY priority DESC, keyword ASC")
     suspend fun getActiveRulesList(): List<RuleEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertRules(rules: List<RuleEntity>)
+
+    @Query("SELECT COUNT(*) FROM classification_rules")
+    suspend fun getCount(): Int
 
     @Query("DELETE FROM classification_rules")
     suspend fun deleteAllRules()

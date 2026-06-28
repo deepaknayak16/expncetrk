@@ -22,6 +22,7 @@ class App : Application(), Configuration.Provider {
         super.onCreate()
         com.example.expncetracker.exptkr.core.workers.RecurringTransactionWorker.schedule(this)
         com.example.expncetracker.exptkr.core.workers.BudgetAlertWorker.schedule(this)
+        com.example.expncetracker.exptkr.core.recurring.RecurringWorkerScheduler.scheduleAll(this)
         // Ensure any previous zombie sync worker is cancelled
         com.example.expncetracker.exptkr.core.sync.SyncWorker.cancel(this)
         // com.example.expncetracker.exptkr.core.sync.SyncWorker.schedule(this) // TODO: Enable when sync logic is implemented

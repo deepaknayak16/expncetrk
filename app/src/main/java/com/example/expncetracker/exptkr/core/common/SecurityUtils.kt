@@ -11,8 +11,8 @@ import java.util.Locale
 object SecurityUtils {
     private const val PREFS_NAME = "secure_prefs"
     private const val KEY_PASSPHRASE = "db_passphrase"
-
-    fun getOrCreatePassphrase(context: Context): ByteArray {
+    private val passphrase = Any()
+    fun getOrCreatePassphrase(context: Context): ByteArray = synchronized(passphrase) {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()

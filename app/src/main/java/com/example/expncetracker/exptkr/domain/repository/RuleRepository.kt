@@ -1,11 +1,11 @@
 package com.example.expncetracker.exptkr.domain.repository
 
-import com.example.expncetracker.exptkr.data.db.entity.RuleEntity
+import com.example.expncetracker.exptkr.domain.model.ClassificationRule
 import kotlinx.coroutines.flow.Flow
 
 interface RuleRepository {
-    fun getActiveRules(): Flow<List<RuleEntity>>
-    suspend fun getActiveRulesList(): List<RuleEntity>
-    suspend fun insertRules(rules: List<RuleEntity>)
+    fun getActiveRules(): Flow<List<ClassificationRule>>
+    suspend fun getActiveRulesList(): List<ClassificationRule>
+    suspend fun insertRules(rules: List<ClassificationRule>)
     suspend fun deleteAllRules()
 }

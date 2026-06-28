@@ -1,15 +1,17 @@
 package com.example.expncetracker.exptkr.ui.categories
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -21,16 +23,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
+import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
 import com.example.expncetracker.exptkr.ui.components.availableIcons
 import com.example.expncetracker.exptkr.ui.components.presetColors
+import com.example.expncetracker.exptkr.ui.components.GradientCard
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,99 +46,103 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
-    val incomeCategories = allCategories.filter { it.type.uppercase() == "INCOME" }
-    val expenseCategories = allCategories.filter { it.type.uppercase() == "EXPENSE" }
+    val incomeCategories = allCategories
+        .filter { it.type.uppercase() == "INCOME" }
+        .sortedByDescending { summary?.categoryDistribution?.get(it.name) ?: BigDecimal.ZERO }
+    
+    val expenseCategories = allCategories
+        .filter { it.type.uppercase() == "EXPENSE" }
+        .sortedByDescending { summary?.categoryDistribution?.get(it.name) ?: BigDecimal.ZERO }
     
     val totalExpenseVolume = summary?.totalExpense ?: BigDecimal.ZERO
     val totalIncomeVolume = summary?.totalIncome ?: BigDecimal.ZERO
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { viewModel.refreshData() },
-        state = pullRefreshState,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background
+    ) { innerPadding ->
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refreshData() },
+            state = pullRefreshState,
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
         ) {
-            Card(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // Enhanced Summary Card
+                GradientCard(
+                    title = "Total Financial Health",
+                    value = summary?.balance?.formatAsCurrency() ?: "₹0.00",
+                    gradientStart = if (isDark) Color(0xFF1A237E) else MaterialTheme.colorScheme.primary,
+                    gradientEnd = if (isDark) Color(0xFF0D47A1) else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    icon = Icons.Default.AccountBalance
                 ) {
-                    Text(
-                        text = "Total Financial Health",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = summary?.balance?.formatAsCurrency() ?: "₹0.00",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Spacer(Modifier.height(20.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Spacer(Modifier.height(20.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(
-                            "EXPENSE",
-                            summary?.totalExpense?.formatAsCurrency() ?: "₹0.00",
-                            if (isDark) DarkExpense else LightExpense
+                        SummaryColumnItem(
+                            label = "TOTAL INCOME",
+                            amount = summary?.totalIncome?.formatAsCurrency() ?: "₹0.00",
+                            color = Color.White
                         )
-                        SummaryItem(
-                            "INCOME",
-                            summary?.totalIncome?.formatAsCurrency() ?: "₹0.00",
-                            if (isDark) DarkIncome else LightIncome
+                        SummaryColumnItem(
+                            label = "TOTAL EXPENSE",
+                            amount = summary?.totalExpense?.formatAsCurrency() ?: "₹0.00",
+                            color = Color.White
                         )
                     }
                 }
-            }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                item { CategoryHeader("Income Categories") }
-                items(incomeCategories) { category ->
-                    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                    val amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO
-                    val percentage = if (totalIncomeVolume > BigDecimal.ZERO) (amount.divide(totalIncomeVolume, 4, RoundingMode.HALF_UP).multiply(BigDecimal(100))).toInt() else 0
-                    
-                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-                }
+                Spacer(modifier = Modifier.height(24.dp))
 
-                item { CategoryHeader("Expense Categories") }
-                items(expenseCategories) { category ->
-                    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
-                    val amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO
-                    val percentage = if (totalExpenseVolume > BigDecimal.ZERO) (amount.divide(totalExpenseVolume, 4, RoundingMode.HALF_UP).multiply(BigDecimal(100))).toInt() else 0
-                    
-                    CategoryListItem(category.name, categoryEnum, isDark, amount, percentage, Color(category.color), category.type)
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp, end = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
+                // Two Column Layout for Categories
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Left Column: Income
+                    Column(modifier = Modifier.weight(1f)) {
+                        CategorySectionHeader("Income", if (isDark) DarkIncome else LightIncome, Icons.Default.TrendingUp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (incomeCategories.isEmpty()) {
+                            EmptyCategoryPlaceholder("No income categories")
+                        } else {
+                            incomeCategories.forEach { category ->
+                                CompactCategoryItem(
+                                    category = category,
+                                    amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO,
+                                    totalAmount = totalIncomeVolume,
+                                    isDark = isDark
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+
+                    // Right Column: Expense
+                    Column(modifier = Modifier.weight(1f)) {
+                        CategorySectionHeader("Expense", if (isDark) DarkExpense else LightExpense, Icons.Default.TrendingDown)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (expenseCategories.isEmpty()) {
+                            EmptyCategoryPlaceholder("No expense categories")
+                        } else {
+                            expenseCategories.forEach { category ->
+                                CompactCategoryItem(
+                                    category = category,
+                                    amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO,
+                                    totalAmount = totalExpenseVolume,
+                                    isDark = isDark
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -152,6 +160,160 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
     }
 }
 
+@Composable
+private fun SummaryColumnItem(label: String, amount: String, color: Color) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = color.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = amount,
+            style = MaterialTheme.typography.titleMedium,
+            color = color,
+            fontWeight = FontWeight.ExtraBold
+        )
+    }
+}
+
+@Composable
+private fun CategorySectionHeader(title: String, color: Color, icon: ImageVector) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.1f))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    }
+}
+
+@Composable
+private fun CompactCategoryItem(
+    category: CategoryEntity,
+    amount: BigDecimal,
+    totalAmount: BigDecimal,
+    isDark: Boolean
+) {
+    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
+    val percentage = if (totalAmount > BigDecimal.ZERO) {
+        (amount.divide(totalAmount, 4, RoundingMode.HALF_UP).multiply(BigDecimal(100))).toInt()
+    } else 0
+    val color = Color(category.color)
+    val amountColor = when (category.type.uppercase()) {
+        "INCOME" -> if (isDark) DarkIncome else LightIncome
+        else -> if (isDark) DarkExpense else LightExpense
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        shadowElevation = 0.5.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = getCategoryIcon(categoryEnum),
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = category.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    text = amount.formatAsCurrency(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = amountColor,
+                    fontWeight = FontWeight.Bold
+                )
+                if (percentage > 0) {
+                    Text(
+                        text = "$percentage%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+            
+            if (percentage > 0) {
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { percentage.toFloat() / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(CircleShape),
+                    color = color,
+                    trackColor = color.copy(alpha = 0.1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCategoryPlaceholder(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddCategoryDialog(
@@ -164,7 +326,6 @@ private fun AddCategoryDialog(
     var selectedIconName by remember { mutableStateOf("OTHERS") }
     var selectedColor by remember { mutableStateOf(presetColors[0]) }
     
-    // FIX C2: Duplicate name check
     val isNameDuplicate = existingCategories.any { it.equals(name.trim(), ignoreCase = true) }
 
     AlertDialog(
@@ -248,86 +409,5 @@ private fun AddCategoryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
-    )
-}
-
-@Composable
-private fun CategoryListItem(displayName: String, category: Category, isDark: Boolean, amount: BigDecimal, percentage: Int = 0, color: Color, type: String = "EXPENSE") {
-    val amountColor = when (type) {
-        "INCOME" -> if (isDark) DarkIncome else LightIncome
-        else -> if (isDark) DarkExpense else LightExpense
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(color.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = getCategoryIcon(category),
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        Spacer(Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = displayName,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold
-            )
-            if (amount > BigDecimal.ZERO && percentage >= 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = amount.formatAsCurrency(),
-                        color = amountColor,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "$percentage%",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            } else if (amount > BigDecimal.ZERO) {
-                Text(
-                    text = amount.formatAsCurrency(),
-                    color = amountColor,
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryItem(label: String, amount: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        Text(text = amount, color = color, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun CategoryHeader(title: String) {
-    Text(
-        text = title,
-        color = MaterialTheme.colorScheme.onSurface,
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)
     )
 }

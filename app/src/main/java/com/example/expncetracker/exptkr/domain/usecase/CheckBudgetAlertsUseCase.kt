@@ -6,6 +6,7 @@ import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.core.notifications.NotificationHelper
 import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -18,6 +19,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 class CheckBudgetAlertsUseCase @Inject constructor(
     private val budgetDao: BudgetDao,
     private val repository: TransactionRepository,
+    private val categoryRepository: CategoryRepository,
     private val notificationHelper: NotificationHelper,
     @ApplicationContext private val context: Context
 ) {
@@ -39,7 +41,8 @@ class CheckBudgetAlertsUseCase @Inject constructor(
             .groupBy { it.categoryName }
             .mapValues { entry -> entry.value.fold(java.math.BigDecimal.ZERO) { acc, t -> acc.add(t.amount) } }
 
-        budgets.forEach { budget ->
+        val validCategories = categoryRepository.getAllCategories().first().map { it.name }.toSet()
+        budgets.filter { it.category in validCategories }.forEach { budget ->
             val spent = categorySpent[budget.category] ?: java.math.BigDecimal.ZERO
             if (budget.limitAmount > java.math.BigDecimal.ZERO) {
                 val progress = spent.divide(budget.limitAmount, 4, java.math.RoundingMode.HALF_EVEN).toFloat()

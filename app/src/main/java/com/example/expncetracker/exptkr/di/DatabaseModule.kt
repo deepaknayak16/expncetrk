@@ -15,6 +15,9 @@ import com.example.expncetracker.exptkr.data.db.dao.TransactionDao
 import com.example.expncetracker.exptkr.data.db.dao.MerchantMappingDao
 import com.example.expncetracker.exptkr.data.db.dao.RawSmsDao
 import com.example.expncetracker.exptkr.data.db.dao.RuleDao
+import com.example.expncetracker.exptkr.data.db.dao.SmsQuarantineDao
+import com.example.expncetracker.exptkr.data.db.dao.RecurringTemplateDao
+import com.example.expncetracker.exptkr.data.db.dao.MerchantStatsDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,8 +60,14 @@ object DatabaseModule {
                     AppDatabaseMigrations.MIGRATION_14_15,
                     AppDatabaseMigrations.MIGRATION_15_16,
                     AppDatabaseMigrations.MIGRATION_16_17,
-                    AppDatabaseMigrations.MIGRATION_17_18
+                    AppDatabaseMigrations.MIGRATION_17_18,
+                    AppDatabaseMigrations.MIGRATION_18_19,
+                    AppDatabaseMigrations.MIGRATION_19_20,
+                    AppDatabaseMigrations.MIGRATION_20_21,
+                    AppDatabaseMigrations.MIGRATION_21_22,
+                    AppDatabaseMigrations.MIGRATION_22_23
                 )
+                .fallbackToDestructiveMigration()
                 .addCallback(object : androidx.room.RoomDatabase.Callback() {
                     override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -95,6 +104,9 @@ object DatabaseModule {
     @Provides fun provideMerchantMappingDao(db: AppDatabase): MerchantMappingDao = db.merchantMappingDao()
     @Provides fun provideRawSmsDao(db: AppDatabase): RawSmsDao = db.rawSmsDao()
     @Provides fun provideRuleDao(db: AppDatabase): RuleDao = db.ruleDao()
+    @Provides fun provideSmsQuarantineDao(db: AppDatabase): SmsQuarantineDao = db.smsQuarantineDao()
+    @Provides fun provideRecurringTemplateDao(db: AppDatabase): RecurringTemplateDao = db.recurringTemplateDao()
+    @Provides fun provideMerchantStatsDao(db: AppDatabase): MerchantStatsDao = db.merchantStatsDao()
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
@@ -105,8 +117,9 @@ object DatabaseModule {
     private fun seedRules(db: androidx.sqlite.db.SupportSQLiteDatabase) {
         DefaultClassificationRules.rules.forEach { rule ->
             val values = ContentValues().apply {
-                put("pattern", rule.pattern)
-                put("categoryName", rule.category)
+                put("keyword", rule.keyword)
+                put("category", rule.category)
+                put("matchType", rule.matchType)
                 put("priority", rule.priority)
                 put("isActive", 1)
                 put("transactionType", rule.transactionType)

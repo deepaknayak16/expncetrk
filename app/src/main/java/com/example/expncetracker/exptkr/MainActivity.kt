@@ -1,9 +1,7 @@
 package com.example.expncetracker.exptkr
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -33,10 +31,8 @@ import com.example.expncetracker.exptkr.security.BiometricResult
 import com.example.expncetracker.exptkr.core.notification.AppNotificationManager
 import com.example.expncetracker.exptkr.ui.navigation.AppNavGraph
 import com.example.expncetracker.exptkr.ui.theme.ExpncetrackerTheme
-import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -83,11 +79,19 @@ class MainActivity : FragmentActivity() {
                             !isSmsPermanentlyDenied
                 )
             }
-
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result ->
-                if (result[Manifest.permission.READ_SMS] == true && result[Manifest.permission.RECEIVE_SMS] == true) {
+                // Allow partial permission - degrade gracefully:
+                val hasReadSms = result[Manifest.permission.READ_SMS] == true
+                val hasReceiveSms = result[Manifest.permission.RECEIVE_SMS] == true
+
+                if (hasReadSms) {
+                    // Enable historical import
+                    scope.launch { dataStore.edit { it[PERMISSION_RATIONALE_SHOWN_KEY] = true } }
+                }
+
+                if (hasReadSms && hasReceiveSms) {
                     Toast.makeText(this@MainActivity, "SMS permissions granted", Toast.LENGTH_SHORT).show()
                     scope.launch {
                         dataStore.edit { 
@@ -111,9 +115,6 @@ class MainActivity : FragmentActivity() {
                     }
                 }
             }
-            // WHY: We must only post the notification AFTER we know the permission state.
-            //      Putting it inside the LaunchedEffect guarantees it runs once
-            //      after the permission flow has had a chance to execute.
 
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

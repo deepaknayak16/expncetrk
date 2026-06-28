@@ -6,6 +6,7 @@ import androidx.work.*
 import com.example.expncetracker.exptkr.domain.usecase.CheckBudgetAlertsUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 
 @HiltWorker
@@ -19,12 +20,10 @@ class BudgetAlertWorker @AssistedInject constructor(
         return try {
             checkBudgetAlertsUseCase.execute()
             Result.success()
-        } catch (e: Exception) {
-            if (runAttemptCount < 3) {
-                Result.retry()
-            } else {
-                Result.failure()
-            }
+        } catch (e: CancellationException) {
+            throw e
+        }catch (e: Exception) {
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 

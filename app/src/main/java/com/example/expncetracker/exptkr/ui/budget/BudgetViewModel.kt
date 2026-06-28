@@ -111,7 +111,9 @@ class BudgetViewModel @Inject constructor(
     }
 
     fun setMonth(month: YearMonth) {
-        _selectedMonth.value = month
+        if (month <= YearMonth.now()) {
+            _selectedMonth.value = month
+        }
     }
 
     fun saveBudget(categoryName: String, limit: Double) {

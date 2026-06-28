@@ -2,9 +2,15 @@ package com.example.expncetracker.exptkr.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.expncetracker.exptkr.data.db.dao.RecurringTemplateDao
+import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
+import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
+import com.example.expncetracker.exptkr.data.db.entity.RecurringTemplateEntity
 import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.model.RecurringState
+import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import com.example.expncetracker.exptkr.domain.repository.GoalRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
@@ -28,7 +34,8 @@ class DashboardViewModel @Inject constructor(
     private val getTrendsUseCase: GetTrendsUseCase,
     private val repository: TransactionRepository,
     private val categoryRepository: CategoryRepository,
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    private val recurringTemplateDao: RecurringTemplateDao
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -63,7 +70,6 @@ class DashboardViewModel @Inject constructor(
             val startMillis: Long
             val endMillis: Long
             val zone = ZoneId.systemDefault()
-
             when (filter) {
                 DateFilter.DAY -> {
                     startMillis = date.withHour(0).withMinute(0).withSecond(0).atZone(zone).toInstant().toEpochMilli()
@@ -121,42 +127,48 @@ class DashboardViewModel @Inject constructor(
                 if (pStart != 0L) getSummaryUseCase(pStart, pEnd).distinctUntilChanged() else flowOf(null)
             }
 
-            getSummaryUseCase(startMillis, endMillis)
-                .distinctUntilChanged()
-                .combine(prevSummaryFlow) { current, previous -> current to previous }
-                .combine(getRecentTransactionsUseCase(10).distinctUntilChanged()) { (current, previous), recent -> Triple(current, previous, recent) }
-                .combine(repository.getAllRecurringTransactions().distinctUntilChanged()) { triple, recurring -> triple to recurring }
-                .combine(categoryRepository.getAllCategories().distinctUntilChanged()) { pair, categories -> pair to categories }
-                .combine(goalRepository.getAllGoals().distinctUntilChanged()) { pair, goals -> pair to goals }
-                .combine(repository.getTransactionsInRange(startMillis, endMillis).distinctUntilChanged()) { pair, allTxsInRange -> pair to allTxsInRange }
-                .combine(trends) { pair, trendMap ->
-                    val (tripleWithGoals, allTxsInRange) = pair
-                    val (tripleWithCats, goals) = tripleWithGoals
-                    val (tripleWithRecurring, categories) = tripleWithCats
-                    val (tripleSummaryRecent, recurring) = tripleWithRecurring
-                    val (currentSummary, previousSummary, recent) = tripleSummaryRecent
+            combine(
+                getSummaryUseCase(startMillis, endMillis).distinctUntilChanged(),
+                prevSummaryFlow,
+                getRecentTransactionsUseCase(10).distinctUntilChanged(),
+                repository.getAllRecurringTransactions().distinctUntilChanged(),
+                categoryRepository.getAllCategories().distinctUntilChanged(),
+                goalRepository.getAllGoals().distinctUntilChanged(),
+                recurringTemplateDao.getTemplatesByState(RecurringState.PENDING_CONFIRM.name).distinctUntilChanged(),
+                repository.getTransactionsInRange(startMillis, endMillis).distinctUntilChanged(),
+                trends
+            ) { args: Array<Any?> ->
+                val currentSummary = args[0] as FinancialSummary
+                val previousSummary = args[1] as FinancialSummary?
+                val recent = args[2] as List<Transaction>
+                val recurring = args[3] as List<Transaction>
+                val categories = args[4] as List<CategoryEntity>
+                val goals = args[5] as List<GoalEntity>
+                val pending = args[6] as List<RecurringTemplateEntity>
+                val allTxsInRange = args[7] as List<Transaction>
+                val trendMap = args[8] as Map<String, List<SpendingTrend>>
+                
+                val distribution = allTxsInRange
+                    .filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
+                    .groupBy { it.categoryName }
+                    .mapValues { it.value.sumOf { t -> t.amount } }
 
-                    val distribution = allTxsInRange
-                        .filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
-                        .groupBy { it.categoryName }
-                        .mapValues { it.value.sumOf { t -> t.amount } }
-
-                    DashboardUiState.Success(
-                        DashboardData(
-                            summary = currentSummary,
-                            previousSummary = previousSummary,
-                            recentTransactions = recent,
-                            recurringTransactions = recurring,
-                            trends = trendMap.getOrDefault("Total", emptyList()),
-                            distribution = distribution,
-                            allCategories = categories,
-                            goals = goals
-                        )
-                    ) as DashboardUiState
-                }
-                .catch { e ->
-                    emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
-                }
+                DashboardUiState.Success(
+                    DashboardData(
+                        summary = currentSummary,
+                        previousSummary = previousSummary,
+                        recentTransactions = recent,
+                        recurringTransactions = recurring,
+                        trends = trendMap.getOrDefault("Total", emptyList()),
+                        distribution = distribution,
+                        allCategories = categories,
+                        goals = goals,
+                        pendingConfirmTemplates = pending
+                    )
+                ) as DashboardUiState
+            }.catch { e ->
+                emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
+            }
         }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
@@ -168,7 +180,7 @@ class DashboardViewModel @Inject constructor(
                 _refreshTrigger.value++
             } catch (e: Exception){
                 _statusEvent.send("Sync failed: ${e.localizedMessage}")
-                _refreshTrigger.value++ // Also trigger refresh on exception to recover if DB state changed
+                _refreshTrigger.value++
             } finally {
                 _isSyncing.value = false
             }
@@ -214,6 +226,21 @@ class DashboardViewModel @Inject constructor(
                 _statusEvent.send("Settled successfully")
             } catch (e: Exception) {
                 _statusEvent.send("Settlement failed: ${e.message}")
+            }
+        }
+    }
+
+    fun confirmRecurring(templateId: Long, isConfirmed: Boolean) {
+        viewModelScope.launch {
+            val templates = (uiState.value as? DashboardUiState.Success)?.data?.pendingConfirmTemplates ?: return@launch
+            val template = templates.find { it.id == templateId } ?: return@launch
+            
+            if (isConfirmed) {
+                recurringTemplateDao.update(template.copy(state = RecurringState.ACTIVE.name))
+                _statusEvent.send("Bill tracking enabled for ${template.merchantName}")
+            } else {
+                recurringTemplateDao.update(template.copy(state = RecurringState.CANCELLED.name))
+                _statusEvent.send("Bill tracking ignored")
             }
         }
     }

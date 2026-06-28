@@ -14,6 +14,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isRecurring = 0 ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions")
+    suspend fun getAllTransactionsSync(): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE isRecurring = 0 ORDER BY timestamp DESC LIMIT :limit")
     fun getRecentTransactions(limit: Int): Flow<List<TransactionEntity>>
 
@@ -28,8 +31,17 @@ interface TransactionDao {
     """)
     fun searchTransactionsInRange(start: Long, end: Long, query: String): Flow<List<TransactionEntity>>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE cleanMerchantName = :cleanName AND timestamp >= :since)")
+    suspend fun hasTransactionFromMerchant(cleanName: String, since: Long): Boolean
+
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Long): TransactionEntity?
+
+    @Query("SELECT * FROM transactions WHERE smsId = :smsId LIMIT 1")
+    suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE smsId = :hash OR idempotencyHash = :hash)")
+    suspend fun doesHashExist(hash: String): Boolean
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
@@ -46,7 +58,8 @@ interface TransactionDao {
     @Query("SELECT MAX(timestamp) FROM transactions")
     suspend fun getLatestTransactionTimestamp(): Long?
 
-    @Query("SELECT MAX(timestamp) FROM transactions WHERE smsId IS NOT NULL")
+    //@Query("SELECT MAX(timestamp) FROM transactions WHERE smsId IS NOT NULL")
+    @Query("SELECT MAX(timestamp) FROM transactions WHERE smsId IS NOT NULL AND isRecurring = 0")
     suspend fun getLatestSmsTimestamp(): Long?
 
     @Query("SELECT * FROM transactions WHERE isRecurring = 1 ORDER BY nextDueDate ASC")
@@ -115,4 +128,7 @@ interface TransactionDao {
     WHERE isRecurring = 0 AND account_id = :accountId
     """)
     suspend fun calculateNetBalanceByAccount(accountId: Long): java.math.BigDecimal
+
+    @Query("SELECT * FROM transactions WHERE (merchant = :merchant OR cleanMerchantName = :merchant) AND timestamp >= :cycleStart AND type = 'DEBIT' LIMIT 1")
+    suspend fun findPaymentInCurrentCycle(merchant: String, cycleStart: Long): TransactionEntity?
 }

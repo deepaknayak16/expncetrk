@@ -1,78 +1,129 @@
 package com.example.expncetracker.exptkr.domain.usecase
 
 import com.example.expncetracker.exptkr.core.common.Logger
-import com.example.expncetracker.exptkr.core.parser.CategoryDetector
+import com.example.expncetracker.exptkr.core.common.HashingUtil
+import com.example.expncetracker.exptkr.core.ml.HybridMlEngine
 import com.example.expncetracker.exptkr.core.parser.ParserRegistry
 import com.example.expncetracker.exptkr.core.sms.SmsReader
-import com.example.expncetracker.exptkr.data.db.AppDatabase
-import androidx.room.withTransaction
-import com.example.expncetracker.exptkr.data.db.dao.AccountDao 
+import com.example.expncetracker.exptkr.core.common.Constants.DEFAULT_ACCOUNT_COLOR
+import com.example.expncetracker.exptkr.data.db.dao.AccountDao
+import com.example.expncetracker.exptkr.data.db.entity.AccountEntity
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.ZoneOffset
 import javax.inject.Inject
 
 class ImportSmsTransactionsUseCase @Inject constructor(
     private val smsReader: SmsReader,
     private val parserRegistry: ParserRegistry,
-    private val categoryDetector: CategoryDetector,
+    private val mlEngine: HybridMlEngine,
     private val repository: TransactionRepository,
-    private val accountDao: AccountDao,
-    private val db: AppDatabase
+    private val accountDao: AccountDao
 ) {
     suspend fun execute() {
-        // FETCH WIDE: Look back 30 days to ensure we don't miss anything 
-        // regardless of what the DB says (DB handles duplicates via idempotencyHash)
         val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
         val lastTimestampInDb = repository.getLatestSmsTimestamp()
         
-        // Use the earlier of the two to be safe, but capped at 30 days lookback
         val fetchSince = if (lastTimestampInDb == 0L) thirtyDaysAgo else (lastTimestampInDb - 600000).coerceAtLeast(thirtyDaysAgo)
         
-        Logger.d("ImportSmsTransactions", "Starting sync since timestamp: $fetchSince (30d ago was $thirtyDaysAgo)")
+        Logger.d("ImportSmsTransactions", "Starting sync since timestamp: $fetchSince")
         
         val rawSmsList = withContext(Dispatchers.IO) {
             smsReader.fetchSmsSince(fetchSince)
         }
         Logger.d("ImportSmsTransactions", "Fetched ${rawSmsList.size} raw candidate messages")
 
-        val parsedTransactions = rawSmsList.mapNotNull { raw ->
-            val parsedSms = parserRegistry.parseSms(raw.address, raw.body, raw.timestamp) ?: return@mapNotNull null
-            val categoryName = categoryDetector.detect(parsedSms.merchant, parsedSms.type)
-            val accountId = accountDao.getAccountIdByName(parsedSms.bankName) ?: 0L 
+        rawSmsList.forEach { raw ->
+            // FIX: True Idempotency Hash check at start of loop
+            val smsHash = HashingUtil.generateSmsHash(raw.address, raw.body)
+            
+            if (repository.doesHashExist(smsHash)) {
+                Logger.d("ImportSmsTransactions", "Duplicate skipped: $smsHash")
+                return@forEach
+            }
 
-            val hash = com.example.expncetracker.exptkr.core.common.SecurityUtils.calculateTransactionHash(
-                parsedSms.amount, raw.timestamp, parsedSms.merchant, raw.address
-            )
+            val parsedSms = parserRegistry.parseSms(raw.address, raw.body, raw.timestamp) ?: return@forEach
 
-            Transaction(
-                smsId = raw.smsId,
+            // 4. ML-based Inference
+            val mlResult = mlEngine.infer(
+                merchantName = parsedSms.merchant,
                 amount = parsedSms.amount,
                 type = parsedSms.type,
-                categoryName = categoryName,
+                timestamp = parsedSms.timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                smsBody = raw.body
+            )
+
+            var accountId = accountDao.getAccountIdByName(parsedSms.bankName)
+                ?: accountDao.getAccountIdByName(parsedSms.bankName.substringBefore(" "))
+
+            if (accountId == null || accountId == 0L) {
+                val isLiquid = !parsedSms.bankName.contains("EPFO", ignoreCase = true) && 
+                              !parsedSms.bankName.contains("Post Office", ignoreCase = true) &&
+                              !parsedSms.bankName.contains("DOPBNK", ignoreCase = true)
+                
+                val newAccount = AccountEntity(
+                    name = parsedSms.bankName,
+                    balance = java.math.BigDecimal.ZERO,
+                    type = if (isLiquid) "SAVINGS" else "INVESTMENT",
+                    color = DEFAULT_ACCOUNT_COLOR,
+                    isLiquid = isLiquid
+                )
+                accountId = accountDao.insertAccount(newAccount)
+            }
+
+            val status = if (parsedSms.isIntentOnly) "REMINDER" else mlResult.parsingStatus
+
+            val transaction = Transaction(
+                smsId = smsHash,
+                amount = parsedSms.amount,
+                type = parsedSms.type,
+                categoryName = mlResult.category,
                 merchant = parsedSms.merchant,
                 bankName = parsedSms.bankName,
-                note = "Imported from SMS",
+                note = when (mlResult.anomalyLevel) {
+                    com.example.expncetracker.exptkr.core.ml.AmountAnomalyScorer.AnomalyLevel.NORMAL -> "Imported from SMS"
+                    else -> "Anomaly detected: ${mlResult.anomalyLevel}. Expected ~₹${mlResult.expectedAmount ?: "N/A"}"
+                },
                 timestamp = parsedSms.timestamp,
                 accountId = accountId,
-                idempotencyHash = hash,
-                confidenceScore = 0.9f,
-                parsingStatus = "COMPLETE"
+                idempotencyHash = smsHash,
+                confidenceScore = mlResult.confidenceScore,
+                parsingStatus = status,
+                rawSmsBody = raw.body,
+                smsFingerprint = smsHash,
+                recurringState = mlResult.recurringState,
+                cleanMerchantName = cleanMerchant(parsedSms.merchant)
             )
-        }
 
-        Logger.d("ImportSmsTransactions", "Total valid transactions parsed: ${parsedTransactions.size}")
-
-        // FIX #H17: Wrap batch in a single transaction for efficiency
-        db.withTransaction {
-            parsedTransactions.forEach { transaction ->
-                try {
+            try {
+                if (transaction.parsingStatus == "REMINDER") {
+                    repository.insertTransaction(transaction)
+                } else {
                     repository.insertTransactionWithBalance(transaction)
-                } catch (e: Exception) {
-                    Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")
                 }
+            } catch (e: Exception) {
+                Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")
             }
+        }
+    }
+
+    private fun cleanMerchant(merchant: String): String {
+        val raw = merchant.uppercase()
+            .replace(Regex("^[A-Z]{2}-"), "")
+            .replace(Regex("[^A-Z ]"), "")
+            .trim()
+        
+        val words = raw.split(" ")
+            .filter { it.length >= 3 }
+        
+        return when {
+            words.isEmpty() -> "UNKNOWN"
+            words[0] == "BMTC" -> "BMTC"
+            words[0].length >= 5 -> words[0]
+            words.size >= 2 -> words[0] + " " + words[1]
+            else -> words[0]
         }
     }
 }

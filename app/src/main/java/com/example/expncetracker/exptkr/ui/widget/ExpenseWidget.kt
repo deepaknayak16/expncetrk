@@ -13,7 +13,6 @@ import androidx.glance.text.*
 import androidx.glance.GlanceTheme
 import com.example.expncetracker.exptkr.R
 import com.example.expncetracker.exptkr.MainActivity
-import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.di.DatabaseModule
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
@@ -38,7 +37,12 @@ class ExpenseWidget : GlanceAppWidget() {
             )
             entryPoint.database()
         } catch (e: Exception) {
-            provideContent { Text("Database error") }
+            provideContent {
+                GlanceTheme{
+                    Text("Database error",
+                        modifier = GlanceModifier.padding(16.dp))
+                }
+            }
             return
         }
         // Safe database access via Singleton pattern

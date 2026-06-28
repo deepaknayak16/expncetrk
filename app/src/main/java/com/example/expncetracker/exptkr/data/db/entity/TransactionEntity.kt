@@ -8,6 +8,14 @@ import androidx.room.ForeignKey
 
 @Entity(
     tableName = "transactions",
+    foreignKeys = [
+        ForeignKey(
+            entity = AccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["account_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
     indices = [
         Index(value = ["smsId"], unique = true),
         Index(value = ["createdAt"]),
@@ -16,7 +24,8 @@ import androidx.room.ForeignKey
         Index(value = ["parentTransactionId", "timestamp"], unique = true),
         Index(value = ["timestamp"]),
         Index(value = ["category", "type"]),
-        Index(value = ["isRecurring", "nextDueDate"])
+        Index(value = ["isRecurring", "nextDueDate"]),
+        Index(value = ["isRecurring", "timestamp"])
     ]
 )
 data class TransactionEntity(
@@ -46,5 +55,11 @@ data class TransactionEntity(
     val idempotencyHash: String? = null,
     val confidenceScore: Float = 1.0f,
     val parsingStatus: String = "COMPLETE",
-    val isCategoryManuallyCorrected: Boolean = false
+    val isCategoryManuallyCorrected: Boolean = false,
+
+    // Phase 2 Additions
+    val rawSmsBody: String? = null,
+    val smsFingerprint: String? = null,
+    val recurringState: String = "NONE",
+    val cleanMerchantName: String? = null
 )

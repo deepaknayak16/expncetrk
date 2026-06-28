@@ -7,6 +7,7 @@ import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.*
+import com.example.expncetracker.exptkr.domain.usecase.ClassifyTransactionUseCase
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -33,7 +34,7 @@ class AddTransactionViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
     private val merchantMappingRepository: MerchantMappingRepository,
-    private val ruleRepository: RuleRepository
+    private val classifyTransactionUseCase: ClassifyTransactionUseCase
 ) : ViewModel() {
 
     // ── Exposed state ──────────────────────────────────────────────────────────
@@ -97,12 +98,12 @@ class AddTransactionViewModel @Inject constructor(
         if (userSelectedCategory) return  // don't stomp on explicit user choice
 
         viewModelScope.launch {
-            val dbRules = ruleRepository.getActiveRulesList()
-            val suggestion = dbRules.find { rule ->
-                merchant.contains(rule.pattern, ignoreCase = true)
-            }?.categoryName
+            val suggestion = classifyTransactionUseCase(merchant)
 
-            if (suggestion != null && (currentCategory.isEmpty() || currentCategory == "Others")) {
+            val cat = currentCategory.trim().lowercase()
+            val isOthers = cat == "others" || cat == "other"
+
+            if (suggestion != null && (currentCategory.isBlank() || isOthers)) {
                 _suggestedCategory.value = suggestion
             }
         }
@@ -164,14 +165,10 @@ class AddTransactionViewModel @Inject constructor(
                 }
 
                 val oldTx = _transactionToEdit.value
-                val isSms = oldTx?.smsId != null
-                val categoryChanged = oldTx?.categoryName != category
                 
-                val finalIsCategoryManuallyCorrected = if (isSms) {
-                    (oldTx?.isCategoryManuallyCorrected == true) || categoryChanged
-                } else {
-                    false
-                }
+                // SINGLE EDIT RULE: Mark as corrected if this is an update (id != 0)
+                // This applies to both Manual and SMS transactions.
+                val finalIsCategoryManuallyCorrected = (oldTx?.isCategoryManuallyCorrected == true) || (id != 0L)
 
                 val transaction = Transaction(
                     id = id,

@@ -248,6 +248,21 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                         icon = Icons.Default.Sms,
                         onClick = { viewModel.resetSmsPermission() }
                     )
+
+                    if (BuildConfig.DEBUG) {
+                        SettingsPreferenceItem(
+                            label = "Export Debug DB",
+                            subtitle = "Unencrypted database for inspection",
+                            icon = Icons.Default.BugReport,
+                            onClick = { viewModel.exportDebugDatabase() }
+                        )
+                        SettingsPreferenceItem(
+                            label = "Purge ML Poison",
+                            subtitle = "Nuke bad mappings and stats",
+                            icon = Icons.Default.DeleteForever,
+                            onClick = { viewModel.purgeMlData() }
+                        )
+                    }
                 }
             }
 

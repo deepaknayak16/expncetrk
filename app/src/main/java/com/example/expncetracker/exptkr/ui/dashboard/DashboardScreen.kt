@@ -162,12 +162,14 @@ fun DashboardScreen(
                         goals = state.data.goals,
                         trends = state.data.trends,
                         currentFilter = currentFilter,
+                        pendingTemplates = state.data.pendingConfirmTemplates,
                         onNavigateToAddTransaction = onNavigateToAddTransaction,
                         onSeeAllClick = onNavigateToTransactions,
                         onTransactionClick = { txId ->
                             selectedTxForDetail = state.data.recentTransactions.find { it.id == txId }
                         },
                         onFilterChange = onFilterChange,
+                        onConfirmRecurring = { id, confirmed -> viewModel.confirmRecurring(id, confirmed) },
                         onSyncClick = {
                             if (SmsPermissionManager.hasPermissions(context)) {
                                 viewModel.syncTransactions()
@@ -185,7 +187,7 @@ fun DashboardScreen(
     if (selectedTxForDetail != null) {
         ModalBottomSheet(
             onDismissRequest = { selectedTxForDetail = null },
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
         ) {
             TransactionDetailContent(
                 transaction = selectedTxForDetail!!,
@@ -223,10 +225,12 @@ fun DashboardContent(
     goals: List<GoalEntity>,
     trends: List<SpendingTrend>,
     currentFilter: DateFilter,
+    pendingTemplates: List<com.example.expncetracker.exptkr.data.db.entity.RecurringTemplateEntity> = emptyList(),
     onNavigateToAddTransaction: () -> Unit,
     onSeeAllClick: () -> Unit,
     onTransactionClick: (Long) -> Unit,
     onFilterChange: (DateFilter) -> Unit,
+    onConfirmRecurring: (Long, Boolean) -> Unit,
     onSyncClick: () -> Unit,
 ) {
 
@@ -267,6 +271,15 @@ fun DashboardContent(
                 onUpcomingClick = { showUpcomingSheet = true },
                 onSyncClick = onSyncClick
             )
+        }
+
+        if (pendingTemplates.isNotEmpty()) {
+            item(key = "pending_recurring") {
+                PendingRecurringSection(
+                    templates = pendingTemplates,
+                    onConfirm = onConfirmRecurring
+                )
+            }
         }
 
         if (trends.isNotEmpty()) {
@@ -370,7 +383,7 @@ fun DashboardContent(
     if (showUpcomingSheet) {
         ModalBottomSheet(
             onDismissRequest = { showUpcomingSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
             dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Column(
@@ -788,14 +801,14 @@ fun ModernDashboardHeader(
                     CardSectionLabel("Cash flow")
 
                     Text(
-                        text = summary.balance.formatAsCurrency(),
+                        text = summary.spendableBalance.formatAsCurrency(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF03A9F4)
                     )
 
                     Text(
-                        text = "Current Balance",
+                        text = "Liquid Balance",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1082,6 +1095,61 @@ fun TimeFilterRow(currentFilter: DateFilter, onFilterSelected: (DateFilter) -> U
 }
 
 // ─── DistributionItem removed ──────────────────────────────────────────────
+
+@Composable
+fun PendingRecurringSection(
+    templates: List<com.example.expncetracker.exptkr.data.db.entity.RecurringTemplateEntity>,
+    onConfirm: (Long, Boolean) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        SectionHeader(
+            title = "Smart detections",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            items(templates) { template ->
+                Card(
+                    modifier = Modifier.width(240.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Recurring bill detected", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(template.merchantName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Approx. ${template.amount.formatAsCurrency()} monthly", style = MaterialTheme.typography.bodySmall)
+                        
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { onConfirm(template.id, false) },
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Ignore", style = MaterialTheme.typography.labelMedium)
+                            }
+                            Button(
+                                onClick = { onConfirm(template.id, true) },
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Track", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 private data class DistributionItem(
     val name: String,

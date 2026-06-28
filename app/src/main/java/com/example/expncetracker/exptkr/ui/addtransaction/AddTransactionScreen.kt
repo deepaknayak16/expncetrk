@@ -65,9 +65,15 @@ fun AddTransactionScreen(
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val transactionToEdit by viewModel.transactionToEdit.collectAsStateWithLifecycle()
+    // Lockdown Mode: If SMS and category is "Other"
+    val isRestrictedSms = remember(transactionToEdit) {
+        val tx = transactionToEdit
+        val isSms = tx?.smsId != null
+        val cat = tx?.categoryName?.trim()?.lowercase() ?: ""
+        val isOthers = cat == "other" || cat == "others"
+        isSms && isOthers
+    }
     val isSms = transactionToEdit?.smsId != null
-    // Restricted if it is an SMS transaction AND it belongs to "Others" (case-insensitive, trimmed)
-    val isRestrictedSms = isSms && (transactionToEdit?.categoryName?.trim()?.equals("Others", ignoreCase = true) == true)
     
     val accounts by viewModel.accounts.collectAsStateWithLifecycle()
     val allCategories by viewModel.categories.collectAsStateWithLifecycle()
@@ -140,12 +146,22 @@ fun AddTransactionScreen(
             isRecurring = it.isRecurring
             it.frequency?.let { f -> recurrenceFrequency = f }
             tagsInput = it.tags.joinToString(", ")
+
+            // Trigger category suggestion for "Other" SMS transactions immediately on load
+            val cat = it.categoryName.trim().lowercase()
+            val isOthers = cat == "other" || cat == "others"
+            if (it.smsId != null && isOthers) {
+                viewModel.onMerchantNameChanged(it.merchant, it.categoryName, false)
+            }
         }
     }
     LaunchedEffect(suggestedCategory) {
         suggestedCategory?.let {
-            if (!userSelectedCategory && (selectedCategoryName.isEmpty() || selectedCategoryName == "Others"))
+            val cat = selectedCategoryName.trim().lowercase()
+            val isOthers = cat == "other" || cat == "others"
+            if (!userSelectedCategory && (selectedCategoryName.isBlank() || isOthers)) {
                 selectedCategoryName = it
+            }
         }
     }
     LaunchedEffect(allCategories) {
@@ -197,6 +213,7 @@ fun AddTransactionScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         topBar = {
             TopAppBar(
                 title = {
@@ -271,14 +288,14 @@ fun AddTransactionScreen(
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = "Save",
+                                    text = if (isRestrictedSms) "Reclassify & Save" else "Save",
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
                     },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color.Transparent
                 )
             )
         }
@@ -288,6 +305,37 @@ fun AddTransactionScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // ──────────────────────────────────────────────
+            // LOCKDOWN BANNER
+            // ──────────────────────────────────────────────
+            if (isRestrictedSms) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Bank data locked. You can only update the category.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
             // ── Form area (scrollable) ──────────────────────────────────────
             Column(
                 modifier = Modifier
@@ -357,7 +405,8 @@ fun AddTransactionScreen(
                     DropdownSelector(
                         value = selectedCategoryName.ifEmpty { "Category" },
                         icon = Icons.Default.Category,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        isSuggested = suggestedCategory != null && selectedCategoryName == suggestedCategory
                     ) { showCategorySheet = true }
                 }
 
@@ -523,7 +572,7 @@ fun AddTransactionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .alpha(if (isSms) 0.8f else 1f)
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
             ) {
                 // Date / time row
                 Row(
@@ -697,7 +746,7 @@ fun AddTransactionScreen(
         ModalBottomSheet(
             onDismissRequest = { showCategorySheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
         ) {
             val categoriesToShow = when (selectedType) {
                 TransactionType.CREDIT -> allCategories.filter { it.type == "INCOME" }
@@ -777,7 +826,7 @@ fun AddTransactionScreen(
     if (showAccountSheet) {
         ModalBottomSheet(
             onDismissRequest = { showAccountSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
         ) {
             Column(
                 modifier = Modifier
@@ -880,7 +929,7 @@ fun TypePill(
                 text = label,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Medium,
                 color = if (isSelected) Color.White
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -895,6 +944,7 @@ fun DropdownSelector(
     value: String,
     icon: ImageVector,
     enabled: Boolean = true,
+    isSuggested: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -904,7 +954,10 @@ fun DropdownSelector(
         enabled = enabled,
         shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = BorderStroke(
+            width = if (isSuggested) 1.5.dp else 0.5.dp,
+            color = if (isSuggested) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outlineVariant
+        )
     ) {
         Row(
             modifier = Modifier
@@ -917,16 +970,26 @@ fun DropdownSelector(
             Icon(
                 icon, null,
                 modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = if (isSuggested) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
             )
-            Text(
-                value,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                if (isSuggested) {
+                    Text(
+                        "SUGGESTED",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                Text(
+                    value,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (isSuggested) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Icon(
                 Icons.Default.ArrowDropDown, null,
                 modifier = Modifier.size(18.dp),
@@ -1001,7 +1064,7 @@ fun CalculatorKeypad(
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .alpha(if (enabled) 1f else 0.5f)
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
             .padding(8.dp)
     ) {
         val rowMod = Modifier
@@ -1056,7 +1119,7 @@ fun CalculatorKeypad(
 private fun RowScope.CalcKey(
     text: String? = null,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
     contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     icon: ImageVector? = null,
     enabled: Boolean = true,

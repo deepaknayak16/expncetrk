@@ -123,27 +123,24 @@ fun TransactionListItem(
                     )
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val displayCategory = remember(transaction) {
-                            val isSms = transaction.smsId != null
-                            val categoryTrimmed = transaction.categoryName.trim()
-                            val isUncategorized = categoryTrimmed.equals("Others", ignoreCase = true)
-                            
-                            // User requirement: Show Category | Sub for ONLY (SMS-Others OR Manual entries)
-                            if (!isSms || isUncategorized) {
-                                "$categoryTrimmed | ${transaction.merchant}"
-                            } else {
-                                categoryTrimmed
-                            }
-                        }
+                        val categoryLabel = transaction.categoryName
+                        val isOthers = categoryLabel.trim().lowercase().let { it == "other" || it == "others" }
                         
-                        Text(
-                            text = displayCategory,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Surface(
+                            color = if (isOthers) MaterialTheme.colorScheme.errorContainer 
+                                    else MaterialTheme.colorScheme.secondaryContainer,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                text = categoryLabel,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isOthers) MaterialTheme.colorScheme.onErrorContainer 
+                                        else MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         if (transaction.counterparty != null) {
                             Surface(
                                 modifier = Modifier.padding(start = 6.dp),

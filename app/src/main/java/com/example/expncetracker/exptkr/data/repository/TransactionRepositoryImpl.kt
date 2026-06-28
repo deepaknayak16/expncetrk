@@ -226,6 +226,9 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun sumAmountByCategory(category: String, type: String): BigDecimal =
         transactionDao.sumAmountByCategoryAndType(category, type)
 
+    override suspend fun doesHashExist(hash: String): Boolean =
+        transactionDao.doesHashExist(hash)
+
     override suspend fun cleanupDuplicates() {
         transactionDao.deleteDuplicateSmsTransactions()
     }

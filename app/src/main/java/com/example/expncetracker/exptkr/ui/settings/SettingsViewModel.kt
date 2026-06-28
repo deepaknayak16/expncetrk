@@ -10,6 +10,7 @@ import com.example.expncetracker.exptkr.core.common.BUDGET_ALERTS_ENABLED_KEY
 import com.example.expncetracker.exptkr.core.common.BUDGET_THRESHOLD_KEY
 import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
+import com.example.expncetracker.exptkr.core.common.DatabaseDebugExporter
 import com.example.expncetracker.exptkr.core.sync.GoogleDriveSyncManager
 import com.example.expncetracker.exptkr.data.export.CsvExporter
 import com.example.expncetracker.exptkr.data.export.PdfExporter
@@ -39,7 +40,9 @@ class SettingsViewModel @Inject constructor(
     private val googleDriveSyncManager: GoogleDriveSyncManager,
     private val biometricAuthManager: BiometricAuthManager,
     private val csvExporter: CsvExporter,
-    private val pdfExporter: PdfExporter
+    private val pdfExporter: PdfExporter,
+    private val databaseDebugExporter: DatabaseDebugExporter,
+    private val mlEngine: com.example.expncetracker.exptkr.core.ml.HybridMlEngine
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -215,6 +218,26 @@ class SettingsViewModel @Inject constructor(
                 preferences[com.example.expncetracker.exptkr.core.common.SMS_PERMISSION_PERMANENTLY_DENIED_KEY] = false
             }
             _statusEvent.send("SMS sync permission reset")
+        }
+    }
+
+    fun exportDebugDatabase() {
+        viewModelScope.launch {
+            _statusEvent.send("Exporting unencrypted database...")
+            val path = databaseDebugExporter.exportUnencryptedDb()
+            if (path != null) {
+                _statusEvent.send("DB exported to: $path")
+            } else {
+                _statusEvent.send("DB export failed")
+            }
+        }
+    }
+
+    fun purgeMlData() {
+        viewModelScope.launch {
+            _statusEvent.send("Purging ML poison...")
+            mlEngine.purgePoisonedData()
+            _statusEvent.send("ML data purged. The AI is now free.")
         }
     }
 }

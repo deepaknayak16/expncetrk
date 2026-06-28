@@ -1,11 +1,13 @@
 package com.example.expncetracker.exptkr.data.mapper
 
+import com.example.expncetracker.exptkr.core.common.Logger
 import com.example.expncetracker.exptkr.core.common.toEpochMilli
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime
 import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import com.example.expncetracker.exptkr.domain.model.RecurringState
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -14,7 +16,10 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     smsId = smsId,
     accountId = accountId,
     amount = amount,
-    type = runCatching { TransactionType.valueOf(type) }.getOrDefault(TransactionType.DEBIT),
+    type = runCatching { TransactionType.valueOf(type) }.getOrElse { 
+        Logger.e("TransactionMapper", "Unknown transaction type: $type for tx $id, defaulting to DEBIT")
+        TransactionType.DEBIT 
+    },
     categoryName = category,
     merchant = merchant,
     bankName = bankName,
@@ -35,13 +40,17 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     idempotencyHash = idempotencyHash,
     confidenceScore = confidenceScore,
     parsingStatus = parsingStatus,
-    isCategoryManuallyCorrected = isCategoryManuallyCorrected
+    isCategoryManuallyCorrected = isCategoryManuallyCorrected,
+    rawSmsBody = rawSmsBody,
+    smsFingerprint = smsFingerprint,
+    recurringState = runCatching { RecurringState.valueOf(recurringState) }.getOrDefault(RecurringState.NONE),
+    cleanMerchantName = cleanMerchantName
 )
 
 fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     id = id,
     smsId = smsId,
-    accountId = accountId, // FIXED: was "if (accountId == 0L) null else accountId"
+    accountId = accountId,
     amount = amount,
     type = type.name,
     category = categoryName,
@@ -61,5 +70,9 @@ fun Transaction.toEntity(): TransactionEntity = TransactionEntity(
     idempotencyHash = idempotencyHash,
     confidenceScore = confidenceScore,
     parsingStatus = parsingStatus,
-    isCategoryManuallyCorrected = isCategoryManuallyCorrected
+    isCategoryManuallyCorrected = isCategoryManuallyCorrected,
+    rawSmsBody = rawSmsBody,
+    smsFingerprint = smsFingerprint,
+    recurringState = recurringState.name,
+    cleanMerchantName = cleanMerchantName
 )

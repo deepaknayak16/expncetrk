@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -49,6 +50,8 @@ import com.example.expncetracker.exptkr.ui.accounts.AccountsViewModel
 import com.example.expncetracker.exptkr.ui.addtransaction.AddTransactionScreen
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsScreen
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsViewModel
+import com.example.expncetracker.exptkr.ui.bills.BillsScreen
+import com.example.expncetracker.exptkr.ui.bills.BillsViewModel
 import com.example.expncetracker.exptkr.ui.budget.BudgetScreen
 import com.example.expncetracker.exptkr.ui.budget.BudgetViewModel
 import com.example.expncetracker.exptkr.ui.categories.CategoriesScreen
@@ -125,6 +128,7 @@ fun AppNavGraph(startRoute: String? = null) {
     val categoriesViewModel: CategoriesViewModel = hiltViewModel()
     val goalsViewModel: GoalsViewModel = hiltViewModel()
     val dashboardViewModel: DashboardViewModel = hiltViewModel()
+    val billsViewModel: BillsViewModel = hiltViewModel()
 
     val settingsUiState by settingsViewModel.uiState.collectAsState()
     val dashboardState by dashboardViewModel.uiState.collectAsState()
@@ -207,8 +211,7 @@ fun AppNavGraph(startRoute: String? = null) {
                                 "categories" -> categoriesViewModel.triggerAddCategory()
                                 "goals" -> goalsViewModel.triggerAddGoal()
                                 else -> {
-                                    editingTransactionId = null
-                                    showAddTransactionSheet = true
+                                    navController.navigate("add_transaction")
                                 }
                             }
                         }
@@ -256,14 +259,12 @@ fun AppNavGraph(startRoute: String? = null) {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
                         onNavigateToAddTransaction = {
-                            editingTransactionId = null
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction")
                         },
                         onNavigateToTransactions = { navController.navigate("transactions") },
                         onNavigateToAnalytics = { navController.navigate("analytics") },
                         onNavigateToEditTransaction = { id ->
-                            editingTransactionId = id
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction?transactionId=$id")
                         },
                         onFilterChange = { dashboardViewModel.setFilter(it) }
                     )
@@ -272,13 +273,15 @@ fun AppNavGraph(startRoute: String? = null) {
                     TransactionScreen(
                         viewModel = hiltViewModel(),
                         onNavigateToEdit = { id ->
-                            editingTransactionId = id
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction?transactionId=$id")
                         }
                     )
                 }
                 composable("analytics") {
                     AnalyticsScreen(viewModel = hiltViewModel())
+                }
+                composable("bills") {
+                    BillsScreen(billsViewModel)
                 }
                 //composable("budget") {
                     //BudgetScreen(budgetViewModel)
@@ -324,7 +327,7 @@ fun AppNavGraph(startRoute: String? = null) {
 
         ModalBottomSheet(
             onDismissRequest = { showUpcomingSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
             dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Text(
@@ -354,8 +357,7 @@ fun AppNavGraph(startRoute: String? = null) {
                         categoryIcon = cat?.let { getIconByName(it.iconName) },
                         categoryColor = cat?.let { Color(it.color) },
                         onClick = {
-                            editingTransactionId = tx.id
-                            showAddTransactionSheet = true
+                            navController.navigate("add_transaction?transactionId=${tx.id}")
                             showUpcomingSheet = false
                         }
                     )
@@ -369,7 +371,7 @@ fun AppNavGraph(startRoute: String? = null) {
     if (showAddTransactionSheet) {
         ModalBottomSheet(
             onDismissRequest = { showAddTransactionSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
             dragHandle = { BottomSheetDefaults.DragHandle() },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
@@ -391,8 +393,11 @@ private fun AppDrawerSheet(
     userPhotoUrl: String?,
     onNavigate: (String) -> Unit
 ) {
-    ModalDrawerSheet {
-
+    ModalDrawerSheet (modifier = Modifier
+        .width(230.dp)        // Drawer width
+        .fillMaxHeight()      // Full height
+        .padding(8.dp)        // Outer padding
+    ) {
         // FIX: flat surface header — no gradient (broken in dark mode)
         Surface(
             modifier = Modifier
@@ -456,6 +461,7 @@ private fun AppDrawerSheet(
         val drawerItems = listOf(
             NavigationItem("dashboard", "Today", Icons.Filled.Home, Icons.Outlined.Home),
             NavigationItem("transactions", "Ledger", Icons.Filled.ReceiptLong, Icons.Outlined.ReceiptLong),
+            NavigationItem("bills", "Bills", Icons.Filled.Receipt, Icons.Outlined.Receipt),
             //NavigationItem("categories", "Category", Icons.Filled.Category, Icons.Outlined.Category),
             NavigationItem("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
         )

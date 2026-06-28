@@ -1,35 +1,39 @@
 package com.example.expncetracker.exptkr.core.parser
 
 import com.example.expncetracker.exptkr.data.db.dao.MerchantMappingDao
+import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
-import com.example.expncetracker.exptkr.domain.repository.RuleRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.domain.usecase.ClassifyTransactionUseCase
 import kotlinx.coroutines.flow.first
 import java.util.Locale
 import javax.inject.Inject
-import kotlin.math.exp
+import javax.inject.Singleton
 import kotlin.math.ln
 
+@Singleton
 class CategoryDetector @Inject constructor(
     private val repository: TransactionRepository,
     private val merchantMappingDao: MerchantMappingDao,
-    private val ruleRepository: RuleRepository
+    private val classifyTransactionUseCase: ClassifyTransactionUseCase
 ) {
+    private var cachedHistory: List<Transaction>? = null
+    private var historyCacheTimestamp: Long = 0
+
     /**
      * Smartly detects the category for a given merchant.
      * Uses a multi-stage approach:
      * 1. Exact Merchant Mapping (User corrections)
      * 2. Exact History Match (Immediate learning)
      * 3. Naive Bayes ML Classifier (Trained on user history)
-     * 4. Rule-based Fallback (Hardcoded patterns)
+     * 4. Rule-based Fallback (Database patterns)
      */
     suspend fun detect(
         merchant: String,
         type: TransactionType,
-        history: List<com.example.expncetracker.exptkr.domain.model.Transaction>? = null
+        history: List<Transaction>? = null
     ): String {
         val cleanMerchant = merchant.trim()
-        val upperMerchant = cleanMerchant.uppercase(Locale.ROOT)
 
         // 1. MERCHANT MAPPING (User's specific rules)
         val mapping = merchantMappingDao.getMappingForMerchant(cleanMerchant)
@@ -38,11 +42,10 @@ class CategoryDetector @Inject constructor(
         }
 
         // Resolve history from repository if not provided by caller
-        // FIX #H7: Only fetch recent history to avoid performance hit on large DBs
-        val resolvedHistory = history ?: repository.getRecentTransactions(50).first()
+        val resolvedHistory = history ?: getCachedHistory()
 
         // 2. EXACT HISTORY MATCH
-        val exactMatch = resolvedHistory.find { it.merchant.equals(cleanMerchant, ignoreCase = true) }
+        val exactMatch = resolvedHistory.find { it.merchant.equals(cleanMerchant, ignoreCase = true) && it.type == type }
         if (exactMatch != null) {
             return exactMatch.categoryName
         }
@@ -55,27 +58,25 @@ class CategoryDetector @Inject constructor(
             }
         }
 
-        // 4. FALLBACK: Database Rules
-        val dbRules = ruleRepository.getActiveRulesList()
-        val matchedRule = dbRules.find { rule ->
-            val typeMatches = rule.transactionType == null || rule.transactionType == type.name
-            typeMatches && containsAny(upperMerchant, rule.pattern)
-        }
-        if (matchedRule != null) {
-            return matchedRule.categoryName
+        // 4. FALLBACK: Database Rules (Clean Architecture via Use Case)
+        val matchedCategory = classifyTransactionUseCase(cleanMerchant, type)
+        if (matchedCategory != null) {
+            return matchedCategory
         }
 
         return "Others"
     }
 
-    private fun containsAny(text: String, vararg keywords: String): Boolean {
-        return keywords.any { kw ->
-            val regex = Regex("\\b" + Regex.escape(kw) + "\\b", RegexOption.IGNORE_CASE)
-            regex.containsMatchIn(text)
+    private suspend fun getCachedHistory(): List<Transaction> {
+        val now = System.currentTimeMillis()
+        if (cachedHistory == null || now - historyCacheTimestamp > 60_000) {
+            cachedHistory = repository.getRecentTransactions(100).first()
+            historyCacheTimestamp = now
         }
+        return cachedHistory ?: emptyList()
     }
 
-    private fun classifyMerchant(merchant: String, history: List<com.example.expncetracker.exptkr.domain.model.Transaction>): Prediction {
+    private fun classifyMerchant(merchant: String, history: List<Transaction>): Prediction {
         val tokens = tokenize(merchant)
         if (tokens.isEmpty()) return Prediction("Others", 0.0)
 
@@ -115,8 +116,11 @@ class CategoryDetector @Inject constructor(
         val confidence = if (probabilities.size > 1) {
             // Softmax conversion for real probabilities
             val maxLog = probabilities.values.maxOrNull() ?: 0.0
-            val expProbs = probabilities.values.map { exp(it - maxLog) }
+            val expProbs = probabilities.values.map { v ->
+                kotlin.math.exp((v - maxLog).coerceAtMost(500.0)) // Cap to prevent overflow
+            }
             val sumExp = expProbs.sum()
+            if (sumExp == 0.0 || sumExp.isNaN()) return Prediction("Others", 0.0)
             val sortedProbs = expProbs.map { it / sumExp }.sortedDescending()
             
             // Confidence is the margin between the best and second-best probability
@@ -126,9 +130,10 @@ class CategoryDetector @Inject constructor(
         return Prediction(bestCategory, confidence)
     }
 
+    private val tokenizeregex = Regex("[^a-zA-Z0-9]+")
     private fun tokenize(text: String): List<String> {
         return text.lowercase(Locale.ROOT)
-            .split(Regex("[^a-zA-Z0-9]+"))
+            .split(tokenizeregex)
             .filter { it.length > 2 }
     }
 

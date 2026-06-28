@@ -11,7 +11,7 @@ import javax.inject.Singleton
 class MerchantMappingRepositoryImpl @Inject constructor(
     private val merchantMappingDao: MerchantMappingDao
 ) : MerchantMappingRepository {
-    override suspend fun insertMapping(mapping: MerchantMappingEntity) = merchantMappingDao.insertMapping(mapping)
+    override suspend fun insertMapping(mapping: MerchantMappingEntity) = merchantMappingDao.upsertMapping(mapping)
     override suspend fun getMappingForMerchant(merchantName: String): MerchantMappingEntity? = merchantMappingDao.getMappingForMerchant(merchantName)
     override fun getAllMappings(): Flow<List<MerchantMappingEntity>> = merchantMappingDao.getAllMappings()
 }

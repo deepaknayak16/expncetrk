@@ -9,7 +9,8 @@ data class ParsedSms(
     val type: TransactionType,
     val merchant: String,
     val bankName: String,
-    val timestamp: LocalDateTime
+    val timestamp: LocalDateTime,
+    val isIntentOnly: Boolean = false
 )
 
 interface BankParser {

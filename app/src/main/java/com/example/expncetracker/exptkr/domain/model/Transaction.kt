@@ -28,5 +28,11 @@ data class Transaction(
     val idempotencyHash: String? = null,
     val confidenceScore: Float = 1.0f,
     val parsingStatus: String = "COMPLETE",
-    val isCategoryManuallyCorrected: Boolean = false
+    val isCategoryManuallyCorrected: Boolean = false,
+
+    // Phase 2 Additions
+    val rawSmsBody: String? = null,
+    val smsFingerprint: String? = null,
+    val recurringState: RecurringState = RecurringState.NONE,
+    val cleanMerchantName: String? = null
 )

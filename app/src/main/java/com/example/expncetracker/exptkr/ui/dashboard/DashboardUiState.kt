@@ -5,6 +5,7 @@ import com.example.expncetracker.exptkr.domain.model.FinancialSummary
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.data.db.entity.GoalEntity
+import com.example.expncetracker.exptkr.data.db.entity.RecurringTemplateEntity
 import java.math.BigDecimal
 
 sealed interface DashboardUiState {
@@ -23,5 +24,6 @@ data class DashboardData(
     val trends: List<SpendingTrend>,
     val distribution: Map<String, BigDecimal>,
     val allCategories: List<CategoryEntity>,
-    val goals: List<GoalEntity>
+    val goals: List<GoalEntity>,
+    val pendingConfirmTemplates: List<RecurringTemplateEntity> = emptyList()
 )

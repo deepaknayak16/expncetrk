@@ -13,5 +13,6 @@ data class AccountEntity(
     val name: String,
     val balance: java.math.BigDecimal,
     val type: String, // e.g., "Cash", "Bank", "Credit Card"
-    val color: Int // Store color as Int
+    val color: Int, // Store color as Int
+    val isLiquid: Boolean = true // False for retirement/fixed savings like EPFO
 )

@@ -12,7 +12,45 @@ import com.example.expncetracker.exptkr.R
 import androidx.core.content.ContextCompat
 object AppNotificationManager {
     private const val CHANNEL_ID = "quick_actions_channel"
+    private const val BILLS_CHANNEL_ID = "bill_reminders_channel"
     private const val NOTIFICATION_ID = 1001
+
+    fun showBillReminderNotification(context: Context, merchantName: String, amount: String) {
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                BILLS_CHANNEL_ID,
+                "Bill Reminders",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifies you when bills are due"
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("navigate_to", "dashboard")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 2, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, BILLS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(ContextCompat.getColor(context, android.R.color.holo_red_dark))
+            .setContentTitle("Bill Due Today!")
+            .setContentText("₹$amount is due for $merchantName")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(merchantName.hashCode(), notification)
+    }
 
     fun showQuickActionsNotification(context: Context) {
         val notificationManager =

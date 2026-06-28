@@ -1,6 +1,5 @@
 package com.example.expncetracker.exptkr.core.parser.bank
 
-import com.example.expncetracker.exptkr.BuildConfig
 import com.example.expncetracker.exptkr.core.parser.BankParser
 import com.example.expncetracker.exptkr.core.parser.ParsedSms
 import com.example.expncetracker.exptkr.core.common.toLocalDateTime
@@ -20,7 +19,10 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
     open val secondaryMerchantRegex: Regex? = null
 
     // Optional: regex to extract specific account identifier (e.g. A/c *8503)
-    open val accountRegex: Regex = "(?i)(?:A/c|Account|Card|from|through)[:\\s]+([*X]*\\d{3,})".toRegex()
+    open val accountRegex: Regex = "(?i)(?:A/c|Account|Card|from|through|A/C)[:\\s]+([*X]*\\d{3,})".toRegex()
+
+    // Intent detection keywords
+    private val intentKeywords = "will be deducted|generated|due on|statement for|contribution".toRegex(RegexOption.IGNORE_CASE)
 
     override fun parse(smsBody: String, timestamp: Long): ParsedSms? {
         return try {
@@ -94,8 +96,10 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             // Try to extract a specific account name (e.g. HDFC *8503)
             val accountSuffix = accountRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
             val specificBankName = if (accountSuffix != null) "$bankName $accountSuffix" else bankName
+            
+            val isIntent = intentKeywords.containsMatchIn(cleanBody)
 
-            ParsedSms(amount, type, merchant, specificBankName, time)
+            ParsedSms(amount, type, merchant, specificBankName, time, isIntent)
         } catch (e: Exception) {
             Logger.e("BankParser", "Parse failed: ${e.message}", e)
             null

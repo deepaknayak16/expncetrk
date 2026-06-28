@@ -51,7 +51,7 @@ class GetSummaryUseCase @Inject constructor(
             var borrowed = BigDecimal.ZERO
             val map = mutableMapOf<String, BigDecimal>()
 
-            txList.filter { !it.isRecurring }.forEach { tx ->
+            txList.filter { !it.isRecurring && it.parsingStatus != "REMINDER" }.forEach { tx ->
                 when (tx.type) {
                     TransactionType.CREDIT -> income = income.add(tx.amount)
                     TransactionType.DEBIT -> {
@@ -69,6 +69,8 @@ class GetSummaryUseCase @Inject constructor(
             }
 
             val totalAccountBalance = accounts.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance) }
+            val liquidAccountBalance = accounts.filter { it.isLiquid }.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance) }
+            
             val accountAssets = accounts.filter { it.balance > BigDecimal.ZERO }.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance) }
             val accountLiabilities = accounts.filter { it.balance < BigDecimal.ZERO }.fold(BigDecimal.ZERO) { acc, e -> acc.add(e.balance.abs()) }
             
@@ -87,6 +89,7 @@ class GetSummaryUseCase @Inject constructor(
                 totalAssets = totalAssets,
                 totalLiabilities = totalLiabilities,
                 netWorth = netWorth,
+                spendableBalance = liquidAccountBalance,
                 budget = if (totalBudget > BigDecimal.ZERO) totalBudget else null,
                 categoryDistribution = map
             )

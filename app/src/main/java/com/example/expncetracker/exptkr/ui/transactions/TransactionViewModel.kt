@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
@@ -32,7 +33,9 @@ data class TransactionFilter(
     val minAmount: java.math.BigDecimal? = null,
     val maxAmount: java.math.BigDecimal? = null,
     val categoryName: String? = null,
-    val accountName: String? = null
+    val accountName: String? = null,
+    val type: TransactionType? = null,
+    val isSettled: Boolean? = null
 )
 
 data class SmartFilter(
@@ -88,14 +91,19 @@ class TransactionViewModel @Inject constructor(
         _refreshTrigger
     ) { filter, query, sort, adv, _ ->
         val now = LocalDateTime.now()
-        val defaultStart = when (filter) {
-            DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
-            DateFilter.WEEK -> now.minusDays(7)
-            DateFilter.WEEK_RANGE -> now.minusDays(7)
-            DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
-            DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
+        
+        // Use advanced filter dates if available, otherwise fallback to selectedFilter or default
+        val startMillis = adv.startDate ?: run {
+            val defaultStart = when (filter) {
+                DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
+                DateFilter.WEEK -> now.minusDays(7)
+                DateFilter.WEEK_RANGE -> now.minusDays(7)
+                DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
+                DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
+            }
+            defaultStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         }
-        val startMillis = adv.startDate ?: defaultStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        
         val endMillis = adv.endDate ?: now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         FilterParams(startMillis, endMillis, query, sort, adv)
@@ -104,10 +112,13 @@ class TransactionViewModel @Inject constructor(
         repository.searchTransactions(params.startMillis, params.endMillis, params.query).map { list ->
             list.filter { tx ->
                 val isNotRecurring = !tx.isRecurring
+                val isNotReminder = tx.parsingStatus != "REMINDER"
                 val amountMatch = (params.adv.minAmount == null || tx.amount >= params.adv.minAmount) &&
                     (params.adv.maxAmount == null || tx.amount <= params.adv.maxAmount)
                 val categoryMatch = params.adv.categoryName == null || tx.categoryName == params.adv.categoryName
                 val accountMatch = params.adv.accountName == null || tx.bankName == params.adv.accountName
+                val typeMatch = params.adv.type == null || tx.type == params.adv.type
+                val settledMatch = params.adv.isSettled == null || tx.isSettled == params.adv.isSettled
 
                 val textMatch = if (params.adv.query.isNotEmpty()) {
                     tx.merchant.contains(params.adv.query, ignoreCase = true) ||
@@ -116,7 +127,7 @@ class TransactionViewModel @Inject constructor(
                         tx.bankName.contains(params.adv.query, ignoreCase = true)
                 } else true
 
-                isNotRecurring && amountMatch && categoryMatch && accountMatch && textMatch
+                isNotRecurring && isNotReminder && amountMatch && categoryMatch && accountMatch && textMatch && typeMatch && settledMatch
             }.let { filteredList ->
                 when (params.sort) {
                     SortOrder.DATE_DESC -> filteredList.sortedByDescending { it.timestamp }

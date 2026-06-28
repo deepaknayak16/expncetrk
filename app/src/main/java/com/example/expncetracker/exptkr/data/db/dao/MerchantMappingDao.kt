@@ -13,8 +13,11 @@ interface MerchantMappingDao {
     suspend fun getMappingForMerchant(merchantName: String): MerchantMappingEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMapping(mapping: MerchantMappingEntity)
+    suspend fun upsertMapping(mapping: MerchantMappingEntity)
 
     @Delete
     suspend fun deleteMapping(mapping: MerchantMappingEntity)
+
+    @Query("DELETE FROM merchant_mappings")
+    suspend fun nukeAllMappings()
 }

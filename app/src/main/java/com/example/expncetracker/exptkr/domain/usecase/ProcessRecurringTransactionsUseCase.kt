@@ -48,7 +48,7 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
                         createdAt = now,
                         idempotencyHash = null // Clear hash to avoid UNIQUE constraint collision with parent
                     )
-                    repository.insertTransactionWithBalance(newTransaction)
+                    repository.insertTransaction(newTransaction)
 
                     val delta = when (newTransaction.type) {
                         TransactionType.CREDIT, TransactionType.BORROW -> newTransaction.amount
@@ -69,7 +69,7 @@ class ProcessRecurringTransactionsUseCase @Inject constructor(
                     }
                 }
 
-                // Update the parent recurring transaction with the new next due date,
+                // Update the `parent recurring transaction with the new next due date,
                 // stopping recurrence if the end date has been reached.
                 val ended = tx.recurrenceEndDate != null && nextDate.isAfter(tx.recurrenceEndDate)
                 repository.updateTransaction(tx.copy(nextDueDate = nextDate, isRecurring = !ended))

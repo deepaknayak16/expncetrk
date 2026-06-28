@@ -32,5 +32,7 @@ interface TransactionRepository {
     suspend fun splitTransactionWithBalance(parent: Transaction, subTransactions: List<Transaction>)
     suspend fun sumAmountByCategory(category: String, type: String): java.math.BigDecimal
     
+    suspend fun doesHashExist(hash: String): Boolean
+
     suspend fun cleanupDuplicates()
 }

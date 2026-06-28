@@ -17,9 +17,12 @@ import com.example.expncetracker.exptkr.data.db.entity.*
         BudgetEntity::class,
         RawSmsEntity::class,
         MerchantMappingEntity::class,
-        RuleEntity::class
+        RuleEntity::class,
+        SmsQuarantineEntity::class,
+        RecurringTemplateEntity::class,
+        MerchantStatsEntity::class
     ],
-    version = 18,
+    version = 23,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -32,9 +35,74 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun rawSmsDao(): RawSmsDao
     abstract fun merchantMappingDao(): MerchantMappingDao
     abstract fun ruleDao(): RuleDao
+    abstract fun smsQuarantineDao(): SmsQuarantineDao
+    abstract fun recurringTemplateDao(): RecurringTemplateDao
+    abstract fun merchantStatsDao(): MerchantStatsDao
 }
 
 object AppDatabaseMigrations {
+    val MIGRATION_22_23 = object : Migration(22, 23) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `merchant_stats` (
+                    `merchantName` TEXT NOT NULL, 
+                    `amountMean` REAL NOT NULL, 
+                    `amountM2` REAL NOT NULL, 
+                    `amountCount` INTEGER NOT NULL, 
+                    `lastSeenTimestamp` INTEGER NOT NULL, 
+                    `intervalMeanDays` REAL NOT NULL, 
+                    `intervalM2` REAL NOT NULL, 
+                    `intervalCount` INTEGER NOT NULL, 
+                    `category` TEXT NOT NULL, 
+                    `updatedAt` INTEGER NOT NULL, 
+                    PRIMARY KEY(`merchantName`)
+                )
+            """)
+        }
+    }
+
+    val MIGRATION_21_22 = object : Migration(21, 22) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE accounts ADD COLUMN isLiquid INTEGER NOT NULL DEFAULT 1")
+        }
+    }
+
+    val MIGRATION_20_21 = object : Migration(20, 21) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN rawSmsBody TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN smsFingerprint TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN recurringState TEXT NOT NULL DEFAULT 'NONE'")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN cleanMerchantName TEXT")
+            
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `sms_quarantine` (
+                    `smsId` TEXT NOT NULL, 
+                    `body` TEXT NOT NULL, 
+                    `address` TEXT NOT NULL, 
+                    `timestamp` INTEGER NOT NULL, 
+                    `errorReason` TEXT, 
+                    `quarantineDate` INTEGER NOT NULL, 
+                    PRIMARY KEY(`smsId`)
+                )
+            """)
+            
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `recurring_templates` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `merchantName` TEXT NOT NULL, 
+                    `cleanMerchantName` TEXT NOT NULL, 
+                    `amount` REAL NOT NULL, 
+                    `category` TEXT NOT NULL, 
+                    `frequency` TEXT NOT NULL, 
+                    `nextDueDate` INTEGER NOT NULL, 
+                    `state` TEXT NOT NULL DEFAULT 'ACTIVE', 
+                    `lastDetectedDate` INTEGER NOT NULL, 
+                    `confidenceScore` REAL NOT NULL
+                )
+            """)
+        }
+    }
+
     val MIGRATION_4_5 = object : Migration(4, 5) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE transactions ADD COLUMN isRecurring INTEGER NOT NULL DEFAULT 0")
@@ -116,7 +184,7 @@ object AppDatabaseMigrations {
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_idempotencyHash` ON `transactions` (`idempotencyHash`)")
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS `raw_sms` (
-                    `smsId` INTEGER NOT NULL, 
+                    `smsId` TEXT NOT NULL, 
                     `body` TEXT NOT NULL, 
                     `address` TEXT NOT NULL, 
                     `timestamp` INTEGER NOT NULL, 
@@ -142,7 +210,7 @@ object AppDatabaseMigrations {
             db.execSQL("""
                 CREATE TABLE transactions_new (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                    smsId INTEGER,
+                    smsId TEXT,
                     amount REAL NOT NULL,
                     type TEXT NOT NULL,
                     category TEXT NOT NULL,
@@ -237,6 +305,49 @@ object AppDatabaseMigrations {
     val MIGRATION_17_18 = object : Migration(17, 18) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE classification_rules ADD COLUMN transactionType TEXT")
+        }
+    }
+
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+            CREATE TABLE raw_sms_new (
+                smsId TEXT NOT NULL,
+                body TEXT NOT NULL,
+                address TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                parsingStatus TEXT NOT NULL DEFAULT 'PENDING',
+                PRIMARY KEY(smsId)
+            )
+        """)
+            db.execSQL("""
+            INSERT OR IGNORE INTO raw_sms_new (smsId, body, address, timestamp, parsingStatus)
+            SELECT CAST(smsId AS TEXT), body, address, timestamp, parsingStatus FROM raw_sms
+        """)
+            db.execSQL("DROP TABLE raw_sms")
+            db.execSQL("ALTER TABLE raw_sms_new RENAME TO raw_sms")
+        }
+    }
+
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `classification_rules_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `keyword` TEXT NOT NULL, 
+                    `category` TEXT NOT NULL, 
+                    `matchType` TEXT NOT NULL DEFAULT 'CONTAINS', 
+                    `transactionType` TEXT, 
+                    `priority` INTEGER NOT NULL DEFAULT 0, 
+                    `isActive` INTEGER NOT NULL DEFAULT 1
+                )
+            """)
+            db.execSQL("""
+                INSERT INTO classification_rules_new (id, keyword, category, transactionType, priority, isActive)
+                SELECT id, pattern, categoryName, transactionType, priority, isActive FROM classification_rules
+            """)
+            db.execSQL("DROP TABLE classification_rules")
+            db.execSQL("ALTER TABLE classification_rules_new RENAME TO classification_rules")
         }
     }
 }

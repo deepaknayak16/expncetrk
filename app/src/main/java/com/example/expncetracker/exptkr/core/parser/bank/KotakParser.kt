@@ -6,5 +6,6 @@ class KotakParser : BaseBankParser("KOTAK") {
         RegexOption.IGNORE_CASE)
     override val debitRegex = "debited|spent|withdrawn|transferred|paid|sent".toRegex(RegexOption.IGNORE_CASE)
     override val creditRegex = "credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned".toRegex(RegexOption.IGNORE_CASE)
-    override val merchantRegex = "(?:to|at|VPA[:/]|INFO\\*)\\s+([^\\s\\d][^.\\s]+)".toRegex(RegexOption.IGNORE_CASE)
+    override val merchantRegex = "(?i)(?:to|at|VPA[:/]|INFO\\*|from)\\s+([^\\s\\d][^.\\s]+)".toRegex(RegexOption.IGNORE_CASE)
+    override val secondaryMerchantRegex = "(?i)(?:to|at|VPA[:/])\\s+(.+?)(?=\\s+on|\\s+Ref|\\.|$)".toRegex(RegexOption.IGNORE_CASE)
 }

@@ -57,6 +57,12 @@ class CsvExporter @Inject constructor(
             val outputDir = File(externalDir, "reports")
             if (!outputDir.exists()) {
                 outputDir.mkdirs()
+            } else {
+                // Clean up old exports (older than 7 days) to prevent storage leaks
+                val sevenDaysAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000
+                outputDir.listFiles()?.filter {
+                    it.name.startsWith("expense_report_") && it.lastModified() < sevenDaysAgo
+                }?.forEach { it.delete() }
             }
 
             val outputFile = File(outputDir, fileName)
