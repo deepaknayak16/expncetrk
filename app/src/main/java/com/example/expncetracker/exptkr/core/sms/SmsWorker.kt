@@ -47,6 +47,9 @@ class SmsWorker @AssistedInject constructor(
 
             val success = processSms(smsHash, body, address, timestamp)
             if (!success) {
+                // FIX BUG-7: Update raw_sms status to SKIPPED
+                db.rawSmsDao().updateStatus(smsHash, "SKIPPED")
+
                 // Quarantine for unparseable data
                 val quarantine = SmsQuarantineEntity(
                     smsId = smsHash,

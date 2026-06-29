@@ -25,15 +25,11 @@ object MerchantNormalizer {
         // Special case: transport
         if (words[0] == "BMTC" || words[0] == "METRO") return words[0]
         
-        // Heuristic: Prefer longest word or first two words
-        val longestWord = words.maxByOrNull { it.length } ?: words[0]
-        
-        return if (words.size >= 2) {
-            // If the first word is short (e.g. "SRI"), keep second word
-            if (words[0].length <= 3) words[0] + " " + words[1]
-            else words[0]
-        } else {
-            words[0]
+        // Heuristic: Prefer first 3 meaningful words to handle multi-word merchants (Fix BUG-1)
+        return when {
+            words.size == 1 -> words[0]
+            words[0].length <= 3 -> words.take(3).joinToString(" ")
+            else -> words.take(3).joinToString(" ")
         }
     }
 }

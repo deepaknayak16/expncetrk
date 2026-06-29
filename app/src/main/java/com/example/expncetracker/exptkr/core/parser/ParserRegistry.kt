@@ -19,6 +19,7 @@ class ParserRegistry @Inject constructor(
         "AXISBK" to "Axis Bank",
         "SBIBNK" to "SBI",
         "EPFOHO" to "EPFO",
+        "DOPBNK" to "India Post Bank",
         "AIRBIL" to "Airtel"
     )
 

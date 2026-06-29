@@ -61,6 +61,9 @@ class HybridMlEngine @Inject constructor(
         var finalCategory = "Others"
         var categoryConfidence = 0.0f
 
+        // FIX BUG-5: Fetch rules once and reuse
+        val allRules = ruleRepository.getActiveRulesList().sortedByDescending { it.priority }
+
         // -------------------------------------------------------------
         // PHASE 3: SMART DETECTION (Strict Priority Pipeline)
         // -------------------------------------------------------------
@@ -73,9 +76,7 @@ class HybridMlEngine @Inject constructor(
 
         // 2. High-Priority DB Rules (Priority 80+)
         if (categoryConfidence == 0.0f) {
-            // FIX BUG 4: Sort by priority descending
-            val rules = ruleRepository.getActiveRulesList().sortedByDescending { it.priority }
-            rules.firstOrNull { 
+            allRules.firstOrNull { 
                 it.priority >= 80 && 
                 (it.transactionType == null || it.transactionType == type.name) &&
                 upper.contains(it.keyword.uppercase(Locale.ROOT)) 
@@ -100,9 +101,7 @@ class HybridMlEngine @Inject constructor(
 
         // 4. Low-Priority DB Rules (Fallback catch-alls)
         if (categoryConfidence == 0.0f) {
-            // FIX BUG 4: Sort by priority descending
-            val rules = ruleRepository.getActiveRulesList().sortedByDescending { it.priority }
-            rules.firstOrNull { 
+            allRules.firstOrNull {
                 it.priority < 80 && 
                 (it.transactionType == null || it.transactionType == type.name) &&
                 upper.contains(it.keyword.uppercase(Locale.ROOT)) 

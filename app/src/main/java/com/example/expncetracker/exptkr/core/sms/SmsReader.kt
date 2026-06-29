@@ -69,8 +69,8 @@ class SmsReader @Inject constructor(
 
                         if (isRelevant) {
                             Logger.d("SmsReader", "Found relevant SMS from $address: ${body.take(20)}...")
-                            // FIX #H8: Use content-derived hash as PK
-                            val smsHash = SecurityUtils.generateHash("$address|$body|$date")
+                            // FIX BUG-6: Use consistent date-invariant hash
+                            val smsHash = com.example.expncetracker.exptkr.core.common.HashingUtil.generateSmsHash(address, body)
                             smsList.add(
                                 RawSmsEntity(
                                     smsId = smsHash,

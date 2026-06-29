@@ -9,9 +9,9 @@ import com.example.expncetracker.exptkr.core.common.Logger
 class GenericParser(private val bankName: String = "Bank") : BankParser {
     override val bankKey: String = "GENERIC"
     
-    // Actual transactions (Past tense)
-    private val debitKeywords = "debited|spent|withdrawn|transferred|paid|sent|deducted"
-    private val creditKeywords = "credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned"
+    // Actual transactions (Past tense or noun form) - Fix BUG-2
+    private val debitKeywords = "debited|debit|spent|withdrawn|transferred|paid|sent|deducted"
+    private val creditKeywords = "credited|credit|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned"
     
     // Intent / Reminders (Future tense or Status)
     private val intentKeywords = "will be deducted|generated|due on|statement for|contribution"

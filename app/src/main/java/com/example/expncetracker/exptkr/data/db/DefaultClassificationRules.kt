@@ -86,7 +86,6 @@ object DefaultClassificationRules {
         DefaultRule("CASHBACK", "Cashback", "CONTAINS", 80, "CREDIT"),
         DefaultRule("REWARD", "Cashback", "CONTAINS", 80, "CREDIT"),
         DefaultRule("REFUND", "Refund", "CONTAINS", 80, "CREDIT"),
-        DefaultRule("CREDITED", "Salary", "CONTAINS", 80, "CREDIT"),
 
         // ================================
         // INCOME - Business Income
@@ -308,9 +307,17 @@ object DefaultClassificationRules {
         DefaultRule("CREDITED TO", "Transfer", "CONTAINS", 70),
         DefaultRule("DEBITED FROM", "Transfer", "CONTAINS", 70),
         DefaultRule("TRANSACTION", "Others", "CONTAINS", 60),
-        DefaultRule("@", "Transfer", "CONTAINS", 70, "DEBIT"),
         DefaultRule("PAYTM", "Transfer", "CONTAINS", 80, "DEBIT"),
         DefaultRule("PHONEPE", "Transfer", "CONTAINS", 80, "DEBIT"),
+
+        // UPI Transfer Suffixes (Fix BUG-3)
+        DefaultRule("YBL",    "UPI Transfer", "CONTAINS", 72, "DEBIT"),
+        DefaultRule("PTYES",  "UPI Transfer", "CONTAINS", 72, "DEBIT"),
+        DefaultRule("OKICICI","UPI Transfer", "CONTAINS", 72, "DEBIT"),
+        DefaultRule("OKSBI",  "UPI Transfer", "CONTAINS", 72, "DEBIT"),
+        DefaultRule("AXISBK", "UPI Transfer", "CONTAINS", 72, "DEBIT"),
+        DefaultRule("PTSBI",  "UPI Transfer", "CONTAINS", 72, "DEBIT"),
+        DefaultRule("AXL",    "UPI Transfer", "CONTAINS", 72, "DEBIT"),
 
         // ================================
         // ENTERTAINMENT
