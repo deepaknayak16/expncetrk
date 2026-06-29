@@ -111,8 +111,10 @@ class SmsWorker @AssistedInject constructor(
         val hash = smsId
 
         // 7. Get or Create Account ID
-        var accountId = db.accountDao().getAccountIdByName(parsedSms.bankName)
-            ?: db.accountDao().getAccountIdByName(parsedSms.bankName.substringBefore(" "))
+        var accountId = db.accountDao().getAccountIdByName(parsedSms.bankName.trim())
+            ?: parsedSms.bankName.trim().substringBefore(" ").takeIf { it.isNotBlank() }?.let {
+                db.accountDao().getAccountIdByName(it)
+            }
 
         if ((accountId == null) || (accountId == 0L)) {
             val isLiquid = !parsedSms.bankName.contains("EPFO", ignoreCase = true) && 
@@ -130,7 +132,6 @@ class SmsWorker @AssistedInject constructor(
         }
 
         // 8. Create Transaction
-        val cleanMerchantName = cleanMerchant(parsedSms.merchant)
         val transaction = Transaction(
             smsId = smsId,
             amount = parsedSms.amount,
@@ -150,7 +151,7 @@ class SmsWorker @AssistedInject constructor(
             rawSmsBody = body,
             smsFingerprint = smsId,
             recurringState = mlResult.recurringState,
-            cleanMerchantName = cleanMerchantName
+            cleanMerchantName = mlResult.cleanMerchantName // FIX BUG-GEN-05: Use standardized name from ML engine
         )
 
         // 9. Atomic Write with Balance Update
@@ -163,24 +164,5 @@ class SmsWorker @AssistedInject constructor(
         db.rawSmsDao().updateStatus(smsId, "COMPLETE")
         Logger.d("SmsWorker", "Successfully processed and saved transaction from $address")
         return true
-    }
-
-    private fun cleanMerchant(merchant: String): String {
-        // Fix 5: Explicit concatenation to avoid string template literal bug
-        val raw = merchant.uppercase()
-            .replace(Regex("^[A-Z]{2}-"), "") // Strip bank prefixes
-            .replace(Regex("[^A-Z ]"), "") // Strip numbers
-            .trim()
-        
-        val words = raw.split(" ")
-            .filter { it.length >= 3 }
-        
-        return when {
-            words.isEmpty() -> "UNKNOWN"
-            words[0] == "BMTC" -> "BMTC"
-            words[0].length >= 5 -> words[0]
-            words.size >= 2 -> words[0] + " " + words[1]
-            else -> words[0]
-        }
     }
 }

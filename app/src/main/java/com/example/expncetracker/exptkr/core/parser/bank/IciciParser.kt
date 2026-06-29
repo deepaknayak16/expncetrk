@@ -6,5 +6,6 @@ class IciciParser : BaseBankParser("ICICI") {
         RegexOption.IGNORE_CASE)
     override val debitRegex = "(?:debited|spent|withdrawn|transferred|paid|sent)".toRegex(RegexOption.IGNORE_CASE)
     override val creditRegex = "(?:credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned)".toRegex(RegexOption.IGNORE_CASE)
-    override val merchantRegex = "(?:to|at|Info:?|VPA[:/]|Towards)\\s*([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?:\\s+Ref|\\s+RefNo|\\s+on|\\.)".toRegex(RegexOption.IGNORE_CASE)
+    // FIX BUG-ML-13: Use word boundaries for "on" and better termination sentinels
+    override val merchantRegex = "(?:to|at|Info:?|VPA[:/]|Towards)\\s*([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\.|$)".toRegex(RegexOption.IGNORE_CASE)
 }

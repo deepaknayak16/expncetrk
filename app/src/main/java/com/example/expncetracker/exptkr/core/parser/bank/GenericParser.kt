@@ -21,8 +21,8 @@ class GenericParser(private val bankName: String = "Bank") : BankParser {
 
     private val allKeywords = "$debitKeywords|$creditKeywords|$intentKeywords"
     
-    // Regex for amount, excluding words labeled as 'balance'
-    private val amountPattern = "(?i)(?:($allKeywords)\\s*.*?(?:Rs|INR|Amt|Amount|₹)\\.?\\s*([0-9,.]+)(?!.*?balance)|(?:Rs|INR|Amt|Amount|₹)\\.?\\s*([0-9,.]+)\\s*.*?($allKeywords)(?!.*?balance))"
+    // Regex for amount: match amount near action keyword, no balance exclusion lookahead (FIX NEW-02)
+    private val amountPattern = "(?i)(?:($allKeywords)\\s*[^\\d]{0,20}?(?:Rs|INR|Amt|Amount|₹)\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)|(?:Rs|INR|Amt|Amount|₹)\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)\\s*[^\\d]{0,20}?($allKeywords))"
     private val amountRegex = amountPattern.toRegex()
 
     override fun parse(smsBody: String, timestamp: Long): ParsedSms? {
@@ -77,10 +77,15 @@ class GenericParser(private val bankName: String = "Bank") : BankParser {
             else -> return null
         }
 
+        // Try to extract merchant name
+        val merchantRegex = "(?i)(?:To|Paid to|at|towards|INFO)[:*]?\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\.|$)".toRegex()
+        val merchant = merchantRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
+            ?: bankName // Fallback to sender/bankName instead of "Transaction"
+
         return ParsedSms(
             amount = amount,
             type = type,
-            merchant = "Transaction",
+            merchant = merchant,
             bankName = bankName,
             timestamp = time,
             isIntentOnly = isIntent

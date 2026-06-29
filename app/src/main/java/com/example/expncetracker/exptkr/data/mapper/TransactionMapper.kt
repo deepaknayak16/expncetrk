@@ -32,9 +32,18 @@ fun TransactionEntity.toDomain(): Transaction = Transaction(
     parentTransactionId = parentTransactionId,
     counterparty = counterparty,
     isSettled = isSettled,
-    tags = tags?.let { 
-        if (it.startsWith("[")) runCatching { Json.decodeFromString<List<String>>(it) }.getOrDefault(emptyList())
-        else it.split(",").filter { t -> t.isNotBlank() }
+    tags = tags?.let { tagString -> 
+        if (tagString.startsWith("[")) {
+            runCatching { Json.decodeFromString<List<String>>(tagString) }.getOrElse {
+                // Fallback: try comma split even for bracketed strings if JSON parse fails
+                tagString.removePrefix("[").removeSuffix("]")
+                    .split(",")
+                    .map { t -> t.trim().removeSurrounding("\"") }
+                    .filter { t -> t.isNotBlank() }
+            }
+        } else {
+            tagString.split(",").map { t -> t.trim() }.filter { t -> t.isNotBlank() }
+        }
     } ?: emptyList(),
     createdAt = createdAt.toLocalDateTime(),
     idempotencyHash = idempotencyHash,

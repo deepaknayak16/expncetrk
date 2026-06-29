@@ -3,6 +3,7 @@ package com.example.expncetracker.exptkr.data.db.dao
 import androidx.room.*
 import com.example.expncetracker.exptkr.data.db.entity.AccountEntity
 import kotlinx.coroutines.flow.Flow
+import java.math.BigDecimal
 
 @Dao
 interface AccountDao {
@@ -44,6 +45,15 @@ interface AccountDao {
 
     @Query("UPDATE goals SET linked_account_id = NULL WHERE linked_account_id = :accountId")
     suspend fun clearGoalLinksByAccountId(accountId: Long)
+
+    @Query("SELECT * FROM accounts")
+    suspend fun getAllAccountsSync(): List<AccountEntity>
+
+    @Query("UPDATE accounts SET balance = :balance WHERE id = :accountId")
+    suspend fun updateBalance(accountId: Long, balance: BigDecimal)
+
+    @Query("UPDATE accounts SET balance = 0.0")
+    suspend fun resetAllBalances()
 
     // FIX: Manual cascade since ForeignKey was removed in Migration 11->12
     @Transaction

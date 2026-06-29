@@ -1,9 +1,13 @@
 package com.example.expncetracker.exptkr.data.db.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "classification_rules")
+@Entity(
+    tableName = "classification_rules",
+    indices = [Index(value = ["keyword", "matchType", "transactionType"], unique = true)]
+)
 data class RuleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val keyword: String,

@@ -135,7 +135,7 @@ class AmountAnomalyScorer @Inject constructor() {
             intervalMeanDays = newIntervalMean,
             intervalM2 = newIntervalM2,
             intervalCount = newIntervalCount,
-            category = category,
+            category = existing.category.takeIf { it.isNotBlank() } ?: category, // FIX BUG-ML-07: Preserve category
             updatedAt = System.currentTimeMillis()
         )
     }

@@ -17,7 +17,7 @@ import androidx.room.ForeignKey
         )
     ],
     indices = [
-        Index(value = ["smsId"], unique = true),
+        Index(value = ["smsId"]),
         Index(value = ["createdAt"]),
         Index(value = ["account_id"]),
         Index(value = ["idempotencyHash"], unique = true),

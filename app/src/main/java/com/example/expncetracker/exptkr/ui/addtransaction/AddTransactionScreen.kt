@@ -151,7 +151,7 @@ fun AddTransactionScreen(
             val cat = it.categoryName.trim().lowercase()
             val isOthers = cat == "other" || cat == "others"
             if (it.smsId != null && isOthers) {
-                viewModel.onMerchantNameChanged(it.merchant, it.categoryName, false)
+                viewModel.onMerchantNameChanged(it.merchant, it.categoryName, false, it.type)
             }
         }
     }
@@ -482,7 +482,7 @@ fun AddTransactionScreen(
                         value = merchantName,
                         onValueChange = {
                             merchantName = it
-                            viewModel.onMerchantNameChanged(it, selectedCategoryName, userSelectedCategory)
+                            viewModel.onMerchantNameChanged(it, selectedCategoryName, userSelectedCategory, selectedType)
                         },
                         placeholder = "Merchant / payee",
                         enabled = !isRestrictedSms,

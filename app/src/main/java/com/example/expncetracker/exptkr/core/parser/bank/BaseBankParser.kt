@@ -27,49 +27,55 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
     override fun parse(smsBody: String, timestamp: Long): ParsedSms? {
         return try {
             val time = timestamp.toLocalDateTime()
-            // Normalize all whitespace (including newlines, tabs, and multiple spaces) to a single space
+            // Normalize all whitespace to a single space
             val cleanBody = smsBody.replace(Regex("\\s+"), " ").trim()
 
             Logger.d("BankParser", "Parsing SMS from $bankName: $cleanBody")
 
-            // Action keyword and amount can be in different orders
             val amountMatch = amountRegex.find(cleanBody) ?: return null
             
-            // Flexible group extraction: find the first non-empty group for keyword and amount
-            // Assuming amountRegex is structured as (keyword).*(amount) OR (amount).*(keyword)
             var actionKeyword = ""
             var amountStr = ""
             
-            // We'll look for groups that are not the full match (index 0) and not blank
-            val groups = amountMatch.groupValues.drop(1).filter { it.isNotBlank() }
-            if (groups.size >= 2) {
-                // We need to know which is which. 
-                // Let's assume the one containing digits is the amount.
-                val first = groups[0]
-                val second = groups[1]
-                
-                if (first.any { it.isDigit() }) {
-                    amountStr = first
-                    actionKeyword = second
-                } else {
-                    actionKeyword = first
-                    amountStr = second
+            // FIX BUG-GEN-07: Harder group extraction to avoid keyword/amount collision
+            val groupValues = amountMatch.groupValues.drop(1)
+            // If we have 4 groups from (kw).*(amt)|(amt).*(kw)
+            if (groupValues.size >= 4) {
+                if (groupValues[0].isNotBlank()) {
+                    actionKeyword = groupValues[0]
+                    amountStr = groupValues[1]
+                } else if (groupValues[2].isNotBlank()) {
+                    amountStr = groupValues[2]
+                    actionKeyword = groupValues[3]
                 }
-            } else if (groups.size == 1) {
-                // Only amount captured? Fallback to broad check
-                amountStr = groups[0]
             } else {
-                return null
+                val groups = groupValues.filter { it.isNotBlank() }
+                if (groups.size >= 2) {
+                    val first = groups[0]
+                    val second = groups[1]
+                    if (first.any { it.isDigit() } && !second.any { it.isDigit() }) {
+                        amountStr = first
+                        actionKeyword = second
+                    } else if (second.any { it.isDigit() } && !first.any { it.isDigit() }) {
+                        actionKeyword = first
+                        amountStr = second
+                    } else {
+                        // Ambiguous: pick largest number as amount? Or just first.
+                        amountStr = first
+                        actionKeyword = second
+                    }
+                } else if (groups.size == 1) {
+                    amountStr = groups[0]
+                } else {
+                    return null
+                }
             }
 
             val amount = amountStr.replace(",", "").toBigDecimalOrNull() ?: return null
             
-            if (amount <= java.math.BigDecimal.ZERO) {
-                Logger.d("BankParser", "Zero or negative-amount transaction from $bankName: $smsBody")
-                return null
-            }
+            if (amount <= java.math.BigDecimal.ZERO) return null
 
-            // Determine type based on the action keyword nearest to the amount
+            // Determine type
             val isDebit = debitRegex.containsMatchIn(actionKeyword)
             val isCredit = creditRegex.containsMatchIn(actionKeyword)
 
@@ -77,21 +83,19 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
                 isDebit && !isCredit -> TransactionType.DEBIT
                 isCredit && !isDebit -> TransactionType.CREDIT
                 else -> {
-                    // Fallback to broad check if the immediate keyword is ambiguous or missing
                     val broadDebit = debitRegex.containsMatchIn(cleanBody)
                     val broadCredit = creditRegex.containsMatchIn(cleanBody)
                     if (broadDebit && !broadCredit) TransactionType.DEBIT
                     else if (broadCredit && !broadDebit) TransactionType.CREDIT
-                    else {
-                        Logger.d("BankParser", "Ambiguous or unknown transaction type for $bankName: $cleanBody")
-                        return null
-                    }
+                    else return null
                 }
             }
 
+            // FIX BUG-ML-12: Avoid generic fallback merchant. 
+            // If regex fails to extract a real merchant, return null to quarantine.
             val merchant = merchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
                 ?: secondaryMerchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
-                ?: if (type == TransactionType.DEBIT) "$bankName Debit" else "$bankName Credit"
+                ?: return null // NEW: No merchant = no transaction (Quarantine it)
 
             // Try to extract a specific account name (e.g. HDFC *8503)
             val accountSuffix = accountRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()

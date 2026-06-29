@@ -1,7 +1,19 @@
 package com.example.expncetracker.exptkr.core.ml
 
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import com.example.expncetracker.exptkr.core.common.RECURRING_ML_WEIGHTS_KEY
+import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.data.db.entity.MerchantStatsEntity
 import com.example.expncetracker.exptkr.domain.model.RecurringState
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.exp
@@ -10,9 +22,15 @@ import kotlin.math.exp
  * Logistic Regression — recurring probability score.
  * 
  * FIX 1: Added @Synchronized to prevent race conditions during online learning (SGD).
+ * FIX BUG-ML-04: Added DataStore persistence for learned weights.
  */
 @Singleton
-class RecurringProbabilityRegressor @Inject constructor() {
+class RecurringProbabilityRegressor @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+
+    @Serializable
+    data class WeightsSnapshot(val weights: List<Float>, val bias: Float)
 
     // Thresholds for the three-state machine
     val CONFIRMED_THRESHOLD = 0.80f
@@ -31,7 +49,28 @@ class RecurringProbabilityRegressor @Inject constructor() {
     )
     private var bias = -2.2f
 
-    private val learningRate = 0.02f
+    init {
+        // Load saved weights on init
+        CoroutineScope(Dispatchers.IO).launch {
+            val saved = context.dataStore.data.first()[RECURRING_ML_WEIGHTS_KEY]
+            saved?.let { json ->
+                runCatching {
+                    val snapshot = Json.decodeFromString<WeightsSnapshot>(json)
+                    snapshot.weights.forEachIndexed { i, v -> if (i < weights.size) weights[i] = v }
+                    bias = snapshot.bias
+                }
+            }
+        }
+    }
+
+    private fun persistWeights() {
+        CoroutineScope(Dispatchers.IO).launch {
+            context.dataStore.edit { prefs ->
+                val snapshot = WeightsSnapshot(weights.toList(), bias)
+                prefs[RECURRING_ML_WEIGHTS_KEY] = Json.encodeToString(snapshot)
+            }
+        }
+    }
 
     @Synchronized
     fun predict(input: FeatureInput): Float {
@@ -73,7 +112,11 @@ class RecurringProbabilityRegressor @Inject constructor() {
         for (i in weights.indices) {
             weights[i] = weights[i].coerceIn(-5f, 5f)
         }
+        
+        persistWeights()
     }
+
+    private val learningRate = 0.02f
 
     data class FeatureInput(
         val stats: MerchantStatsEntity?,

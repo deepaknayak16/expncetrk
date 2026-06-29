@@ -4,6 +4,7 @@ import com.example.expncetracker.exptkr.domain.model.ClassificationRule
 import com.example.expncetracker.exptkr.domain.model.MatchType
 import com.example.expncetracker.exptkr.domain.repository.RuleRepository
 import com.example.expncetracker.exptkr.domain.model.TransactionType
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -11,13 +12,11 @@ import javax.inject.Singleton
 class ClassifyTransactionUseCase @Inject constructor(
     private val ruleRepository: RuleRepository
 ) {
-    private var cachedRules: List<ClassificationRule>? = null
-
     suspend operator fun invoke(merchantName: String, type: TransactionType? = null): String? {
         if (merchantName.isBlank()) return null
 
-        val rules = cachedRules
-            ?: ruleRepository.getActiveRulesList().also { cachedRules = it }
+        // FIX BUG-GEN-01: Removed unstable cache. Fetch from Flow to ensure fresh rules.
+        val rules = ruleRepository.getActiveRules().first()
 
         // Filter by type if provided
         val typeFilteredRules = if (type != null) {
@@ -39,9 +38,5 @@ class ClassifyTransactionUseCase @Inject constructor(
             ?.let { return it.category }
 
         return null
-    }
-
-    fun invalidateCache() {
-        cachedRules = null
     }
 }

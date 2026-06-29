@@ -55,8 +55,10 @@ class ImportSmsTransactionsUseCase @Inject constructor(
                 smsBody = raw.body
             )
 
-            var accountId = accountDao.getAccountIdByName(parsedSms.bankName)
-                ?: accountDao.getAccountIdByName(parsedSms.bankName.substringBefore(" "))
+            var accountId = accountDao.getAccountIdByName(parsedSms.bankName.trim())
+                ?: parsedSms.bankName.trim().substringBefore(" ").takeIf { it.isNotBlank() }?.let {
+                    accountDao.getAccountIdByName(it)
+                }
 
             if (accountId == null || accountId == 0L) {
                 val isLiquid = !parsedSms.bankName.contains("EPFO", ignoreCase = true) && 
@@ -94,7 +96,7 @@ class ImportSmsTransactionsUseCase @Inject constructor(
                 rawSmsBody = raw.body,
                 smsFingerprint = smsHash,
                 recurringState = mlResult.recurringState,
-                cleanMerchantName = cleanMerchant(parsedSms.merchant)
+                cleanMerchantName = mlResult.cleanMerchantName // FIX BUG-GEN-05
             )
 
             try {
@@ -106,24 +108,6 @@ class ImportSmsTransactionsUseCase @Inject constructor(
             } catch (e: Exception) {
                 Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")
             }
-        }
-    }
-
-    private fun cleanMerchant(merchant: String): String {
-        val raw = merchant.uppercase()
-            .replace(Regex("^[A-Z]{2}-"), "")
-            .replace(Regex("[^A-Z ]"), "")
-            .trim()
-        
-        val words = raw.split(" ")
-            .filter { it.length >= 3 }
-        
-        return when {
-            words.isEmpty() -> "UNKNOWN"
-            words[0] == "BMTC" -> "BMTC"
-            words[0].length >= 5 -> words[0]
-            words.size >= 2 -> words[0] + " " + words[1]
-            else -> words[0]
         }
     }
 }

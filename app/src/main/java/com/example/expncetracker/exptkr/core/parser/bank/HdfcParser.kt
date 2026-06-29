@@ -7,11 +7,10 @@ class HdfcParser : BaseBankParser("HDFC") {
     override val debitRegex = "(?:debited|spent|withdrawn|transferred|paid|sent)".toRegex(RegexOption.IGNORE_CASE)
     override val creditRegex = "(?:credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned)".toRegex(RegexOption.IGNORE_CASE)
     
-    // Pattern 1: Capture names following common action keywords
-    // Priority given to "To" field for UPI/P2P transfers
-    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO)[:*]?\\s+(.+?)(?:\\s+On|\\s+Ref|\\s+RefNo|\\s+at|\\s+towards|\\.|$)".toRegex()
+    // FIX BUG-ML-13: Use negative lookahead to skip "HDFC Bank" or "Bank A/c" as merchants
+    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO)[:*]?\\s+(?!HDFC Bank|Bank A/c)(.+?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\.|$)".toRegex()
     
-    // Pattern 2: Specific fallback for UPI and "To" formats
-    // Updated to ensure it captures the full name before common sentinels
-    override val secondaryMerchantRegex = "(?i)To[:*]?\\s+(.+?)(?=\\s+On|\\s+Ref|\\s+RefNo|\\.|$)".toRegex()
+    // Pattern 2: Specific fallback for UPI and "from VPA" formats
+    // Added "from" to handle credit SMS where merchant is at the end
+    override val secondaryMerchantRegex = "(?i)(?:To|VPA|from)\\s+([^\\s]+?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\.|$)".toRegex()
 }

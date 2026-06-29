@@ -1,6 +1,18 @@
 package com.example.expncetracker.exptkr.core.ml
 
+import android.content.Context
+import androidx.datastore.preferences.core.edit
+import com.example.expncetracker.exptkr.core.common.NB_ML_MODEL_KEY
+import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.domain.model.Transaction
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,9 +23,21 @@ import kotlin.math.ln
  * TF-IDF Weighted Naive Bayes classifier for transaction category detection.
  * 
  * FIX 1: Added @Synchronized to all state-mutating and state-reading methods to prevent race conditions.
+ * FIX BUG-ML-04: Added DataStore persistence for trained model state.
  */
 @Singleton
-class TfIdfNaiveBayes @Inject constructor() {
+class TfIdfNaiveBayes @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+
+    @Serializable
+    data class ModelSnapshot(
+        val logLikelihoods: Map<String, Map<String, Double>>,
+        val idfWeights: Map<String, Double>,
+        val logPriors: Map<String, Double>,
+        val allCategories: List<String>,
+        val trainedOnCount: Int
+    )
 
     data class ClassificationResult(
         val category: String,
@@ -28,14 +52,42 @@ class TfIdfNaiveBayes @Inject constructor() {
     private var logPriors: Map<String, Double> = emptyMap()
     private var logLikelihoods: Map<String, Map<String, Double>> = emptyMap()
     private var idfWeights: Map<String, Double> = emptyMap()
+    private var knownVocab: Set<String> = emptySet()
     private var allCategories: List<String> = emptyList()
     private var trainedOnCount: Int = 0
 
+    init {
+        // Load saved model on init
+        CoroutineScope(Dispatchers.IO).launch {
+            val saved = context.dataStore.data.first()[NB_ML_MODEL_KEY]
+            saved?.let { json ->
+                runCatching {
+                    val snapshot = Json.decodeFromString<ModelSnapshot>(json)
+                    logLikelihoods = snapshot.logLikelihoods
+                    idfWeights = snapshot.idfWeights
+                    logPriors = snapshot.logPriors
+                    allCategories = snapshot.allCategories
+                    trainedOnCount = snapshot.trainedOnCount
+                    knownVocab = idfWeights.keys
+                }
+            }
+        }
+    }
+
+    private fun persistModel() {
+        CoroutineScope(Dispatchers.IO).launch {
+            context.dataStore.edit { prefs ->
+                val snapshot = ModelSnapshot(
+                    logLikelihoods, idfWeights, logPriors, allCategories, trainedOnCount
+                )
+                prefs[NB_ML_MODEL_KEY] = Json.encodeToString(snapshot)
+            }
+        }
+    }
+
     @Synchronized
     fun train(history: List<Transaction>) {
-        // CRITICAL FIX: Do not let the model learn the "Others" category.
-        // "Others" is an absence of signal, not a category.
-        // Also filter out parser bugs containing string templates.
+        // ... (filtering logic) ...
         val cleanHistory = history.filter {
             it.categoryName != "Others" &&
             it.merchant.isNotBlank() &&
@@ -71,6 +123,7 @@ class TfIdfNaiveBayes @Inject constructor() {
         idfWeights = docFrequency.mapValues { (_, df) ->
             ln(1.0 + totalDocs / (1.0 + df))
         }
+        knownVocab = docFrequency.keys
 
         val builtLikelihoods = mutableMapOf<String, Map<String, Double>>()
         allCategories.forEach { cat ->
@@ -90,11 +143,14 @@ class TfIdfNaiveBayes @Inject constructor() {
             ln(((categoryCounts[cat] ?: 0) + 1.0) / (totalDocs + allCategories.size))
         }
 
-        trainedOnCount = history.size
+        trainedOnCount = cleanHistory.size
+        
+        persistModel()
     }
 
     @Synchronized
     fun classify(merchantName: String): ClassificationResult {
+        // ... (existing classify logic) ...
         if (logPriors.isEmpty() || allCategories.isEmpty()) {
             return ClassificationResult("Others", 0f, null, 0f, Source.FALLBACK)
         }
@@ -104,8 +160,9 @@ class TfIdfNaiveBayes @Inject constructor() {
             return ClassificationResult("Others", 0.1f, null, 0f, Source.FALLBACK)
         }
 
-        // Track how many tokens we actually recognize
+        // FIX BUG-ML-03: Track how many tokens we actually recognize using knownVocab
         var knownTokenCount = 0
+        tokens.forEach { tok -> if (tok in knownVocab) knownTokenCount++ }
 
         val tf = tokens.groupingBy { it }.eachCount()
         val maxTf = tf.values.maxOrNull()?.toDouble() ?: 1.0
@@ -120,7 +177,6 @@ class TfIdfNaiveBayes @Inject constructor() {
                 val idf = idfWeights[tok] ?: 3.0
                 
                 if (likelihoods.containsKey(tok)) {
-                    if (cat == allCategories[0]) knownTokenCount++ 
                     val logLik = likelihoods[tok] ?: -10.0
                     score += (normTf * idf) * logLik
                 } else {
@@ -130,7 +186,7 @@ class TfIdfNaiveBayes @Inject constructor() {
             scores[cat] = score
         }
 
-        // Softmax
+        // Softmax to get calibrated probabilities
         val sortedEntries = scores.entries.sortedByDescending { it.value }
         val maxScore = sortedEntries.first().value
         val expScores = sortedEntries.map { (cat, s) -> cat to exp(s - maxScore) }
@@ -140,10 +196,10 @@ class TfIdfNaiveBayes @Inject constructor() {
         val bestCat = probabilities[0].first
         val bestConf = probabilities[0].second.toFloat()
 
-        // CRITICAL FIX: If we recognize fewer than 2 tokens, or less than 30% of tokens,
+        // CRITICAL FIX BUG-ML-03/01: If we recognize fewer than 2 tokens, or less than 30% of tokens,
         // we are "ignorant" and should not be confident.
         val knownRatio = knownTokenCount.toFloat() / tokens.size
-        if (knownTokenCount < 2 || knownRatio < 0.3f) {
+        if (knownTokenCount < 2 || (tokens.size >= 3 && knownRatio < 0.3f)) {
             return ClassificationResult("Others", 0.2f, null, 0f, Source.FALLBACK)
         }
 
@@ -161,17 +217,20 @@ class TfIdfNaiveBayes @Inject constructor() {
 
     @Synchronized
     fun applyUserCorrection(merchantName: String, correctCategory: String) {
-        if (!allCategories.contains(correctCategory)) return
-        val tokens = allTokens(merchantName)
-        val mutableLikelihoods = logLikelihoods.toMutableMap()
-        val catMap = mutableLikelihoods[correctCategory]?.toMutableMap() ?: mutableMapOf()
+        // Clearing trainedOnCount to force retrain in HybridMlEngine
+        trainedOnCount = 0 
+        persistModel()
+    }
 
-        tokens.forEach { tok ->
-            val currentProb = exp(catMap[tok] ?: -10.0)
-            catMap[tok] = ln(currentProb + 0.1)
-        }
-        mutableLikelihoods[correctCategory] = catMap
-        logLikelihoods = mutableLikelihoods
+    @Synchronized
+    fun reset() {
+        logLikelihoods = emptyMap()
+        idfWeights = emptyMap()
+        knownVocab = emptySet()
+        allCategories = emptyList()
+        trainedOnCount = 0
+        logPriors = emptyMap()
+        persistModel()
     }
 
     fun allTokens(text: String): List<String> {
@@ -182,7 +241,7 @@ class TfIdfNaiveBayes @Inject constructor() {
             if (noSpaces.length < n) emptyList()
             else (0..noSpaces.length - n).map { noSpaces.substring(it, it + n) }
         }
-        return words + charNgrams
+        return (words + charNgrams).ifEmpty { listOf("UNKNOWN") }
     }
 
     @Synchronized

@@ -65,7 +65,9 @@ object DatabaseModule {
                     AppDatabaseMigrations.MIGRATION_19_20,
                     AppDatabaseMigrations.MIGRATION_20_21,
                     AppDatabaseMigrations.MIGRATION_21_22,
-                    AppDatabaseMigrations.MIGRATION_22_23
+                    AppDatabaseMigrations.MIGRATION_22_23,
+                    AppDatabaseMigrations.MIGRATION_23_24,
+                    AppDatabaseMigrations.MIGRATION_24_25
                 )
                 .fallbackToDestructiveMigration()
                 .addCallback(object : androidx.room.RoomDatabase.Callback() {
@@ -83,11 +85,9 @@ object DatabaseModule {
                         }
                         catCursor.close()
 
-                        val cursor = db.query("SELECT COUNT(*) FROM classification_rules")
-                        if (cursor.moveToFirst() && cursor.getInt(0) == 0) {
-                            seedRules(db)
-                        }
-                        cursor.close()
+                        // FIX NEW-01: Always ensure latest rules are present by re-seeding on every open
+                        // Since RuleDao.insertRules uses REPLACE, this will update existing and add new ones.
+                        seedRules(db)
                     }
                 })
                 .build()

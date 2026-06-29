@@ -85,8 +85,22 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun clearAllTransactions() =
         transactionDao.clearAll()
 
-    override suspend fun replaceTransactions(transactions: List<Transaction>) =
-        transactionDao.replaceTransactions(transactions.map { it.toEntity() })
+    /**
+     * FIX BUG-GEN-25: Recalculate balances after bulk replacement.
+     */
+    override suspend fun replaceTransactions(transactions: List<Transaction>) {
+        db.withTransaction {
+            transactionDao.clearAll()
+            transactionDao.insertTransactions(transactions.map { it.toEntity() })
+            
+            // Recalculate all account balances from scratch to ensure consistency
+            val allAccounts = accountDao.getAllAccountsSync()
+            allAccounts.forEach { account ->
+                val netBalance = transactionDao.calculateNetBalanceByAccount(account.id)
+                accountDao.updateBalance(account.id, netBalance)
+            }
+        }
+    }
 
     override suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>) =
         transactionDao.splitTransaction(parentId, subTransactions.map { it.toEntity() })

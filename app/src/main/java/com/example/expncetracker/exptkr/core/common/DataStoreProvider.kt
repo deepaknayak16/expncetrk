@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -15,3 +16,5 @@ val SMS_PERMISSION_PERMANENTLY_DENIED_KEY = booleanPreferencesKey("expncetrk_sms
 val NOTIFICATION_PERMISSION_SHOWN_KEY = booleanPreferencesKey("expncetrk_notification_permission_shown")
 val BUDGET_ALERTS_ENABLED_KEY = booleanPreferencesKey("expncetrk_budget_alerts_enabled")
 val BUDGET_THRESHOLD_KEY = floatPreferencesKey("expncetrk_budget_threshold")
+val RECURRING_ML_WEIGHTS_KEY = stringPreferencesKey("ml_recurring_weights")
+val NB_ML_MODEL_KEY = stringPreferencesKey("ml_nb_model")

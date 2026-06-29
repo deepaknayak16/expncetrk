@@ -11,6 +11,17 @@ class ParserRegistry @Inject constructor(
 ) {
     private val genericParser = GenericParser()
 
+    // FIX BUG-ML-15: Map cryptic sender IDs to human-readable bank names
+    private val senderMappings = mapOf(
+        "HDFCBK" to "HDFC Bank",
+        "ICICIB" to "ICICI Bank",
+        "KOTAKB" to "Kotak Bank",
+        "AXISBK" to "Axis Bank",
+        "SBIBNK" to "SBI",
+        "EPFOHO" to "EPFO",
+        "AIRBIL" to "Airtel"
+    )
+
     fun parseSms(sender: String, body: String, timestamp: Long): ParsedSms? {
         val upperBody = body.uppercase()
 
@@ -45,13 +56,15 @@ class ParserRegistry @Inject constructor(
             norm.contains(parser.bankKey)
         }
         
+        val bankName = senderMappings[cleanSender] ?: cleanSender
+
         val result = if (specificParser != null) {
             Logger.d("ParserRegistry", "Found specific parser: ${specificParser.bankKey}")
             specificParser.parse(body, timestamp) 
                 ?: genericParser.parse(body, timestamp)?.copy(bankName = specificParser.bankKey)
         } else {
             Logger.d("ParserRegistry", "No specific parser found, trying generic")
-            genericParser.parse(body, timestamp)?.copy(bankName = cleanSender)
+            genericParser.parse(body, timestamp)?.copy(bankName = bankName)
         }
 
         if (result != null) {

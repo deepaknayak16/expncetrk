@@ -12,7 +12,7 @@ interface RuleDao {
     @Query("SELECT * FROM classification_rules WHERE isActive = 1 ORDER BY priority DESC, keyword ASC")
     suspend fun getActiveRulesList(): List<RuleEntity>
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRules(rules: List<RuleEntity>)
 
     @Query("SELECT COUNT(*) FROM classification_rules")

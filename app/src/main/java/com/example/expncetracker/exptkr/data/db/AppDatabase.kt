@@ -22,11 +22,12 @@ import com.example.expncetracker.exptkr.data.db.entity.*
         RecurringTemplateEntity::class,
         MerchantStatsEntity::class
     ],
-    version = 23,
+    version = 25,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+    // ... (existing DAOs)
     abstract fun transactionDao(): TransactionDao
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
@@ -41,6 +42,27 @@ abstract class AppDatabase : RoomDatabase() {
 }
 
 object AppDatabaseMigrations {
+    val MIGRATION_24_25 = object : Migration(24, 25) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Add Unique Index to classification_rules for proper re-seeding
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_classification_rules_keyword_matchType_transactionType` ON `classification_rules` (`keyword`, `matchType`, `transactionType`)")
+        }
+    }
+
+    val MIGRATION_23_24 = object : Migration(23, 24) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Recreate merchant_mappings with COLLATE NOCASE
+            db.execSQL("CREATE TABLE IF NOT EXISTS `merchant_mappings_new` (`merchantName` TEXT NOT NULL COLLATE NOCASE, `categoryName` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`merchantName`))")
+            db.execSQL("INSERT INTO merchant_mappings_new SELECT * FROM merchant_mappings")
+            db.execSQL("DROP TABLE merchant_mappings")
+            db.execSQL("ALTER TABLE merchant_mappings_new RENAME TO merchant_mappings")
+
+            // 2. Change smsId from UNIQUE to non-unique by recreating index
+            db.execSQL("DROP INDEX IF EXISTS `index_transactions_smsId`")
+            db.execSQL("CREATE INDEX `index_transactions_smsId` ON `transactions` (`smsId`)")
+        }
+    }
+
     val MIGRATION_22_23 = object : Migration(22, 23) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("""

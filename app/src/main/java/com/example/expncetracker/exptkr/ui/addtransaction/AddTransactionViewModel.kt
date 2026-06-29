@@ -2,18 +2,18 @@ package com.example.expncetracker.exptkr.ui.addtransaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.expncetracker.exptkr.data.db.entity.MerchantMappingEntity
+import com.example.expncetracker.exptkr.core.ml.HybridMlEngine
 import com.example.expncetracker.exptkr.domain.model.RecurrenceFrequency
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.domain.repository.*
-import com.example.expncetracker.exptkr.domain.usecase.ClassifyTransactionUseCase
 import com.example.expncetracker.exptkr.ui.accounts.AccountUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import javax.inject.Inject
 
 // ─── UI state ─────────────────────────────────────────────────────────────────
@@ -33,8 +33,7 @@ class AddTransactionViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
-    private val merchantMappingRepository: MerchantMappingRepository,
-    private val classifyTransactionUseCase: ClassifyTransactionUseCase
+    private val mlEngine: HybridMlEngine
 ) : ViewModel() {
 
     // ── Exposed state ──────────────────────────────────────────────────────────
@@ -57,8 +56,6 @@ class AddTransactionViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AddTransactionUiState())
     val uiState: StateFlow<AddTransactionUiState> = _uiState.asStateFlow()
 
-    // FIX: SharedFlow for one-shot events — no channel leak, works correctly
-    // with Compose's LaunchedEffect(Unit) { collect {} } pattern
     private val _statusEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val statusEvent: SharedFlow<String> = _statusEvent.asSharedFlow()
 
@@ -87,35 +84,37 @@ class AddTransactionViewModel @Inject constructor(
 
     // ── Merchant hint ──────────────────────────────────────────────────────────
 
-    // FIX: pure function — no coroutine needed, no IO, just string matching
-    // FIX: clears suggestion when merchant is blank
-    // FIX: doesn't overwrite a user-selected category (caller passes userSelectedCategory)
-    fun onMerchantNameChanged(merchant: String, currentCategory: String, userSelectedCategory: Boolean) {
+    /**
+     * FIX BUG-ML-06: Use ML Engine for suggestions instead of rules-only.
+     */
+    fun onMerchantNameChanged(merchant: String, currentCategory: String, userSelectedCategory: Boolean, type: TransactionType) {
         if (merchant.isBlank()) {
             _suggestedCategory.value = null
             return
         }
-        if (userSelectedCategory) return  // don't stomp on explicit user choice
+        if (userSelectedCategory) return 
 
         viewModelScope.launch {
-            val suggestion = classifyTransactionUseCase(merchant)
+            val result = mlEngine.infer(
+                merchantName = merchant,
+                amount = BigDecimal.ZERO,
+                type = type,
+                timestamp = System.currentTimeMillis(),
+                smsBody = ""
+            )
 
             val cat = currentCategory.trim().lowercase()
             val isOthers = cat == "others" || cat == "other"
 
-            if (suggestion != null && (currentCategory.isBlank() || isOthers)) {
-                _suggestedCategory.value = suggestion
+            // Only suggest if ML is confident (> 0.5 for suggestion)
+            if (result.confidenceScore >= 0.5f && (currentCategory.isBlank() || isOthers)) {
+                _suggestedCategory.value = result.category
             }
         }
     }
 
     // ── Save ───────────────────────────────────────────────────────────────────
 
-    // FIX: parameter name is `merchant` throughout (was `description` in UI, `merchant` here — now consistent)
-    // FIX: validation lives here, not in the composable
-    // FIX: goal recalculation extracted to avoid duplication
-    // FIX: clearEdit() called on both insert and update paths
-    // FIX: isSaving state prevents double-tap saves
     fun addTransaction(
         id: Long = 0L,
         amountText: String,
@@ -131,10 +130,8 @@ class AddTransactionViewModel @Inject constructor(
         tags: List<String> = emptyList(),
         timestamp: LocalDateTime = LocalDateTime.now()
     ) {
-        // Guard: prevent double-save
         if (_uiState.value.isSaving) return
 
-        // Evaluate and Validate
         val amountResult = runCatching { evaluate(amountText).toBigDecimal() }
         val amount = amountResult.getOrDefault(BigDecimal.valueOf(-1))
 
@@ -158,7 +155,6 @@ class AddTransactionViewModel @Inject constructor(
 
         viewModelScope.launch {
             runCatching {
-                // Resolve account ID: prefer explicit accountId, fall back to name lookup
                 val resolvedAccountId = when {
                     accountId != 0L -> accountId
                     else -> accountRepository.getAccountByName(bankName)?.id ?: 0L
@@ -166,8 +162,7 @@ class AddTransactionViewModel @Inject constructor(
 
                 val oldTx = _transactionToEdit.value
                 
-                // SINGLE EDIT RULE: Mark as corrected if this is an update (id != 0)
-                // This applies to both Manual and SMS transactions.
+                // If it's an update, we assume category was manually reviewed/corrected
                 val finalIsCategoryManuallyCorrected = (oldTx?.isCategoryManuallyCorrected == true) || (id != 0L)
 
                 val transaction = Transaction(
@@ -186,7 +181,8 @@ class AddTransactionViewModel @Inject constructor(
                     nextDueDate = if (isRecurring) calculateNextDueDate(timestamp, frequency) else null,
                     counterparty = counterparty.takeIf { !it.isNullOrBlank() },
                     tags = tags,
-                    isCategoryManuallyCorrected = finalIsCategoryManuallyCorrected
+                    isCategoryManuallyCorrected = finalIsCategoryManuallyCorrected,
+                    cleanMerchantName = oldTx?.cleanMerchantName // will be re-normalized in repository if needed
                 )
 
                 if (id != 0L) {
@@ -197,25 +193,20 @@ class AddTransactionViewModel @Inject constructor(
                     "Transaction added"
                 }
             }.onSuccess { message ->
-                // Save merchant mapping (Phase 3 Learning)
-                viewModelScope.launch {
-                    if (merchant.isNotBlank() && category.isNotBlank()) {
-                        merchantMappingRepository.insertMapping(
-                            MerchantMappingEntity(
-                                merchantName = merchant.trim(),
-                                categoryName = category
-                            )
-                        )
-                    }
+                // FIX BUG-ML-05: Use mlEngine.onCategoryCorrection with strict wasManual flag
+                // We only learn if the user explicitly picked this category or edited an existing one
+                mlEngine.onCategoryCorrection(
+                    merchantName = merchant.trim(),
+                    correctCategory = category,
+                    wasManual = true // This method is only called from UI saves
+                )
 
-                    // FIX: recalculation on both paths, once
-                    if (category == "Savings" || category == "Investment") {
-                        runCatching { goalRepository.recalculateGoalsByCategory(category) }
-                    }
-                    // FIX: Don't call clearEdit() immediately as it resets isSaved
-                    _uiState.update { it.copy(isSaving = false, isSaved = true) }
-                    _statusEvent.emit(message)
+                // FIX BUG-ML-07: Standardized category names for triggers
+                if (category == "Investments" || category == "Savings") {
+                    runCatching { goalRepository.recalculateGoalsByCategory(category) }
                 }
+                _uiState.update { it.copy(isSaving = false, isSaved = true) }
+                _statusEvent.emit(message)
             }
                 .onFailure { e ->
                     _uiState.update {
@@ -226,9 +217,6 @@ class AddTransactionViewModel @Inject constructor(
         }
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
-    // FIX: nextDueDate was always set to `timestamp` — now calculates the actual next occurrence
     private fun calculateNextDueDate(
         from: LocalDateTime,
         frequency: RecurrenceFrequency?
@@ -239,8 +227,6 @@ class AddTransactionViewModel @Inject constructor(
         RecurrenceFrequency.YEARLY -> from.plusYears(1)
         null -> null
     }
-
-    // ── Validation helpers (for UI to gate the Save button) ───────────────────
 
     fun isFormValid(
         amount: String,
