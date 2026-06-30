@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.example.expncetracker.exptkr.core.common.Constants.DEFAULT_ACCOUNT_COLOR
 import com.example.expncetracker.exptkr.core.common.HashingUtil
 import com.example.expncetracker.exptkr.core.common.Logger
+import com.example.expncetracker.exptkr.core.common.toEpochMilli
 import com.example.expncetracker.exptkr.core.common.SecurityUtils
 import com.example.expncetracker.exptkr.core.ml.HybridMlEngine
 import com.example.expncetracker.exptkr.core.parser.ParserRegistry
@@ -104,7 +105,7 @@ class SmsWorker @AssistedInject constructor(
             merchantName = parsedSms.merchant,
             amount = parsedSms.amount,
             type = parsedSms.type,
-            timestamp = parsedSms.timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+            timestamp = parsedSms.timestamp.toEpochMilli(),
             smsBody = body
         )
         
@@ -114,8 +115,13 @@ class SmsWorker @AssistedInject constructor(
         val hash = smsId
 
         // 7. Get or Create Account ID
-        var accountId = db.accountDao().getAccountIdByName(parsedSms.bankName.trim())
-            ?: parsedSms.bankName.trim().substringBefore(" ").takeIf { it.isNotBlank() }?.let {
+        val trimmedBankName = parsedSms.bankName.trim()
+        val lastDigits = trimmedBankName.takeLast(4).filter { it.isDigit() }
+        val bankPrefix = trimmedBankName.substringBefore(" ").trim()
+
+        var accountId = db.accountDao().getAccountIdByName(trimmedBankName)
+            ?: (if (lastDigits.length == 4) db.accountDao().findAccountIdByDigits(bankPrefix, lastDigits) else null)
+            ?: bankPrefix.takeIf { it.isNotBlank() }?.let {
                 db.accountDao().getAccountIdByName(it)
             }
 
@@ -161,7 +167,7 @@ class SmsWorker @AssistedInject constructor(
         if (parsedSms.isIntentOnly) {
             repository.insertTransaction(transaction)
         } else {
-            repository.insertTransactionWithBalance(transaction)
+            repository.insertTransactionWithBalance(transaction, parsedSms.accountBalance)
         }
         
         db.rawSmsDao().updateStatus(smsId, "COMPLETE")

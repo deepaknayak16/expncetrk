@@ -13,5 +13,6 @@ data class FinancialSummary(
     val netWorth: BigDecimal = BigDecimal.ZERO,
     val spendableBalance: BigDecimal = BigDecimal.ZERO,
     val budget: BigDecimal? = null,
-    val categoryDistribution: Map<String, BigDecimal>
+    val categoryDistribution: Map<String, BigDecimal>,
+    val incomeCategoryDistribution: Map<String, BigDecimal> = emptyMap()
 )

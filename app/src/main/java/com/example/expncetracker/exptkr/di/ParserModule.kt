@@ -21,7 +21,8 @@ object ParserModule {
             SbiParser(),
             IciciParser(),
             AxisParser(),
-            KotakParser()
+            KotakParser(),
+            DopBankParser()
         )
     }
 

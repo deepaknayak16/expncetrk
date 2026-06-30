@@ -35,6 +35,10 @@ import com.example.expncetracker.exptkr.ui.components.presetColors
 import com.example.expncetracker.exptkr.ui.components.GradientCard
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.format.DateTimeFormatter
+import java.time.LocalDateTime
+import com.example.expncetracker.exptkr.domain.model.DateFilter
+import com.example.expncetracker.exptkr.ui.dashboard.FilterItemCompact
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,11 +48,13 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
     val allCategories by viewModel.categories.collectAsState()
     val showAddDialog by viewModel.showAddDialog.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val currentFilter by viewModel.selectedFilter.collectAsState()
+    val currentViewDate by viewModel.selectedDate.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
     val incomeCategories = allCategories
         .filter { it.type.uppercase() == "INCOME" }
-        .sortedByDescending { summary?.categoryDistribution?.get(it.name) ?: BigDecimal.ZERO }
+        .sortedByDescending { summary?.incomeCategoryDistribution?.get(it.name) ?: BigDecimal.ZERO }
     
     val expenseCategories = allCategories
         .filter { it.type.uppercase() == "EXPENSE" }
@@ -74,6 +80,53 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
+                // Date Selector (Added to see June 2026 data)
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterItemCompact(DateFilter.DAY, currentFilter, { viewModel.setFilter(it) }, Modifier.weight(1f))
+                        FilterItemCompact(DateFilter.WEEK, currentFilter, { viewModel.setFilter(it) }, Modifier.weight(1f))
+
+                        Row(
+                            modifier = Modifier.weight(2.5f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            IconButton(onClick = {
+                                val nextDate = if (currentFilter == DateFilter.YEAR) currentViewDate.minusYears(1) else currentViewDate.minusMonths(1)
+                                viewModel.updateDate(nextDate)
+                            }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.ChevronLeft, "Prev", modifier = Modifier.size(20.dp))
+                            }
+
+                            Text(
+                                text = if (currentFilter == DateFilter.YEAR) currentViewDate.year.toString()
+                                else currentViewDate.format(DateTimeFormatter.ofPattern("MMM yyyy")),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+
+                            IconButton(onClick = {
+                                val nextDate = if (currentFilter == DateFilter.YEAR) currentViewDate.plusYears(1) else currentViewDate.plusMonths(1)
+                                viewModel.updateDate(nextDate)
+                            }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.ChevronRight, "Next", modifier = Modifier.size(20.dp))
+                            }
+                        }
+
+                        FilterItemCompact(DateFilter.MONTH, currentFilter, { viewModel.setFilter(it) }, Modifier.weight(1f))
+                        FilterItemCompact(DateFilter.YEAR, currentFilter, { viewModel.setFilter(it) }, Modifier.weight(1f))
+                    }
+                }
+
                 // Enhanced Summary Card
                 GradientCard(
                     title = "Total Financial Health",
@@ -116,7 +169,7 @@ fun CategoriesScreen(viewModel: CategoriesViewModel) {
                             incomeCategories.forEach { category ->
                                 CompactCategoryItem(
                                     category = category,
-                                    amount = summary?.categoryDistribution?.get(category.name) ?: BigDecimal.ZERO,
+                                    amount = summary?.incomeCategoryDistribution?.get(category.name) ?: BigDecimal.ZERO,
                                     totalAmount = totalIncomeVolume,
                                     isDark = isDark
                                 )

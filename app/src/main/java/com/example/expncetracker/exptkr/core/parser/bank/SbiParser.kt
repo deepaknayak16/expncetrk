@@ -6,5 +6,5 @@ class SbiParser : BaseBankParser("SBI") {
         RegexOption.IGNORE_CASE)
     override val debitRegex = "(?:debited|spent|withdrawn|transferred|paid|sent)".toRegex(RegexOption.IGNORE_CASE)
     override val creditRegex = "(?:credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned)".toRegex(RegexOption.IGNORE_CASE)
-    override val merchantRegex = "(?:to|at|Info|VPA)[:/\\s]*([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?:\\s+Ref|\\s+RefNo|\\s+on|\\.)".toRegex(RegexOption.IGNORE_CASE)
+    override val merchantRegex = "(?:to|at|Info|VPA)[:/\\s]*([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+Ref|\\s+RefNo|\\s+\\bon\\b|\\.|$)".toRegex(RegexOption.IGNORE_CASE)
 }

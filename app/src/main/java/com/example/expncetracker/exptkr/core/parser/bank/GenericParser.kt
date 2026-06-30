@@ -79,17 +79,27 @@ class GenericParser(private val bankName: String = "Bank") : BankParser {
 
         // Try to extract merchant name
         // Added "For" to catch E-Mandate merchants (Fix REG-04)
-        val merchantRegex = "(?i)(?:To|Paid to|at|towards|INFO|For)[:*]?\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$|\\s)".toRegex()
+        val merchantRegex = "(?i)(?:To|Paid to|at|towards|INFO|For)[:*]?\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$)".toRegex()
         val merchant = merchantRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
             ?: return null // Fix REG-04: Quarantine instead of using "Bank"
+
+        val balanceRegex = "(?i)(?:Bal|Balance|Avl Bal|Available Balance|Limit)[:\\s]*[Rr]s\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)".toRegex()
+        val absoluteBalance = balanceRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.replace(",", "")?.toBigDecimalOrNull()
+
+        // Extract account digits for BANK-XXXX format
+        val accountRegex = "(?i)(?:A/c|Account|Card|from|through|A/C|AC)[:\\s]+(?:\\w+\\s+){0,2}([*X]*\\d{3,})".toRegex()
+        val rawSuffix = accountRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
+        val digitsOnly = rawSuffix?.filter { it.isDigit() }?.takeLast(4)
+        val finalBankName = if (digitsOnly != null) "${bankName.uppercase()}-$digitsOnly" else bankName.uppercase()
 
         return ParsedSms(
             amount = amount,
             type = type,
             merchant = merchant,
-            bankName = bankName,
+            bankName = finalBankName,
             timestamp = time,
-            isIntentOnly = isIntent
+            isIntentOnly = isIntent,
+            accountBalance = absoluteBalance
         )
     }
 }

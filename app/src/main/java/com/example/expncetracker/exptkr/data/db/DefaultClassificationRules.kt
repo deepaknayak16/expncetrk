@@ -75,10 +75,10 @@ object DefaultClassificationRules {
         DefaultRule("TCS", "Salary", "CONTAINS", 90, "CREDIT"),
         DefaultRule("INFOSYS", "Salary", "CONTAINS", 90, "CREDIT"),
         DefaultRule("WIPRO", "Salary", "CONTAINS", 90, "CREDIT"),
-        DefaultRule("HCL", "Salary", "CONTAINS", 90, "CREDIT"),
+        DefaultRule("HCL", "Salary", "EXACT", 90, "CREDIT"),
         DefaultRule("COGNIZANT", "Salary", "CONTAINS", 90, "CREDIT"),
         DefaultRule("ACCENTURE", "Salary", "CONTAINS", 90, "CREDIT"),
-        DefaultRule("IBM", "Salary", "CONTAINS", 90, "CREDIT"),
+        DefaultRule("IBM", "Salary", "EXACT", 90, "CREDIT"),
         DefaultRule("CAPGEMINI", "Salary", "CONTAINS", 90, "CREDIT"),
         DefaultRule("LTIM", "Salary", "CONTAINS", 90, "CREDIT"),
         DefaultRule("TECH MAHINDRA", "Salary", "CONTAINS", 90, "CREDIT"),
@@ -188,7 +188,7 @@ object DefaultClassificationRules {
         DefaultRule("DMART", "Groceries", "CONTAINS", 90, "DEBIT"),
         DefaultRule("RELIANCE FRESH", "Groceries", "CONTAINS", 90, "DEBIT"),
         DefaultRule("SPAR", "Groceries", "CONTAINS", 90, "DEBIT"),
-        DefaultRule("MORE", "Groceries", "CONTAINS", 90, "DEBIT"),
+        DefaultRule("MORE", "Groceries", "EXACT", 90, "DEBIT"),
         DefaultRule("NATURES BASKET", "Groceries", "CONTAINS", 90, "DEBIT"),
         DefaultRule("SUPER MARKET", "Groceries", "CONTAINS", 85, "DEBIT"),
         DefaultRule("HYPERMARKET", "Groceries", "CONTAINS", 85, "DEBIT"),
@@ -266,7 +266,7 @@ object DefaultClassificationRules {
         // ================================
         DefaultRule("UNACADEMY", "Education", "CONTAINS", 0, "DEBIT"),
         DefaultRule("BYJUS", "Education", "CONTAINS", 0, "DEBIT"),
-        DefaultRule("PW", "Education", "CONTAINS", 0, "DEBIT"),
+        DefaultRule("PW", "Education", "EXACT", 0, "DEBIT"),
         DefaultRule("PHYSICS WALLAH", "Education", "CONTAINS", 0, "DEBIT"),
         DefaultRule("UDEMY", "Education", "CONTAINS", 0, "DEBIT"),
         DefaultRule("COURSERA", "Education", "CONTAINS", 0, "DEBIT"),
@@ -282,7 +282,7 @@ object DefaultClassificationRules {
         DefaultRule("BWSSB", "Bills", "CONTAINS", 90, "DEBIT"),
         DefaultRule("AIRTEL", "Bills", "CONTAINS", 90, "DEBIT"),
         DefaultRule("JIO", "Bills", "CONTAINS", 90, "DEBIT"),
-        DefaultRule("VI", "Bills", "CONTAINS", 90, "DEBIT"),
+        DefaultRule("VI", "Bills", "EXACT", 90, "DEBIT"),
         DefaultRule("BSNL", "Bills", "CONTAINS", 90, "DEBIT"),
         DefaultRule("ACT FIBERNET", "Bills", "CONTAINS", 90, "DEBIT"),
         DefaultRule("HATHWAY", "Bills", "CONTAINS", 90, "DEBIT"),
@@ -298,12 +298,18 @@ object DefaultClassificationRules {
         DefaultRule("EPFO", "Investments", "CONTAINS", 90, "DEBIT"),
 
         // Bank / Transfer Fallbacks (Prevent Groceries trap)
-        DefaultRule("HDFC BANK", "Transfer", "CONTAINS", 70),
-        DefaultRule("KOTAK BANK", "Transfer", "CONTAINS", 70),
-        DefaultRule("AXIS BANK", "Transfer", "CONTAINS", 70),
-        DefaultRule("ICICI BANK", "Transfer", "CONTAINS", 70),
-        DefaultRule("SBI", "Transfer", "CONTAINS", 70),
-        DefaultRule("BANK AC", "Transfer", "CONTAINS", 70),
+        DefaultRule("HDFC BANK", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("HDFC BANK", "Transfer", "CONTAINS", 70, "DEBIT"),
+        DefaultRule("KOTAK BANK", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("KOTAK BANK", "Transfer", "CONTAINS", 70, "DEBIT"),
+        DefaultRule("AXIS BANK", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("AXIS BANK", "Transfer", "CONTAINS", 70, "DEBIT"),
+        DefaultRule("ICICI BANK", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("ICICI BANK", "Transfer", "CONTAINS", 70, "DEBIT"),
+        DefaultRule("SBI", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("SBI", "Transfer", "CONTAINS", 70, "DEBIT"),
+        DefaultRule("BANK AC", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("BANK AC", "Transfer", "CONTAINS", 70, "DEBIT"),
         
         // CREDIT rules (Transfer In / Income) - Fix Issue 2
         DefaultRule("YBL", "Transfer In", "CONTAINS", 70, "CREDIT"),
@@ -312,8 +318,9 @@ object DefaultClassificationRules {
         DefaultRule("CREDITED TO", "Transfer In", "CONTAINS", 70, "CREDIT"),
         DefaultRule("DEBITED FROM", "Transfer", "CONTAINS", 70, "DEBIT"),
         DefaultRule("RECEIVED", "Transfer In", "CONTAINS", 80, "CREDIT"),
-        DefaultRule("INDIA POST", "Income", "CONTAINS", 85, "CREDIT"),
-        DefaultRule("DOPBNK", "Income", "CONTAINS", 85, "CREDIT"),
+        DefaultRule("INDIA POST", "Interest", "CONTAINS", 85, "CREDIT"),
+        DefaultRule("DOPBNK", "Interest", "CONTAINS", 85, "CREDIT"),
+        DefaultRule("POST OFFICE", "Interest", "CONTAINS", 85, "CREDIT"),
 
         DefaultRule("TRANSACTION", "Others", "CONTAINS", 60),
         DefaultRule("PAYTM", "Transfer", "CONTAINS", 80, "DEBIT"),
@@ -381,7 +388,7 @@ object DefaultClassificationRules {
         DefaultRule("HOUSE RENT", "Rent", "CONTAINS", 0, "DEBIT"),
         DefaultRule("RENT", "Rent", "CONTAINS", 0, "DEBIT"),
         DefaultRule("HOSTEL", "Rent", "CONTAINS", 0, "DEBIT"),
-        DefaultRule("PG", "Rent", "CONTAINS", 0, "DEBIT"),
+        DefaultRule("PG", "Rent", "EXACT", 0, "DEBIT"),
 
         // ================================
         // SUBSCRIPTIONS
@@ -402,7 +409,7 @@ object DefaultClassificationRules {
         // FIX BUG-ML-09: Removed duplicate ATM WDL from Bank Charges (should be Cash Withdrawal)
         // DefaultRule("ATM WDL", "Bank Charges", "CONTAINS"), 
         
-        DefaultRule("CASH WITHDRAWAL", "Bank Charges", "CONTAINS", 0, "DEBIT"),
+        // DefaultRule("CASH WITHDRAWAL", "Bank Charges", "CONTAINS", 0, "DEBIT"),
         DefaultRule("SERVICE CHARGE", "Bank Charges", "CONTAINS", 0, "DEBIT"),
         DefaultRule("ANNUAL FEE", "Bank Charges", "CONTAINS", 0, "DEBIT"),
         DefaultRule("LATE FEE", "Bank Charges", "CONTAINS", 0, "DEBIT"),
@@ -460,6 +467,6 @@ object DefaultClassificationRules {
         
         // Final missing rules (Issue 2 & 3 & 4)
         DefaultRule("TOBOX", "Food", "CONTAINS", 80, "DEBIT"),
-        DefaultRule("SUPER MARKET", "Groceries", "CONTAINS", 85, "DEBIT")
+        // DefaultRule("SUPER MARKET", "Groceries", "CONTAINS", 85, "DEBIT")
     )
 }

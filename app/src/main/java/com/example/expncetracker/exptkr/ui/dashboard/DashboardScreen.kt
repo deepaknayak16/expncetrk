@@ -913,7 +913,7 @@ fun ModernDashboardHeader(
 }
 
 @Composable
-private fun FilterItemCompact(
+fun FilterItemCompact(
     filter: DateFilter,
     currentFilter: DateFilter,
     onFilterChange: (DateFilter) -> Unit,

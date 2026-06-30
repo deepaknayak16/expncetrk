@@ -23,7 +23,7 @@ interface TransactionRepository {
 
     suspend fun splitTransaction(parentId: Long, subTransactions: List<Transaction>)
 
-    suspend fun insertTransactionWithBalance(transaction: Transaction): Long
+    suspend fun insertTransactionWithBalance(transaction: Transaction, absoluteBalance: java.math.BigDecimal? = null): Long
     suspend fun updateTransactionWithBalance(oldTransaction: Transaction?, newTransaction: Transaction)
 
     suspend fun settleTransaction(transaction: Transaction)

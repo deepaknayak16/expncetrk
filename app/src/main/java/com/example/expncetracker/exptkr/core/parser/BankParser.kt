@@ -10,7 +10,8 @@ data class ParsedSms(
     val merchant: String,
     val bankName: String,
     val timestamp: LocalDateTime,
-    val isIntentOnly: Boolean = false
+    val isIntentOnly: Boolean = false,
+    val accountBalance: java.math.BigDecimal? = null
 )
 
 interface BankParser {

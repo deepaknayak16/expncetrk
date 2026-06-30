@@ -29,11 +29,13 @@ class GetSummaryUseCase @Inject constructor(
         }
 
         val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endMillis = if (filter == DateFilter.YEAR) {
-            today.withDayOfYear(today.lengthOfYear()).atTime(23, 59, 59)
+        val endMillis = when (filter) {
+            DateFilter.YEAR -> today.withDayOfYear(today.lengthOfYear()).atTime(23, 59, 59)
                 .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        } else {
-            now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            DateFilter.MONTH -> today.withDayOfMonth(today.lengthOfMonth()).atTime(23, 59, 59)
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            else -> now.withHour(23).withMinute(59).withSecond(59)
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         }
 
         return invoke(startMillis, endMillis)
@@ -49,14 +51,18 @@ class GetSummaryUseCase @Inject constructor(
             var expense = BigDecimal.ZERO
             var lent = BigDecimal.ZERO
             var borrowed = BigDecimal.ZERO
-            val map = mutableMapOf<String, BigDecimal>()
+            val expenseMap = mutableMapOf<String, BigDecimal>()
+            val incomeMap = mutableMapOf<String, BigDecimal>()
 
             txList.filter { !it.isRecurring && it.parsingStatus != "REMINDER" }.forEach { tx ->
                 when (tx.type) {
-                    TransactionType.CREDIT -> income = income.add(tx.amount)
+                    TransactionType.CREDIT -> {
+                        income = income.add(tx.amount)
+                        incomeMap[tx.categoryName] = (incomeMap[tx.categoryName] ?: BigDecimal.ZERO).add(tx.amount)
+                    }
                     TransactionType.DEBIT -> {
                         expense = expense.add(tx.amount)
-                        map[tx.categoryName] = (map[tx.categoryName] ?: BigDecimal.ZERO).add(tx.amount)
+                        expenseMap[tx.categoryName] = (expenseMap[tx.categoryName] ?: BigDecimal.ZERO).add(tx.amount)
                     }
                     TransactionType.LEND -> {
                         if (!tx.isSettled) lent = lent.add(tx.amount)
@@ -91,7 +97,8 @@ class GetSummaryUseCase @Inject constructor(
                 netWorth = netWorth,
                 spendableBalance = liquidAccountBalance,
                 budget = if (totalBudget > BigDecimal.ZERO) totalBudget else null,
-                categoryDistribution = map
+                categoryDistribution = expenseMap,
+                incomeCategoryDistribution = incomeMap
             )
         }
     }

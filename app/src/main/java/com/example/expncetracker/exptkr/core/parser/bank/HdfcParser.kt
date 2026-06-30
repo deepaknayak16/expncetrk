@@ -8,9 +8,9 @@ class HdfcParser : BaseBankParser("HDFC") {
     override val creditRegex = "(?:credited|deposited|received|added|refunded|refund|reversed|reversal|cashback|returned)".toRegex(RegexOption.IGNORE_CASE)
     
     // FIX BUG REG-02: Use more specific capture group for VPAs and add lookahead for "(UPI" reference numbers
-    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO)[:*]?\\s+(?!HDFC Bank|Bank A/c)([a-zA-Z0-9._@-]+)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$|\\s)".toRegex()
+    override val merchantRegex = "(?i)(?:To|Paid to|VPA|at|towards|INFO)[:*]?\\s+(?!HDFC Bank|Bank A/c)([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$)".toRegex()
     
     // Pattern 2: Specific fallback for UPI and "from VPA" formats
     // Added "from" and restricted capture to VPA-valid characters
-    override val secondaryMerchantRegex = "(?i)(?:To|VPA|from)\\s+([a-zA-Z0-9._@-]+)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$|\\s)".toRegex()
+    override val secondaryMerchantRegex = "(?i)(?:To|VPA|from)\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$)".toRegex()
 }

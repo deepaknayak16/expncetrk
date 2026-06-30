@@ -98,13 +98,14 @@ class TransactionViewModel @Inject constructor(
                 DateFilter.DAY -> now.withHour(0).withMinute(0).withSecond(0)
                 DateFilter.WEEK -> now.minusDays(7)
                 DateFilter.WEEK_RANGE -> now.minusDays(7)
-                DateFilter.MONTH -> now.withDayOfMonth(1).withHour(0).withMinute(0)
+                DateFilter.MONTH -> now.minusMonths(1) // Default to last 30 days instead of strictly current month
                 DateFilter.YEAR -> now.withDayOfYear(1).withHour(0).withMinute(0)
             }
             defaultStart.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         }
         
-        val endMillis = adv.endDate ?: now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = adv.endDate ?: now.withHour(23).withMinute(59).withSecond(59)
+            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         FilterParams(startMillis, endMillis, query, sort, adv)
     }.flatMapLatest { params ->

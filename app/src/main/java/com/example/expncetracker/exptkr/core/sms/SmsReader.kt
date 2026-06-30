@@ -47,12 +47,14 @@ class SmsReader @Inject constructor(
                         
                         // Broaden relevance check: check if it looks like a transactional SMS 
                         // even if the sender is not in the list yet
+                        val cleanSender = address.uppercase().replace(Regex("^[A-Z]{2}-"), "")
+                        
                         val isBankBySender = Constants.BANK_SENDERS.any { prefix ->
-                            address.uppercase().contains(prefix.uppercase()) 
+                            cleanSender.startsWith(prefix.uppercase()) 
                         }
 
                         val isWalletBySender = Constants.WALLET_SENDERS.any { prefix ->
-                            address.uppercase().contains(prefix.uppercase())
+                            cleanSender.startsWith(prefix.uppercase())
                         }
                         
                         // Fallback: If it's a short code (not a phone number) and contains currency keywords

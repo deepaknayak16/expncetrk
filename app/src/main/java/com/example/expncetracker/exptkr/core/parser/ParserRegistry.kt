@@ -62,10 +62,18 @@ class ParserRegistry @Inject constructor(
         val result = if (specificParser != null) {
             Logger.d("ParserRegistry", "Found specific parser: ${specificParser.bankKey}")
             specificParser.parse(body, timestamp) 
-                ?: genericParser.parse(body, timestamp)?.copy(bankName = specificParser.bankKey)
+                ?: genericParser.parse(body, timestamp)?.let { 
+                    // If generic fallback, try to preserve the mapped bank name while keeping the digits
+                    val digits = it.bankName.substringAfter("-").takeIf { it.length == 4 }
+                    it.copy(bankName = if (digits != null) "${bankName.uppercase()}-$digits" else bankName)
+                }
         } else {
             Logger.d("ParserRegistry", "No specific parser found, trying generic")
-            genericParser.parse(body, timestamp)?.copy(bankName = bankName)
+            genericParser.parse(body, timestamp)?.let {
+                // For completely unknown senders, generic parser already produced "SENDER-XXXX" or "SENDER"
+                // We keep its result to maintain the extracted digits
+                it.copy(bankName = if (it.bankName.contains("-")) it.bankName else bankName)
+            }
         }
 
         if (result != null) {

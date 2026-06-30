@@ -1,6 +1,7 @@
 package com.example.expncetracker.exptkr.domain.usecase
 
 import com.example.expncetracker.exptkr.core.common.Logger
+import com.example.expncetracker.exptkr.core.common.toEpochMilli
 import com.example.expncetracker.exptkr.core.common.HashingUtil
 import com.example.expncetracker.exptkr.core.ml.HybridMlEngine
 import com.example.expncetracker.exptkr.core.parser.ParserRegistry
@@ -51,12 +52,17 @@ class ImportSmsTransactionsUseCase @Inject constructor(
                 merchantName = parsedSms.merchant,
                 amount = parsedSms.amount,
                 type = parsedSms.type,
-                timestamp = parsedSms.timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                timestamp = parsedSms.timestamp.toEpochMilli(),
                 smsBody = raw.body
             )
 
-            var accountId = accountDao.getAccountIdByName(parsedSms.bankName.trim())
-                ?: parsedSms.bankName.trim().substringBefore(" ").takeIf { it.isNotBlank() }?.let {
+            val trimmedBankName = parsedSms.bankName.trim()
+            val lastDigits = trimmedBankName.takeLast(4).filter { it.isDigit() }
+            val bankPrefix = trimmedBankName.substringBefore(" ").trim()
+
+            var accountId = accountDao.getAccountIdByName(trimmedBankName)
+                ?: (if (lastDigits.length == 4) accountDao.findAccountIdByDigits(bankPrefix, lastDigits) else null)
+                ?: bankPrefix.takeIf { it.isNotBlank() }?.let {
                     accountDao.getAccountIdByName(it)
                 }
 
@@ -103,7 +109,7 @@ class ImportSmsTransactionsUseCase @Inject constructor(
                 if (transaction.parsingStatus == "REMINDER") {
                     repository.insertTransaction(transaction)
                 } else {
-                    repository.insertTransactionWithBalance(transaction)
+                    repository.insertTransactionWithBalance(transaction, parsedSms.accountBalance)
                 }
             } catch (e: Exception) {
                 Logger.e("ImportSmsTransactions", "Error inserting transaction: ${e.message}")

@@ -18,8 +18,11 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
     // Optional: secondary regex for merchants in different formats
     open val secondaryMerchantRegex: Regex? = null
 
-    // Optional: regex to extract specific account identifier (e.g. A/c *8503)
-    open val accountRegex: Regex = "(?i)(?:A/c|Account|Card|from|through|A/C)[:\\s]+([*X]*\\d{3,})".toRegex()
+    // Optional: regex to extract specific account identifier (e.g. A/c *8503 or Bank AC 3382)
+    open val accountRegex: Regex = "(?i)(?:A/c|Account|Card|from|through|A/C|AC)[:\\s]+(?:\\w+\\s+){0,2}([*X]*\\d{3,})".toRegex()
+    
+    // Optional: regex to extract absolute balance if available in SMS
+    open val balanceRegex: Regex = "(?i)(?:Bal|Balance|Avl Bal|Available Balance|Limit)[:\\s]*[Rr]s\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)".toRegex()
 
     // Intent detection keywords
     private val intentKeywords = "will be deducted|generated|due on|statement for|contribution".toRegex(RegexOption.IGNORE_CASE)
@@ -97,13 +100,16 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
                 ?: secondaryMerchantRegex?.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
                 ?: return null // NEW: No merchant = no transaction (Quarantine it)
 
-            // Try to extract a specific account name (e.g. HDFC *8503)
-            val accountSuffix = accountRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
-            val specificBankName = if (accountSuffix != null) "$bankName $accountSuffix" else bankName
+            // Try to extract a specific account name (e.g. HDFC *8503 -> HDFC-8503)
+            val rawSuffix = accountRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
+            val digitsOnly = rawSuffix?.filter { it.isDigit() }?.takeLast(4)
+            val specificBankName = if (digitsOnly != null) "${bankName.uppercase()}-$digitsOnly" else bankName.uppercase()
             
             val isIntent = intentKeywords.containsMatchIn(cleanBody)
 
-            ParsedSms(amount, type, merchant, specificBankName, time, isIntent)
+            val absoluteBalance = balanceRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.replace(",", "")?.toBigDecimalOrNull()
+
+            ParsedSms(amount, type, merchant, specificBankName, time, isIntent, absoluteBalance)
         } catch (e: Exception) {
             Logger.e("BankParser", "Parse failed: ${e.message}", e)
             null

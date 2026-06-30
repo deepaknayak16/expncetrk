@@ -106,7 +106,7 @@ class TransactionRepositoryImpl @Inject constructor(
         transactionDao.splitTransaction(parentId, subTransactions.map { it.toEntity() })
 
     // FIX #11: Use accountId when available; fallback to bankName for legacy
-    override suspend fun insertTransactionWithBalance(transaction: Transaction): Long {
+    override suspend fun insertTransactionWithBalance(transaction: Transaction, absoluteBalance: BigDecimal?): Long {
         val delta = when (transaction.type) {
             TransactionType.CREDIT, TransactionType.BORROW -> transaction.amount
             TransactionType.DEBIT, TransactionType.LEND -> -transaction.amount
@@ -116,7 +116,15 @@ class TransactionRepositoryImpl @Inject constructor(
             val id = transactionDao.insertTransaction(transaction.toEntity())
             if (id == -1L) return@withTransaction -1L // Duplicate SMS/transaction ignored
 
-            if (delta.signum() != 0) {
+            if (absoluteBalance != null) {
+                // If SMS provides absolute balance, use it directly (it's more accurate)
+                if (transaction.accountId != 0L) {
+                    accountDao.updateBalance(transaction.accountId, absoluteBalance)
+                } else {
+                    accountDao.updateBalanceByName(transaction.bankName, absoluteBalance)
+                }
+            } else if (delta.signum() != 0) {
+                // Fallback to relative adjustment
                 val rows = if (transaction.accountId != 0L) {
                     accountDao.adjustBalanceById(transaction.accountId, delta)
                 } else {

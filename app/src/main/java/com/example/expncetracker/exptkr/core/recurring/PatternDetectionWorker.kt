@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.expncetracker.exptkr.core.common.Logger
+import com.example.expncetracker.exptkr.core.common.MerchantNormalizer
 import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.data.db.entity.RecurringTemplateEntity
 import com.example.expncetracker.exptkr.data.db.entity.TransactionEntity
@@ -40,7 +41,7 @@ class PatternDetectionWorker @AssistedInject constructor(
         
         val expenseGroups = transactions
             .filter { it.type == TransactionType.DEBIT.name }
-            .groupBy { it.cleanMerchantName ?: cleanMerchant(it.merchant) }
+            .groupBy { it.cleanMerchantName ?: MerchantNormalizer.normalize(it.merchant) }
 
         for (entry in expenseGroups) {
             val cleanName = entry.key
@@ -48,24 +49,6 @@ class PatternDetectionWorker @AssistedInject constructor(
             if (list.size >= 2) {
                 analyzeGroup(cleanName, list)
             }
-        }
-    }
-
-    private fun cleanMerchant(merchant: String): String {
-        val raw = merchant.uppercase()
-            .replace(Regex("^[A-Z]{2}-"), "") // Strip bank prefixes like AD-, AX-
-            .replace(Regex("[^A-Z ]"), "") // Strip numbers and special chars, KEEP spaces
-            .trim()
-        
-        val words = raw.split(" ")
-            .filter { it.length >= 3 } // Ignore very short noise words
-        
-        return when {
-            words.isEmpty() -> "UNKNOWN"
-            words[0] == "BMTC" -> "BMTC" // Special case for bus
-            words[0].length >= 5 -> words[0] // e.g. "NETFLIX", "AIRTEL"
-            words.size >= 2 -> "${words[0]} ${words[1]}" // e.g. "HDFC BANK"
-            else -> words[0]
         }
     }
 
@@ -122,7 +105,7 @@ class PatternDetectionWorker @AssistedInject constructor(
 
     private suspend fun updateOldRecords(cleanName: String, state: String) {
         val transactions = db.transactionDao().getAllTransactionsSync()
-        val toUpdate = transactions.filter { cleanMerchant(it.merchant) == cleanName }
+        val toUpdate = transactions.filter { (it.cleanMerchantName ?: MerchantNormalizer.normalize(it.merchant)) == cleanName }
         
         for (tx in toUpdate) {
             db.transactionDao().updateTransaction(tx.copy(

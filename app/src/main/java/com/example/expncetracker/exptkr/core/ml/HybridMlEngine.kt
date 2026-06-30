@@ -50,7 +50,6 @@ class HybridMlEngine @Inject constructor(
 
         // FIX BUG-GEN-05: Use standardized clean merchant name for ALL lookups
         val cleanMerchant = MerchantNormalizer.normalize(merchantName)
-        val upper = cleanMerchant.uppercase(Locale.ROOT)
 
         // FIX BUG-ML-10: Eager training at start of infer to ensure model is ready
         if (!tfIdfNaiveBayes.isTrained()) {
@@ -79,7 +78,7 @@ class HybridMlEngine @Inject constructor(
             allRules.firstOrNull { 
                 it.priority >= 80 && 
                 (it.transactionType == null || it.transactionType == type.name) &&
-                upper.contains(it.keyword.uppercase(Locale.ROOT)) 
+                cleanMerchant.contains(it.keyword.uppercase(Locale.ROOT)) 
             }?.let {
                 finalCategory = it.category
                 categoryConfidence = 0.95f
@@ -104,7 +103,7 @@ class HybridMlEngine @Inject constructor(
             allRules.firstOrNull {
                 it.priority < 80 && 
                 (it.transactionType == null || it.transactionType == type.name) &&
-                upper.contains(it.keyword.uppercase(Locale.ROOT)) 
+                cleanMerchant.contains(it.keyword.uppercase(Locale.ROOT))
             }?.let {
                 finalCategory = it.category
                 categoryConfidence = 0.60f
@@ -167,7 +166,7 @@ class HybridMlEngine @Inject constructor(
         // Use cleaned merchant name for mapping key
         val cleanMerchant = MerchantNormalizer.normalize(merchantName)
         
-        tfIdfNaiveBayes.applyUserCorrection(cleanMerchant, correctCategory)
+        tfIdfNaiveBayes.markStale()
         
         appScope.launch {
             try {

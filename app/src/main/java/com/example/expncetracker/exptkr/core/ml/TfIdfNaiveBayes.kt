@@ -215,9 +215,12 @@ class TfIdfNaiveBayes @Inject constructor(
         )
     }
 
+    /**
+     * Flags the model as stale to trigger a fresh train from the recent history.
+     * Note: User corrections are primarily handled via merchant_mappings table.
+     */
     @Synchronized
-    fun applyUserCorrection(merchantName: String, correctCategory: String) {
-        // Clearing trainedOnCount to force retrain in HybridMlEngine
+    fun markStale() {
         trainedOnCount = 0 
         persistModel()
     }

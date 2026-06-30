@@ -28,6 +28,9 @@ interface AccountDao {
     @Query("SELECT id FROM accounts WHERE name = :name LIMIT 1")
     suspend fun getAccountIdByName(name: String): Long?
 
+    @Query("SELECT id FROM accounts WHERE name LIKE :bankPrefix || '%' AND name LIKE '%' || :lastDigits LIMIT 1")
+    suspend fun findAccountIdByDigits(bankPrefix: String, lastDigits: String): Long?
+
     @Query("UPDATE accounts SET balance = balance + :delta WHERE name = :name")
     suspend fun adjustBalance(name: String, delta: java.math.BigDecimal): Int
 
@@ -51,6 +54,9 @@ interface AccountDao {
 
     @Query("UPDATE accounts SET balance = :balance WHERE id = :accountId")
     suspend fun updateBalance(accountId: Long, balance: BigDecimal)
+
+    @Query("UPDATE accounts SET balance = :balance WHERE name = :name")
+    suspend fun updateBalanceByName(name: String, balance: BigDecimal)
 
     @Query("UPDATE accounts SET balance = 0.0")
     suspend fun resetAllBalances()
