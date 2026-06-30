@@ -5,7 +5,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material.icons.automirrored.filled.*
@@ -15,12 +16,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -40,16 +40,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.expncetracker.exptkr.R
-import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.ui.accounts.AccountsScreen
 import com.example.expncetracker.exptkr.ui.accounts.AccountsViewModel
 import com.example.expncetracker.exptkr.ui.addtransaction.AddTransactionScreen
 import com.example.expncetracker.exptkr.ui.analytics.AnalyticsScreen
-import com.example.expncetracker.exptkr.ui.analytics.AnalyticsViewModel
 import com.example.expncetracker.exptkr.ui.bills.BillsScreen
 import com.example.expncetracker.exptkr.ui.bills.BillsViewModel
 import com.example.expncetracker.exptkr.ui.budget.BudgetScreen
@@ -66,8 +63,6 @@ import com.example.expncetracker.exptkr.ui.settings.SettingsScreen
 import com.example.expncetracker.exptkr.ui.settings.SettingsViewModel
 import com.example.expncetracker.exptkr.ui.transactions.TransactionListItem
 import com.example.expncetracker.exptkr.ui.transactions.TransactionScreen
-import com.example.expncetracker.exptkr.ui.transactions.TransactionViewModel
-import com.example.expncetracker.exptkr.ui.theme.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -120,6 +115,9 @@ fun AppNavGraph(startRoute: String? = null) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // ── Scroll States ──────────────────────────────────────────────────────────
+    //val dashboardScrollState = rememberLazyListState()
+
     // ── ViewModels ─────────────────────────────────────────────────────────────
     val settingsViewModel: SettingsViewModel = if (activity != null)
         hiltViewModel(activity) else hiltViewModel()
@@ -132,8 +130,6 @@ fun AppNavGraph(startRoute: String? = null) {
 
     val settingsUiState by settingsViewModel.uiState.collectAsState()
     val dashboardState by dashboardViewModel.uiState.collectAsState()
-
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     // ── Sheet / overlay state ──────────────────────────────────────────────────
     var showUpcomingSheet by remember { mutableStateOf(false) }
@@ -195,9 +191,7 @@ fun AppNavGraph(startRoute: String? = null) {
                         userPhotoUrl = settingsUiState.accountPhotoUrl,
                         hasUpcomingPayments = upcomingRecurring.isNotEmpty(),
                         isPaymentDueToday = isPaymentDueToday,
-                        isPopupVisible = showUpcomingSheet,
                         upcomingCount = upcomingRecurring.size,
-                        scrollBehavior = scrollBehavior,
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onNotificationClick = { showUpcomingSheet = true },
                         onSearchClick = {
@@ -258,6 +252,7 @@ fun AppNavGraph(startRoute: String? = null) {
                 composable("dashboard") {
                     DashboardScreen(
                         viewModel = dashboardViewModel,
+                        //scrollState = dashboardScrollState,
                         onNavigateToAddTransaction = {
                             navController.navigate("add_transaction")
                         },
@@ -283,9 +278,6 @@ fun AppNavGraph(startRoute: String? = null) {
                 composable("bills") {
                     BillsScreen(billsViewModel)
                 }
-                //composable("budget") {
-                    //BudgetScreen(budgetViewModel)
-                //}
                 composable("budget") {
                     BudgetScreen(budgetViewModel)
                 }
@@ -394,9 +386,9 @@ private fun AppDrawerSheet(
     onNavigate: (String) -> Unit
 ) {
     ModalDrawerSheet (modifier = Modifier
-        .width(230.dp)        // Drawer width
+        .width(260.dp)        // Drawer width
         .fillMaxHeight()      // Full height
-        .padding(8.dp)        // Outer padding
+        .padding(0.dp)        // Outer padding
     ) {
         // FIX: flat surface header — no gradient (broken in dark mode)
         Surface(
@@ -462,7 +454,6 @@ private fun AppDrawerSheet(
             NavigationItem("dashboard", "Today", Icons.Filled.Home, Icons.Outlined.Home),
             NavigationItem("transactions", "Ledger", Icons.Filled.ReceiptLong, Icons.Outlined.ReceiptLong),
             NavigationItem("bills", "Bills", Icons.Filled.Receipt, Icons.Outlined.Receipt),
-            //NavigationItem("categories", "Category", Icons.Filled.Category, Icons.Outlined.Category),
             NavigationItem("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
         )
 
@@ -496,15 +487,39 @@ private fun AppTopBar(
     userPhotoUrl: String?,
     hasUpcomingPayments: Boolean,
     isPaymentDueToday: Boolean,
-    isPopupVisible: Boolean,
     upcomingCount: Int,
-    scrollBehavior: TopAppBarScrollBehavior,
     onMenuClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onSearchClick: () -> Unit,
     onAddClick: () -> Unit
 ) {
-    val isDashboard = currentRoute == "dashboard"
+    // 1. Fixed Height
+    val appBarHeight = 36.dp
+    val paddingSide = 6.dp
+
+    // Calculate Dynamic Screen Title
+    val screenTitle = remember(currentRoute, userName, isSignedIn) {
+        when (currentRoute) {
+            "dashboard" -> {
+                val greetingPrefix = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+                    in 0..11 -> "Good morning"
+                    in 12..16 -> "Good afternoon"
+                    in 17..20 -> "Good evening"
+                    else -> "Good night"
+                }
+                if (isSignedIn && !userName.isNullOrBlank()) "$greetingPrefix, $userName" else greetingPrefix
+            }
+            "transactions" -> "Ledger"
+            "analytics" -> "Analytics"
+            "bills" -> "Bills"
+            "budget" -> "Budget"
+            "goals" -> "Goals"
+            "accounts" -> "Accounts"
+            "categories" -> "Categories"
+            "settings" -> "Settings"
+            else -> "ExpnceTkr"
+        }
+    }
 
     val greeting = remember {
         when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
@@ -517,17 +532,6 @@ private fun AppTopBar(
 
     val infiniteTransition = rememberInfiniteTransition(label = "aura_pulse")
 
-    // HIGHER HIGHLIGHT: Increased target alpha and faster pulse
-    val auraAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "aura_alpha"
-    )
-
     val bellRotation by infiniteTransition.animateFloat(
         initialValue = -12f,
         targetValue = 12f,
@@ -538,93 +542,100 @@ private fun AppTopBar(
         label = "bell_rotation"
     )
 
-    // Only show aura if on dashboard, payment is due today, and POPUP IS NOT OPEN
-    val shouldShowAura = isDashboard && isPaymentDueToday && !isPopupVisible
+    // EMOJI STATUS - Placed at the very top (Status Bar / Camera area)
+    val backgroundEmoji = when {
+        isPaymentDueToday -> "🚨 $upcomingCount Due Today 🚨"
+        hasUpcomingPayments -> " UpComing 🕒"
+        else -> "$greeting 💰"
+    }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
-    ) {
-        Box(modifier = Modifier.statusBarsPadding()) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // EMOJI STATUS - Placed at the very top (Status Bar / Camera area)
+        Text(
+            text = backgroundEmoji,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 6.dp), // Positioned in the status bar area
+            color = if (isPaymentDueToday) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
-            // ── THE HIGH-HIGHLIGHT AURA ──
-            if (shouldShowAura) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color.Red.copy(alpha = auraAlpha),
-                                    Color.Transparent
-                                ),
-                                center = Offset(200f, 80f),
-                                radius = 700f
-                            )
-                        )
-                )
-            }
-
-            TopAppBar(
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        // Header container with fixed height
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding() // Dynamically clear the status bar
+                .height(appBarHeight),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+            shadowElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = paddingSide),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left side: App Icon & Titles
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        onClick = onMenuClick,
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Surface(
-                            onClick = onMenuClick,
-                            modifier = Modifier.size(42.dp),
-                            shape = CircleShape,
-                            color = if (shouldShowAura) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Image(
-                                painter = painterResource(R.mipmap.ic_launcher_foreground),
-                                contentDescription = "Open Drawer",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .scale(1.55f)
-                            )
-                        }
+                        Image(
+                            painter = painterResource(R.mipmap.ic_launcher_foreground),
+                            contentDescription = "Open Drawer",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .scale(1.5f)
+                        )
+                    }
 
-                        Column {
+                    Column {
+                        Text(
+                            text = screenTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (currentRoute == "dashboard" && isPaymentDueToday) {
                             Text(
-                                text = if (shouldShowAura) "⚠️ $upcomingCount Due Today" else greeting,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (shouldShowAura) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (shouldShowAura) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = if (isSignedIn && !userName.isNullOrBlank()) userName else stringResource(R.string.app_name),
-                                style = MaterialTheme.typography.titleMedium,
+                                text = "⚠️ $upcomingCount Due Today",
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = Color.Red
                             )
                         }
                     }
-                },
-                actions = {
-                    // Search icon
-                    IconButton(onClick = onSearchClick) {
+                }
+
+                // Right side: Action icons
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(
+                        onClick = onSearchClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
-                    // Add button (+)
                     Surface(
                         onClick = onAddClick,
                         modifier = Modifier.size(36.dp),
@@ -642,25 +653,33 @@ private fun AppTopBar(
                         }
                     }
 
-                    IconButton(onClick = onNotificationClick) {
+                    IconButton(
+                        onClick = onNotificationClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
                         Icon(
                             imageVector = if (hasUpcomingPayments) Icons.Default.NotificationsActive else Icons.Default.Notifications,
                             contentDescription = "Notifications",
                             tint = if (isPaymentDueToday) Color.Red else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(26.dp).graphicsLayer {
+                            modifier = Modifier.size(24.dp).graphicsLayer {
                                 rotationZ = if (hasUpcomingPayments) bellRotation else 0f
                             }
                         )
                     }
 
                     Surface(
-                        modifier = Modifier.padding(end = 8.dp).size(36.dp),
+                        modifier = Modifier.size(36.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         if (isSignedIn && userPhotoUrl != null) {
-                            AsyncImage(model = userPhotoUrl, contentDescription = "Profile", contentScale = ContentScale.Crop)
+                            AsyncImage(
+                                model = userPhotoUrl,
+                                contentDescription = "Profile",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         } else {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
@@ -673,7 +692,7 @@ private fun AppTopBar(
                         }
                     }
                 }
-            )
+            }
         }
     }
 }

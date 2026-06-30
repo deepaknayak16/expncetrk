@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.core.common.formatToDisplay
@@ -27,6 +28,8 @@ import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.components.getIconByName
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, widthDp = 800, heightDp = 400)
 @Composable
 fun TransactionListItem(
     transaction: Transaction,
@@ -105,7 +108,7 @@ fun TransactionListItem(
                             imageVector = icon,
                             contentDescription = null,
                             tint = color,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }

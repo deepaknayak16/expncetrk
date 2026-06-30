@@ -40,6 +40,7 @@ securityCrypto = "1.1.0"
 animationCore = "1.11.3"
 coil = "2.7.0"
 googleServices = "4.5.0"
+material3 ="1.4.0"
 
 [libraries]
 accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanistDrawablepainter" }

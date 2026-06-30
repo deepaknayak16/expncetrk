@@ -304,8 +304,17 @@ object DefaultClassificationRules {
         DefaultRule("ICICI BANK", "Transfer", "CONTAINS", 70),
         DefaultRule("SBI", "Transfer", "CONTAINS", 70),
         DefaultRule("BANK AC", "Transfer", "CONTAINS", 70),
-        DefaultRule("CREDITED TO", "Transfer", "CONTAINS", 70),
-        DefaultRule("DEBITED FROM", "Transfer", "CONTAINS", 70),
+        
+        // CREDIT rules (Transfer In / Income) - Fix Issue 2
+        DefaultRule("YBL", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("PTYES", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("PTSBI", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("CREDITED TO", "Transfer In", "CONTAINS", 70, "CREDIT"),
+        DefaultRule("DEBITED FROM", "Transfer", "CONTAINS", 70, "DEBIT"),
+        DefaultRule("RECEIVED", "Transfer In", "CONTAINS", 80, "CREDIT"),
+        DefaultRule("INDIA POST", "Income", "CONTAINS", 85, "CREDIT"),
+        DefaultRule("DOPBNK", "Income", "CONTAINS", 85, "CREDIT"),
+
         DefaultRule("TRANSACTION", "Others", "CONTAINS", 60),
         DefaultRule("PAYTM", "Transfer", "CONTAINS", 80, "DEBIT"),
         DefaultRule("PHONEPE", "Transfer", "CONTAINS", 80, "DEBIT"),
@@ -447,6 +456,10 @@ object DefaultClassificationRules {
 
         DefaultRule("CREDIT CARD PAYMENT", "Credit Card Payment", "CONTAINS", 0, "DEBIT"),
         DefaultRule("CC PAYMENT", "Credit Card Payment", "CONTAINS", 0, "DEBIT"),
-        DefaultRule("CARD PAYMENT", "Credit Card Payment", "CONTAINS", 0, "DEBIT")
+        DefaultRule("CARD PAYMENT", "Credit Card Payment", "CONTAINS", 0, "DEBIT"),
+        
+        // Final missing rules (Issue 2 & 3 & 4)
+        DefaultRule("TOBOX", "Food", "CONTAINS", 80, "DEBIT"),
+        DefaultRule("SUPER MARKET", "Groceries", "CONTAINS", 85, "DEBIT")
     )
 }

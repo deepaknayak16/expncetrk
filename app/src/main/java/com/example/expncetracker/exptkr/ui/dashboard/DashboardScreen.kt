@@ -88,6 +88,7 @@ private const val MAX_RECENT_TRANSACTIONS = 25
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
+    scrollState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
     onNavigateToAddTransaction: () -> Unit = {},
     onNavigateToTransactions: () -> Unit = {},
     onNavigateToAnalytics: () -> Unit = {},
@@ -154,6 +155,7 @@ fun DashboardScreen(
                 ) {
                     DashboardContent(
                         viewModel = viewModel,
+                        scrollState = scrollState,
                         summary = state.data.summary,
                         previousSummary = state.data.previousSummary,
                         recent = state.data.recentTransactions,
@@ -217,6 +219,7 @@ fun DashboardScreen(
 @Composable
 fun DashboardContent(
     viewModel: DashboardViewModel,
+    scrollState: androidx.compose.foundation.lazy.LazyListState,
     summary: FinancialSummary,
     previousSummary: FinancialSummary?,
     recent: List<Transaction>,
@@ -257,6 +260,7 @@ fun DashboardContent(
     }
 
     LazyColumn(
+        state = scrollState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -636,14 +640,14 @@ fun ModernDashboardHeader(
                 onClick = onUpcomingClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-                    .height(44.dp),
+                    .padding(bottom = 4.dp)
+                    .height(34.dp),
                 shape = MaterialTheme.shapes.medium,
                 color = containerColor,
                 border = BorderStroke(1.dp, contentColor.copy(alpha = 0.2f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {

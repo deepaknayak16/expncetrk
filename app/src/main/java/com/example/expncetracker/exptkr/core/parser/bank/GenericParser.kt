@@ -78,9 +78,10 @@ class GenericParser(private val bankName: String = "Bank") : BankParser {
         }
 
         // Try to extract merchant name
-        val merchantRegex = "(?i)(?:To|Paid to|at|towards|INFO)[:*]?\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\.|$)".toRegex()
+        // Added "For" to catch E-Mandate merchants (Fix REG-04)
+        val merchantRegex = "(?i)(?:To|Paid to|at|towards|INFO|For)[:*]?\\s+([^\\s\\d][^\\.\\s]+(?:\\s+[^\\s\\d][^\\.\\s]+)*?)(?=\\s+\\bOn\\b\\s+\\d|\\s+\\bRef\\b|\\s+\\bRefNo\\b|\\s*\\(UPI|\\.|$|\\s)".toRegex()
         val merchant = merchantRegex.find(cleanBody)?.groupValues?.getOrNull(1)?.trim()
-            ?: bankName // Fallback to sender/bankName instead of "Transaction"
+            ?: return null // Fix REG-04: Quarantine instead of using "Bank"
 
         return ParsedSms(
             amount = amount,
