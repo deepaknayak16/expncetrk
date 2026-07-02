@@ -26,23 +26,16 @@ class ParserRegistry @Inject constructor(
     fun parseSms(sender: String, body: String, timestamp: Long): ParsedSms? {
         val upperBody = body.uppercase()
 
-        // FIX 4: EPFO / PF Balance Trap
-        // These are NOT debits/credits from the user's bank account. They are informational.
-        if (upperBody.contains("PASSBOOK BALANCE")) {
-            Logger.d("ParserRegistry", "Ignored EPFO informational SMS (Passbook Balance)")
-            return null 
-        }
-
-        // FIX 4: Airtel "Bill Generated" Trap
-        // "Amount to be paid: Rs 411.82" -> This is a future liability, not a past transaction.
-        if (upperBody.contains("AMOUNT TO BE PAID") || upperBody.contains("BILL GENERATED")) {
-            Logger.d("ParserRegistry", "Ignored future liability bill generation SMS")
+        // FIX 4: EPFO / PF Balance Trap (REFINED)
+        // These are informational but we want them as REMINDERS if they mention Contribution
+        if (upperBody.contains("PASSBOOK BALANCE") && !upperBody.contains("CONTRIBUTION")) {
+            Logger.d("ParserRegistry", "Ignored purely informational Passbook Balance SMS")
             return null 
         }
 
         // ADDITIONAL FIX: Ignore "payment received" confirmations for mobile/broadband bills (not income)
-        if (upperBody.contains("WE HAVE RECEIVED PAYMENT") && (upperBody.contains("MOBILE") || upperBody.contains("AIRTEL") || upperBody.contains("BROADBAND"))) {
-            Logger.d("ParserRegistry", "Ignored bill payment confirmation (Not income)")
+        if (upperBody.contains("WE HAVE RECEIVED PAYMENT") && (upperBody.contains("MOBILE") || upperBody.contains("AIRTEL") || upperBody.contains("BROADBAND")) && !upperBody.contains("RS.") && !upperBody.contains("₹")) {
+            Logger.d("ParserRegistry", "Ignored bill payment confirmation (No amount)")
             return null
         }
 
@@ -52,36 +45,42 @@ class ParserRegistry @Inject constructor(
 
         Logger.d("ParserRegistry", "Attempting to parse SMS from $sender (normalized: $cleanSender): ${body.take(30)}...")
 
+        // FIX: Match by prefix to handle suffixes like -S, -G, -T (e.g., HDFCBK-S matches HDFC Bank)
+        val mappedBankName = senderMappings.entries
+            .filter { cleanSender.startsWith(it.key) }
+            .maxByOrNull { it.key.length }?.value ?: cleanSender
+
         // Find a specific parser that matches the sender
         val specificParser = parsers.firstOrNull { parser ->
             norm.contains(parser.bankKey)
         }
         
-        val bankName = senderMappings[cleanSender] ?: cleanSender
-
         val result = if (specificParser != null) {
             Logger.d("ParserRegistry", "Found specific parser: ${specificParser.bankKey}")
-            specificParser.parse(body, timestamp) 
-                ?: genericParser.parse(body, timestamp)?.let { 
-                    // If generic fallback, try to preserve the mapped bank name while keeping the digits
-                    val digits = it.bankName.substringAfter("-").takeIf { it.length == 4 }
-                    it.copy(bankName = if (digits != null) "${bankName.uppercase()}-$digits" else bankName)
-                }
+            specificParser.parse(body, timestamp)
         } else {
             Logger.d("ParserRegistry", "No specific parser found, trying generic")
-            genericParser.parse(body, timestamp)?.let {
-                // For completely unknown senders, generic parser already produced "SENDER-XXXX" or "SENDER"
-                // We keep its result to maintain the extracted digits
-                it.copy(bankName = if (it.bankName.contains("-")) it.bankName else bankName)
-            }
+            genericParser.parse(body, timestamp)
         }
 
-        if (result != null) {
-            Logger.d("ParserRegistry", "Successfully parsed: Amt=${result.amount}, Merchant=${result.merchant}")
+        // POST-PROCESSING: Ensure the bank name is clean and contains the mapped name + digits
+        val finalResult = result?.let {
+            val digits = it.bankName.substringAfter("-").takeIf { s -> s.all { c -> c.isDigit() } && s.length >= 3 }
+            val baseName = if (mappedBankName.uppercase().contains(it.bankName.substringBefore("-").uppercase())) {
+                mappedBankName
+            } else {
+                it.bankName.substringBefore("-")
+            }
+            
+            it.copy(bankName = if (digits != null) "${baseName.uppercase()}-$digits" else baseName.uppercase())
+        }
+
+        if (finalResult != null) {
+            Logger.d("ParserRegistry", "Successfully parsed: Amt=${finalResult.amount}, Merchant=${finalResult.merchant}, Bank=${finalResult.bankName}")
         } else {
             Logger.d("ParserRegistry", "Failed to parse SMS from $sender")
         }
 
-        return result
+        return finalResult
     }
 }

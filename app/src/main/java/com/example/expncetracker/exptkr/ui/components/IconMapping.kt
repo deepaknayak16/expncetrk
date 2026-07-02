@@ -4,34 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.expncetracker.exptkr.domain.model.Category
-
-fun getCategoryIcon(category: Category): ImageVector {
-    return when (category) {
-        Category.FOOD -> Icons.Default.Restaurant
-        Category.CABS -> Icons.Default.DirectionsCar
-        Category.RENT -> Icons.Default.HomeWork
-        Category.BILLS -> Icons.Default.Bolt
-        Category.SHOPPING -> Icons.Default.LocalMall
-        Category.SALARY -> Icons.Default.Payments
-        Category.INVESTMENTS -> Icons.AutoMirrored.Filled.TrendingUp
-        Category.TRAVEL -> Icons.Default.LocalAirport
-        Category.ENTERTAINMENT -> Icons.Default.LiveTv
-        Category.HEALTHCARE -> Icons.Default.Favorite
-        Category.EDUCATION -> Icons.Default.School
-        Category.GROCERIES -> Icons.Default.ShoppingCart
-        Category.OTHERS -> Icons.Default.GridView
-    }
-}
-
-fun getIconByName(name: String): ImageVector {
-    return try {
-        val category = Category.valueOf(name.uppercase())
-        getCategoryIcon(category)
-    } catch (e: Exception) {
-        Icons.Default.GridView
-    }
-}
 
 val availableIcons = listOf(
     "FOOD" to Icons.Default.Restaurant,
@@ -48,6 +20,10 @@ val availableIcons = listOf(
     "GROCERIES" to Icons.Default.ShoppingCart,
     "OTHERS" to Icons.Default.GridView
 )
+
+fun getIconByName(name: String): ImageVector {
+    return availableIcons.find { it.first.equals(name, ignoreCase = true) }?.second ?: Icons.Default.GridView
+}
 
 val presetColors = listOf(
     0xFFF97316, // Orange

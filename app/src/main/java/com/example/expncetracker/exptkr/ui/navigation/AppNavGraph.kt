@@ -43,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.expncetracker.exptkr.R
+import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.ui.accounts.AccountsScreen
 import com.example.expncetracker.exptkr.ui.accounts.AccountsViewModel
 import com.example.expncetracker.exptkr.ui.addtransaction.AddTransactionScreen
@@ -316,6 +317,15 @@ fun AppNavGraph(startRoute: String? = null) {
     if (showUpcomingSheet) {
         val categories = (dashboardState as? DashboardUiState.Success)
             ?.data?.allCategories ?: emptyList()
+        val domainCategories: List<Category> = categories.map { entity ->
+            Category(
+                id = entity.name,
+                name = entity.name,
+                type = entity.type,
+                icon = entity.iconName,
+                color = String.format("#%06X", (0xFFFFFF and entity.color))
+            )
+        }
 
         ModalBottomSheet(
             onDismissRequest = { showUpcomingSheet = false },
@@ -343,11 +353,9 @@ fun AppNavGraph(startRoute: String? = null) {
                 }
             } else {
                 upcomingRecurring.forEach { tx ->
-                    val cat = categories.find { it.name == tx.categoryName }
                     TransactionListItem(
                         transaction = tx.copy(timestamp = tx.nextDueDate ?: tx.timestamp),
-                        categoryIcon = cat?.let { getIconByName(it.iconName) },
-                        categoryColor = cat?.let { Color(it.color) },
+                        categories = domainCategories,
                         onClick = {
                             navController.navigate("add_transaction?transactionId=${tx.id}")
                             showUpcomingSheet = false

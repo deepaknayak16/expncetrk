@@ -131,4 +131,7 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE (merchant = :merchant OR cleanMerchantName = :merchant) AND timestamp >= :cycleStart AND type = 'DEBIT' LIMIT 1")
     suspend fun findPaymentInCurrentCycle(merchant: String, cycleStart: Long): TransactionEntity?
+
+    @Query("UPDATE transactions SET category = :categoryName, confidenceScore = :confidenceScore WHERE id = :id")
+    suspend fun updateCategory(id: Long, categoryName: String, confidenceScore: Float)
 }

@@ -1,0 +1,36 @@
+[
+  {
+    "id": "transport",
+    "name": "Transport & Mobility",
+    "category": "transport",
+    "type": "TRANSPORT",
+    "aliases": [
+      "OLA_CABS",
+      "UBER",
+      "RAPIDO",
+      "BLUSMART",
+      "NAMMA_YATRI",
+      "NCMC_CARD",
+      "DMRC_METRO",
+      "BMRC_METRO",
+      "MMRDA_METRO",
+      "CMRL_METRO",
+      "HYDERABAD_METRO",
+      "REDBUS",
+      "KSRTC",
+      "MSRTC",
+      "UPSRTC",
+      "IRCTC",
+      "MAKEMYTRIP",
+      "GOIBIBO",
+      "INDIGO",
+      "AIR_INDIA",
+      "VISTARA",
+      "AKASA_AIR",
+      "SPICEJET",
+      "EASEMYTRIP",
+      "YATRA"
+    ],
+    "logo": "transport.png"
+  }
+]

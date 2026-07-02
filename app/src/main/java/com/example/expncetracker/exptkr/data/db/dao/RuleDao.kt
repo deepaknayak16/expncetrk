@@ -20,4 +20,7 @@ interface RuleDao {
 
     @Query("DELETE FROM classification_rules")
     suspend fun deleteAllRules()
+
+    @Query("DELETE FROM classification_rules WHERE isSystemRule = 1")
+    suspend fun deleteSystemRules()
 }

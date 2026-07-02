@@ -1,0 +1,203 @@
+[
+  {
+    "id": "electricity",
+    "name": "Electricity Boards",
+    "category": "electricity",
+    "type": "BILLER",
+    "aliases": [
+      "BESCOM",
+      "MESCOM",
+      "GESCOM",
+      "HESCOM",
+      "TANGEDCO",
+      "TNEB",
+      "MAHAVITARAN",
+      "MSEDCL",
+      "UPPCL",
+      "TPCODL",
+      "TPWODL",
+      "TPSODL",
+      "TPNODL",
+      "BSES_RAJDHANI",
+      "BSES_YAMUNA",
+      "TPDDL",
+      "CESC",
+      "WBSEDCL",
+      "APEPDCL",
+      "APSPDCL",
+      "TGSPDCL",
+      "TGNPDCL",
+      "KSEBL",
+      "PSPCL",
+      "DHBVN",
+      "UHBVN",
+      "UGVCL",
+      "DGVCL",
+      "MGVCL",
+      "PGVCL",
+      "TORRENT_POWER"
+    ],
+    "logo": "electricity.png"
+  },
+  {
+    "id": "water",
+    "name": "Water Supply Boards",
+    "category": "water",
+    "type": "BILLER",
+    "aliases": [
+      "BWSSB",
+      "DJB",
+      "HMWSSB",
+      "MCGM",
+      "KWA",
+      "TWAD",
+      "PHED",
+      "WATCO",
+      "GWSSB",
+      "PUDA",
+      "HUDA",
+      "JAL_BOARD",
+      "RMC_WATER",
+      "SMC_WATER",
+      "NMMC_WATER",
+      "PMC_WATER"
+    ],
+    "logo": "water.png"
+  },
+  {
+    "id": "piped_gas",
+    "name": "Piped Gas Providers",
+    "category": "piped_gas",
+    "type": "BILLER",
+    "aliases": [
+      "IGL",
+      "MGL",
+      "GAIL",
+      "GUJARAT_GAS",
+      "ADANI_GAS",
+      "AGL",
+      "CUGL",
+      "IOAGPL",
+      "TORRENT_GAS",
+      "SITI_ENERGY",
+      "THINK_GAS",
+      "IRM_ENERGY"
+    ],
+    "logo": "piped_gas.png"
+  },
+  {
+    "id": "lpg_cylinder",
+    "name": "LPG Cylinder Providers",
+    "category": "gas",
+    "type": "BILLER",
+    "aliases": [
+      "INDANE",
+      "HP_GAS",
+      "BHARAT_GAS"
+    ],
+    "logo": "lpg_cylinder.png"
+  },
+  {
+    "id": "broadband",
+    "name": "Broadband & Fiber",
+    "category": "internet",
+    "type": "BILLER",
+    "aliases": [
+      "ACT_FIBERNET",
+      "AIRTEL_XSTREAM",
+      "JIO_FIBER",
+      "BSNL_FTTH",
+      "HATHWAY",
+      "YOU_BROADBAND",
+      "ALLIANCE_BROADBAND",
+      "EXCITEL",
+      "SIFY",
+      "SITI_BROADBAND",
+      "GTPL_FIBER",
+      "ASIANET_FIBER",
+      "NETPLUS"
+    ],
+    "logo": "broadband.png"
+  },
+  {
+    "id": "dth_cable",
+    "name": "DTH & Cable TV",
+    "category": "dth",
+    "type": "BILLER",
+    "aliases": [
+      "TATA_PLAY",
+      "AIRTEL_DIGITAL_TV",
+      "DISH_TV",
+      "SUN_DIRECT",
+      "D2H",
+      "GTPL_CABLE",
+      "HATHWAY_CABLE",
+      "DEN_NETWORKS",
+      "ASIANET_DIGITAL",
+      "SITI_NETWORKS",
+      "IN_DIGITAL",
+      "FASTWAY"
+    ],
+    "logo": "dth_cable.png"
+  },
+  {
+    "id": "mobile",
+    "name": "Mobile & Landline",
+    "category": "mobile",
+    "type": "BILLER",
+    "aliases": [
+      "JIO_PREPAID",
+      "JIO_POSTPAID",
+      "AIRTEL_PREPAID",
+      "AIRTEL_POSTPAID",
+      "VI_PREPAID",
+      "VI_POSTPAID",
+      "BSNL_PREPAID",
+      "BSNL_POSTPAID",
+      "MTNL",
+      "BSNL_LANDLINE",
+      "AIRTEL_LANDLINE",
+      "MTNL_LANDLINE"
+    ],
+    "logo": "mobile.png"
+  },
+  {
+    "id": "fastag",
+    "name": "FASTag Providers",
+    "category": "tolls",
+    "type": "BILLER",
+    "aliases": [
+      "ICICI_FASTAG",
+      "SBI_FASTAG",
+      "HDFC_FASTAG",
+      "IDFC_FIRST_FASTAG",
+      "AXIS_FASTAG",
+      "KOTAK_FASTAG",
+      "AIRTEL_PAYMENTS_BANK_FASTAG",
+      "BOB_FASTAG",
+      "PNB_FASTAG"
+    ],
+    "logo": "fastag.png"
+  },
+  {
+    "id": "insurance",
+    "name": "Insurance Providers",
+    "category": "insurance",
+    "type": "BILLER",
+    "aliases": [
+      "LIC",
+      "HDFC_LIFE",
+      "ICICI_PRUDENTIAL",
+      "SBI_LIFE",
+      "BAJAJ_ALLIANZ",
+      "TATA_AIG",
+      "MAX_LIFE",
+      "STAR_HEALTH",
+      "NIVA_BUPA",
+      "CARE_HEALTH",
+      "ACKO",
+      "DIGIT_INSURANCE"
+    ],
+    "logo": "insurance.png"
+  }
+]

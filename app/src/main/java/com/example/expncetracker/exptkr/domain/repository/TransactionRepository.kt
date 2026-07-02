@@ -35,4 +35,6 @@ interface TransactionRepository {
     suspend fun doesHashExist(hash: String): Boolean
 
     suspend fun cleanupDuplicates()
+    
+    suspend fun updateTransactionCategory(id: Long, categoryName: String, confidenceScore: Float)
 }

@@ -8,4 +8,5 @@ interface RuleRepository {
     suspend fun getActiveRulesList(): List<ClassificationRule>
     suspend fun insertRules(rules: List<ClassificationRule>)
     suspend fun deleteAllRules()
+    suspend fun deleteSystemRules()
 }

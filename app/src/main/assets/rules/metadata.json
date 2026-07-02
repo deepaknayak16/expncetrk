@@ -1,0 +1,16 @@
+{
+  "version_code": 3,
+  "build_timestamp": "2026-07-04T04:32:41.286347",
+  "total_entities": 21,
+  "total_aliases": 277,
+  "chunks": [
+    "banks",
+    "billers",
+    "governments",
+    "incomes",
+    "investments",
+    "merchants",
+    "subscriptions",
+    "transports"
+  ]
+}

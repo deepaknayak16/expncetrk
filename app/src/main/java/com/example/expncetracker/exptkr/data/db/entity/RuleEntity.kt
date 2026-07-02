@@ -15,5 +15,6 @@ data class RuleEntity(
     val matchType: String = "CONTAINS", // EXACT or CONTAINS
     val transactionType: String? = null,
     val priority: Int = 0,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val isSystemRule: Boolean = false
 )

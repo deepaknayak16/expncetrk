@@ -29,7 +29,7 @@ import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
 import com.example.expncetracker.exptkr.ui.theme.*
-import com.example.expncetracker.exptkr.ui.components.getCategoryIcon
+import com.example.expncetracker.exptkr.ui.components.getIconByName
 import com.example.expncetracker.exptkr.ui.components.availableIcons
 import com.example.expncetracker.exptkr.ui.components.presetColors
 import com.example.expncetracker.exptkr.ui.components.GradientCard
@@ -264,7 +264,6 @@ private fun CompactCategoryItem(
     totalAmount: BigDecimal,
     isDark: Boolean
 ) {
-    val categoryEnum = Category.entries.find { it.name == category.iconName } ?: Category.OTHERS
     val percentage = if (totalAmount > BigDecimal.ZERO) {
         (amount.divide(totalAmount, 4, RoundingMode.HALF_UP).multiply(BigDecimal(100))).toInt()
     } else 0
@@ -295,7 +294,7 @@ private fun CompactCategoryItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = getCategoryIcon(categoryEnum),
+                        imageVector = getIconByName(category.iconName),
                         contentDescription = null,
                         tint = color,
                         modifier = Modifier.size(18.dp)

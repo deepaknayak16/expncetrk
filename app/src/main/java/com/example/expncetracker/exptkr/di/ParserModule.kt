@@ -2,6 +2,9 @@ package com.example.expncetracker.exptkr.di
 
 import com.example.expncetracker.exptkr.core.parser.BankParser
 import com.example.expncetracker.exptkr.core.parser.ParserRegistry
+import com.example.expncetracker.exptkr.core.parser.TransactionCategorizer
+import com.example.expncetracker.exptkr.core.parser.TransactionCategorizerImpl
+import com.example.expncetracker.exptkr.core.ml.HybridMlEngine
 import com.example.expncetracker.exptkr.core.parser.bank.*
 import dagger.Module
 import dagger.Provides
@@ -30,5 +33,14 @@ object ParserModule {
     @Singleton
     fun provideParserRegistry(parsers: List<@JvmSuppressWildcards BankParser>): ParserRegistry {
         return ParserRegistry(parsers)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTransactionCategorizer(
+        parserRegistry: ParserRegistry,
+        mlEngine: HybridMlEngine
+    ): TransactionCategorizer {
+        return TransactionCategorizerImpl(parserRegistry, mlEngine)
     }
 }

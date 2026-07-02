@@ -22,7 +22,7 @@ import com.example.expncetracker.exptkr.data.db.entity.*
         RecurringTemplateEntity::class,
         MerchantStatsEntity::class
     ],
-    version = 25,
+    version = 26,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -42,6 +42,34 @@ abstract class AppDatabase : RoomDatabase() {
 }
 
 object AppDatabaseMigrations {
+    val MIGRATION_25_26 = object : Migration(25, 26) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // FIX 5: Bridge legacy slugs to new Single Source of Truth slugs from entities.json
+            val legacyMap = mapOf(
+                "Food & Dining" to "dining",
+                "Loan & EMI" to "loans",
+                "Groceries" to "groceries",
+                "Cabs" to "transport",
+                "Bills & Utilities" to "bills",
+                "Shopping" to "shopping",
+                "Salary" to "salary",
+                "Investments" to "investments",
+                "Travel" to "transport",
+                "Entertainment" to "entertainment",
+                "Healthcare" to "health",
+                "Education" to "education",
+                "Others" to "others"
+            )
+
+            legacyMap.forEach { (oldName, newSlug) ->
+                db.execSQL("UPDATE transactions SET category = '$newSlug' WHERE category = '$oldName'")
+            }
+            
+            // Add isSystemRule column to classification_rules
+            db.execSQL("ALTER TABLE classification_rules ADD COLUMN isSystemRule INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     val MIGRATION_24_25 = object : Migration(24, 25) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // 1. Add Unique Index to classification_rules for proper re-seeding

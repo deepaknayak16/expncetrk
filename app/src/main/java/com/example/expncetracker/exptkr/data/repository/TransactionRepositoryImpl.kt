@@ -254,4 +254,8 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun cleanupDuplicates() {
         transactionDao.deleteDuplicateSmsTransactions()
     }
+
+    override suspend fun updateTransactionCategory(id: Long, categoryName: String, confidenceScore: Float) {
+        transactionDao.updateCategory(id, categoryName, confidenceScore)
+    }
 }

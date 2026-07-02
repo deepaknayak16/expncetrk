@@ -98,7 +98,7 @@ dependencies {
     implementation(libs.play.services.auth)
     implementation(libs.google.api.client.android)
     implementation(libs.google.api.services.drive)
-    implementation(libs.gson)
+    //implementation(libs.gson)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

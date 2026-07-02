@@ -1,0 +1,26 @@
+[
+  {
+    "id": "broking_wealth",
+    "name": "Broking & Wealth",
+    "category": "investments",
+    "type": "INVESTMENT",
+    "aliases": [
+      "ZERODHA",
+      "GROWW",
+      "ANGEL_ONE",
+      "UPSTOX",
+      "INDMONEY",
+      "KFINTECH",
+      "CAMS",
+      "PPF_DEPOSIT",
+      "NATIONAL_PENSION_SCHEME",
+      "NPS",
+      "COIN",
+      "KUVERA",
+      "ET_MONEY",
+      "WINT_WEALTH",
+      "SMALLCASE"
+    ],
+    "logo": "broking_wealth.png"
+  }
+]

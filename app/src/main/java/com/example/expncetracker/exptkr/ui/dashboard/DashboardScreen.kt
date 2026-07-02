@@ -160,6 +160,7 @@ fun DashboardScreen(
                         previousSummary = state.data.previousSummary,
                         recent = state.data.recentTransactions,
                         categories = state.data.allCategories,
+                        categoriesJson = state.data.allCategoriesJson,
                         recurring = state.data.recurringTransactions,
                         goals = state.data.goals,
                         trends = state.data.trends,
@@ -224,6 +225,7 @@ fun DashboardContent(
     previousSummary: FinancialSummary?,
     recent: List<Transaction>,
     categories: List<CategoryEntity>,
+    categoriesJson: List<com.example.expncetracker.exptkr.domain.model.Category> = emptyList(),
     recurring: List<Transaction>,
     goals: List<GoalEntity>,
     trends: List<SpendingTrend>,
@@ -367,11 +369,9 @@ fun DashboardContent(
                     )
                 }
                 items(transactions, key = { "tx_${it.id}" }) { transaction ->
-                    val categoryEntity = categories.find { it.name == transaction.categoryName }
                     TransactionListItem(
                         transaction = transaction,
-                        categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
-                        categoryColor = categoryEntity?.let { Color(it.color) },
+                        categories = categoriesJson,
                         onClick = { onTransactionClick(transaction.id) },
                         modifier = Modifier.animateItem()
                     )
@@ -414,8 +414,7 @@ fun DashboardContent(
                         val categoryEntity = categories.find { it.name == tx.categoryName }
                         TransactionListItem(
                             transaction = tx.copy(timestamp = tx.nextDueDate ?: tx.timestamp),
-                            categoryIcon = categoryEntity?.let { getIconByName(it.iconName) },
-                            categoryColor = categoryEntity?.let { Color(it.color) },
+                            categories = categoriesJson,
                             onClick = {
                                 onTransactionClick(tx.id)
                                 showUpcomingSheet = false

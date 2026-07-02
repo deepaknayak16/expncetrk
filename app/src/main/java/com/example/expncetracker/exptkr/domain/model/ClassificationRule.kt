@@ -5,5 +5,6 @@ data class ClassificationRule(
     val category: String,
     val matchType: MatchType,
     val priority: Int = 0,
-    val transactionType: String? = null
+    val transactionType: String? = null,
+    val isSystemRule: Boolean = false
 )

@@ -19,7 +19,8 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
     open val secondaryMerchantRegex: Regex? = null
 
     // Optional: regex to extract specific account identifier (e.g. A/c *8503 or Bank AC 3382)
-    open val accountRegex: Regex = "(?i)(?:A/c|Account|Card|from|through|A/C|AC)[:\\s]+(?:\\w+\\s+){0,2}([*X]*\\d{3,})".toRegex()
+    // FIX BUG-ML-13: Refined to avoid capturing phone numbers. Must be preceded by account keyword.
+    open val accountRegex: Regex = "(?i)(?:A/c|Account|Card|through|A/C|AC)[:\\s]+(?:\\w+\\s+){0,2}([*X]*\\d{3,4})\\b".toRegex()
     
     // Optional: regex to extract absolute balance if available in SMS
     open val balanceRegex: Regex = "(?i)(?:Bal|Balance|Avl Bal|Available Balance|Limit)[:\\s]*[Rr]s\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)".toRegex()

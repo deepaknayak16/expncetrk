@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.data.db.entity.CategoryEntity
+import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.DateFilter
 import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
@@ -102,6 +103,17 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val trends by viewModel.trends.collectAsState()
     val dailyTotals by viewModel.dailyTotals.collectAsState()
     val allCategories by viewModel.categories.collectAsState()
+    val domainCategories = remember(allCategories) {
+        allCategories.map { entity ->
+            Category(
+                id = entity.name,
+                name = entity.name,
+                type = entity.type,
+                icon = entity.iconName,
+                color = String.format("#%06X", (0xFFFFFF and entity.color))
+            )
+        }
+    }
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val context = LocalContext.current
@@ -397,11 +409,9 @@ fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
                     }
                 } else {
                     drillDownTransactions.forEach { tx ->
-                        val catEntity = allCategories.find { it.name == tx.categoryName }
                         TransactionListItem(
                             transaction = tx,
-                            categoryIcon = catEntity?.let { getIconByName(it.iconName) },
-                            categoryColor = catEntity?.let { Color(it.color) },
+                            categories = domainCategories,
                             onClick = null
                         )
                     }

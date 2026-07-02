@@ -1,0 +1,25 @@
+[
+  {
+    "id": "banks_upi",
+    "name": "Banks & UPI Peer Transfers",
+    "category": "banking",
+    "type": "BANK",
+    "aliases": [
+      "HDFC_BANK",
+      "ICICI_BANK",
+      "SBI_BANK",
+      "AXIS_BANK",
+      "KOTAK_BANK",
+      "INDUSIND_BANK",
+      "RBL_BANK",
+      "IDFC_FIRST_BANK",
+      "FEDERAL_BANK",
+      "PAYTM_BANK",
+      "PHONEPE",
+      "GOOGLE_PAY",
+      "CRED_PAY",
+      "YONO_SBI"
+    ],
+    "logo": "banks_upi.png"
+  }
+]

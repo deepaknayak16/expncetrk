@@ -1,0 +1,116 @@
+[
+  {
+    "id": "groceries",
+    "name": "Groceries & Daily Needs",
+    "category": "groceries",
+    "type": "MERCHANT",
+    "aliases": [
+      "BLINKIT",
+      "INSTAMART",
+      "ZEPTO",
+      "BIGBASKET",
+      "BB_DAILY",
+      "JIOMART",
+      "AMAZON_FRESH",
+      "DMART_READY",
+      "SPENCERS",
+      "NATURES_BASKET",
+      "COUNTRY_DELIGHT",
+      "MILK_BASKET",
+      "OTIPY",
+      "DUNZO"
+    ],
+    "logo": "groceries.png"
+  },
+  {
+    "id": "food_delivery",
+    "name": "Food Delivery & Dining",
+    "category": "dining",
+    "type": "MERCHANT",
+    "aliases": [
+      "SWIGGY",
+      "ZOMATO",
+      "EATCLUB",
+      "DOMINOS",
+      "PIZZA_HUT",
+      "MCDONALDS",
+      "STARBUCKS",
+      "BURGER_KING",
+      "KFC",
+      "REBEL_FOODS"
+    ],
+    "logo": "food_delivery.png"
+  },
+  {
+    "id": "fuel_stations",
+    "name": "Fuel Stations",
+    "category": "fuel",
+    "type": "MERCHANT",
+    "aliases": [
+      "IOCL",
+      "BPCL",
+      "HPCL",
+      "SHELL",
+      "RELIANCE_BP",
+      "JIO_BP",
+      "NAYARA_ENERGY"
+    ],
+    "logo": "fuel_stations.png"
+  },
+  {
+    "id": "shopping",
+    "name": "Shopping & E-Commerce",
+    "category": "shopping",
+    "type": "MERCHANT",
+    "aliases": [
+      "AMAZON",
+      "FLIPKART",
+      "MYNTRA",
+      "AJIO",
+      "MEESHO",
+      "NYKAA",
+      "TATA_CLIQ",
+      "CROMA",
+      "RELIANCE_DIGITAL",
+      "ZARA",
+      "H_AND_M",
+      "DECATHLON",
+      "LIFESTYLE",
+      "WESTSIDE",
+      "UNIQLO",
+      "URBAN_LADDER",
+      "PEPPERFRY"
+    ],
+    "logo": "shopping.png"
+  },
+  {
+    "id": "entertainment",
+    "name": "Entertainment & Leisure",
+    "category": "entertainment",
+    "type": "MERCHANT",
+    "aliases": [
+      "BOOKMYSHOW",
+      "PVR",
+      "INOX",
+      "PAYTM_MOVIES",
+      "SMAAAASH"
+    ],
+    "logo": "entertainment.png"
+  },
+  {
+    "id": "medical_healthcare",
+    "name": "Medical & Healthcare",
+    "category": "health",
+    "type": "MERCHANT",
+    "aliases": [
+      "PHARMEASY",
+      "1MG",
+      "APOLLO_247",
+      "NETMEDS",
+      "MEDPLUS",
+      "DR_LAL_PATHLABS",
+      "METROPOLIS"
+    ],
+    "logo": "medical_healthcare.png"
+  }
+]

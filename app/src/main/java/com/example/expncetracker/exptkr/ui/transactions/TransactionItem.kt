@@ -5,20 +5,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.expncetracker.exptkr.core.common.formatAsCurrency
 import com.example.expncetracker.exptkr.core.common.formatToDisplay
@@ -28,29 +24,23 @@ import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.theme.*
 import com.example.expncetracker.exptkr.ui.components.getIconByName
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true, widthDp = 800, heightDp = 400)
 @Composable
 fun TransactionListItem(
     transaction: Transaction,
+    categories: List<Category>,
     modifier: Modifier = Modifier,
     onDelete: (() -> Unit)? = null,
-    onEdit: (() -> Unit)? = null,
-    onClick: (() -> Unit)? = null,
-    categoryIcon: ImageVector? = null,
-    categoryColor: Color? = null
+    onClick: (() -> Unit)? = null
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    val isDarkTheme = MaterialTheme.isDark
+
+    // Requirement 3: Dynamic lookup from ViewModel's state
+    val categoryMetadata = categories.find { it.id == transaction.categoryName }
     
-    // Fallback if category name doesn't match enum
-    val categoryEnum = Category.entries.find { it.name == transaction.categoryName.uppercase() } ?: Category.OTHERS
-    val style = remember(categoryEnum, isDarkTheme) { 
-        getTransactionStyle(categoryEnum, isDarkTheme) 
-    }
-    
-    val icon = categoryIcon ?: style.first
-    val color = categoryColor ?: style.second
+    // Fallback UI
+    val displayName = categoryMetadata?.name ?: "Others"
+    val displayColor = categoryMetadata?.color.toComposeColor()
+    val iconString = categoryMetadata?.icon ?: "help_outline"
 
     if (showDeleteConfirm && onDelete != null) {
         AlertDialog(
@@ -77,7 +67,7 @@ fun TransactionListItem(
     }
 
     val typeColor = when (transaction.type) {
-        TransactionType.CREDIT, TransactionType.BORROW -> Color(0xFF2E7D32) // Success Green
+        TransactionType.CREDIT, TransactionType.BORROW -> Color(0xFF2E7D32)
         TransactionType.DEBIT, TransactionType.LEND -> MaterialTheme.colorScheme.error
         TransactionType.TRANSFER -> MaterialTheme.colorScheme.primary
     }
@@ -85,9 +75,7 @@ fun TransactionListItem(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = onClick != null || onEdit != null) { 
-                if (onClick != null) onClick() else onEdit?.invoke() 
-            },
+            .clickable(enabled = onClick != null) { onClick?.invoke() },
         color = Color.Transparent
     ) {
         Column {
@@ -100,15 +88,15 @@ fun TransactionListItem(
                 Surface(
                     modifier = Modifier.size(40.dp),
                     shape = MaterialTheme.shapes.medium,
-                    color = color.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, color.copy(alpha = 0.1f))
+                    color = displayColor.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, displayColor.copy(alpha = 0.1f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier.size(32.dp)
+                            imageVector = getIconByName(iconString),
+                            contentDescription = displayName,
+                            tint = displayColor,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -126,37 +114,18 @@ fun TransactionListItem(
                     )
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        val categoryLabel = transaction.categoryName
-                        val isOthers = categoryLabel.trim().lowercase().let { it == "other" || it == "others" }
-                        
                         Surface(
-                            color = if (isOthers) MaterialTheme.colorScheme.errorContainer 
-                                    else MaterialTheme.colorScheme.secondaryContainer,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
                             shape = MaterialTheme.shapes.extraSmall
                         ) {
                             Text(
-                                text = categoryLabel,
+                                text = displayName,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isOthers) MaterialTheme.colorScheme.onErrorContainer 
-                                        else MaterialTheme.colorScheme.onSecondaryContainer,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        }
-                        if (transaction.counterparty != null) {
-                            Surface(
-                                modifier = Modifier.padding(start = 6.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                            ) {
-                                Text(
-                                    text = transaction.counterparty,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                )
-                            }
                         }
                     }
                 }
@@ -203,23 +172,5 @@ fun TransactionListItem(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
             )
         }
-    }
-}
-
-private fun getTransactionStyle(category: Category, isDarkTheme: Boolean): Pair<ImageVector, Color> {
-    return when (category) {
-        Category.FOOD -> Icons.Default.Restaurant to if (isDarkTheme) CategoryFoodDark else CategoryFood
-        Category.CABS -> Icons.Default.DirectionsCar to if (isDarkTheme) CategoryCabsDark else CategoryCabs
-        Category.RENT -> Icons.Default.HomeWork to if (isDarkTheme) CategoryRentDark else CategoryRent
-        Category.BILLS -> Icons.Default.Bolt to if (isDarkTheme) CategoryBillsDark else CategoryBills
-        Category.SHOPPING -> Icons.Default.LocalMall to if (isDarkTheme) CategoryShoppingDark else CategoryShopping
-        Category.SALARY -> Icons.Default.Payments to if (isDarkTheme) CategorySalaryDark else CategorySalary
-        Category.INVESTMENTS -> Icons.AutoMirrored.Filled.TrendingUp to if (isDarkTheme) CategoryInvestmentsDark else CategoryInvestments
-        Category.TRAVEL -> Icons.Default.LocalAirport to if (isDarkTheme) CategoryTravelDark else CategoryTravel
-        Category.ENTERTAINMENT -> Icons.Default.LiveTv to if (isDarkTheme) CategoryEntertainmentDark else CategoryEntertainment
-        Category.GROCERIES -> Icons.Default.ShoppingCart to if (isDarkTheme) CategoryGroceriesDark else CategoryGroceries
-        Category.HEALTHCARE -> Icons.Default.Favorite to if (isDarkTheme) CategoryHealthDark else CategoryHealth
-        Category.EDUCATION -> Icons.Default.School to if (isDarkTheme) CategoryEducationDark else CategoryEducation
-        else -> Icons.Default.GridView to if (isDarkTheme) CategoryOthersDark else CategoryOthers
     }
 }

@@ -11,13 +11,16 @@ import com.example.expncetracker.exptkr.domain.model.SpendingTrend
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.RecurringState
 import com.example.expncetracker.exptkr.domain.model.FinancialSummary
-import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
+import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.repository.GoalRepository
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
+import com.example.expncetracker.exptkr.domain.repository.EntityRepository
+import com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 import com.example.expncetracker.exptkr.domain.usecase.GetRecentTransactionsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetSummaryUseCase
 import com.example.expncetracker.exptkr.domain.usecase.GetTrendsUseCase
 import com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
+import com.example.expncetracker.exptkr.core.parser.TransactionCategorizer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
@@ -33,9 +36,11 @@ class DashboardViewModel @Inject constructor(
     private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
     private val getTrendsUseCase: GetTrendsUseCase,
     private val repository: TransactionRepository,
-    private val categoryRepository: CategoryRepository,
     private val goalRepository: GoalRepository,
-    private val recurringTemplateDao: RecurringTemplateDao
+    private val recurringTemplateDao: RecurringTemplateDao,
+    private val categoryRepository: CategoryRepository,
+    private val entityRepository: EntityRepository,
+    private val categorizer: TransactionCategorizer
 ) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow(DateFilter.MONTH)
@@ -51,6 +56,13 @@ class DashboardViewModel @Inject constructor(
     val statusEvent = _statusEvent.receiveAsFlow()
 
     private val _refreshTrigger = MutableStateFlow(0)
+
+    val categories: StateFlow<List<Category>> = entityRepository.categories
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     val trends: StateFlow<Map<String, List<SpendingTrend>>> = combine(_selectedFilter, _refreshTrigger) { filter, _ -> filter }
         .flatMapLatest { filter ->
@@ -132,6 +144,7 @@ class DashboardViewModel @Inject constructor(
                 prevSummaryFlow,
                 getRecentTransactionsUseCase(10).distinctUntilChanged(),
                 repository.getAllRecurringTransactions().distinctUntilChanged(),
+                entityRepository.categories,
                 categoryRepository.getAllCategories().distinctUntilChanged(),
                 goalRepository.getAllGoals().distinctUntilChanged(),
                 recurringTemplateDao.getTemplatesByState(RecurringState.PENDING_CONFIRM.name).distinctUntilChanged(),
@@ -142,11 +155,12 @@ class DashboardViewModel @Inject constructor(
                 val previousSummary = args[1] as FinancialSummary?
                 val recent = args[2] as List<Transaction>
                 val recurring = args[3] as List<Transaction>
-                val categories = args[4] as List<CategoryEntity>
-                val goals = args[5] as List<GoalEntity>
-                val pending = args[6] as List<RecurringTemplateEntity>
-                val allTxsInRange = args[7] as List<Transaction>
-                val trendMap = args[8] as Map<String, List<SpendingTrend>>
+                val categoriesJson = args[4] as List<Category>
+                val allCategories = args[5] as List<CategoryEntity>
+                val goals = args[6] as List<GoalEntity>
+                val pending = args[7] as List<RecurringTemplateEntity>
+                val allTxsInRange = args[8] as List<Transaction>
+                val trendMap = args[9] as Map<String, List<SpendingTrend>>
                 
                 val distribution = allTxsInRange
                     .filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
@@ -161,7 +175,8 @@ class DashboardViewModel @Inject constructor(
                         recurringTransactions = recurring,
                         trends = trendMap.getOrDefault("Total", emptyList()),
                         distribution = distribution,
-                        allCategories = categories,
+                        allCategories = allCategories,
+                        allCategoriesJson = categoriesJson,
                         goals = goals,
                         pendingConfirmTemplates = pending
                     )
@@ -243,5 +258,10 @@ class DashboardViewModel @Inject constructor(
                 _statusEvent.send("Bill tracking ignored")
             }
         }
+    }
+
+    suspend fun categorizeSms(smsBody: String): Pair<String, String> {
+        val result = categorizer.findMatch(smsBody)
+        return result.categorySlug to result.entityName
     }
 }

@@ -27,12 +27,15 @@ class RuleRepositoryImpl @Inject constructor(
 
     override suspend fun deleteAllRules() = ruleDao.deleteAllRules()
 
+    override suspend fun deleteSystemRules() = ruleDao.deleteSystemRules()
+
     private fun RuleEntity.toDomain() = ClassificationRule(
         keyword = keyword,
         category = category,
         matchType = MatchType.valueOf(matchType),
         priority = priority,
-        transactionType = transactionType
+        transactionType = transactionType,
+        isSystemRule = isSystemRule
     )
 
     private fun ClassificationRule.toEntity() = RuleEntity(
@@ -41,6 +44,7 @@ class RuleRepositoryImpl @Inject constructor(
         matchType = matchType.name,
         priority = priority,
         transactionType = transactionType,
-        isActive = true
+        isActive = true,
+        isSystemRule = isSystemRule
     )
 }

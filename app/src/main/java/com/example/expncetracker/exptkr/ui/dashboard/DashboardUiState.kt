@@ -24,6 +24,7 @@ data class DashboardData(
     val trends: List<SpendingTrend>,
     val distribution: Map<String, BigDecimal>,
     val allCategories: List<CategoryEntity>,
+    val allCategoriesJson: List<com.example.expncetracker.exptkr.domain.model.Category> = emptyList(),
     val goals: List<GoalEntity>,
     val pendingConfirmTemplates: List<RecurringTemplateEntity> = emptyList()
 )

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "taxes",
+    "name": "Taxes & Govt Fees",
+    "category": "taxes",
+    "type": "GOVERNMENT",
+    "aliases": [
+      "INCOME_TAX_DEPARTMENT",
+      "GSTIN_PAYMENT",
+      "E_CHALLAN",
+      "PARIVAHAN_CHALLAN",
+      "BBMP_PROPERTY_TAX",
+      "BMC_PROPERTY_TAX",
+      "MCD_TAX",
+      "GHMC_TAX",
+      "GCC_TAX",
+      "KMC_TAX",
+      "PMC_TAX",
+      "PUNJAB_TAX",
+      "COMMERCIAL_TAX_DEPT"
+    ],
+    "logo": "taxes.png"
+  }
+]

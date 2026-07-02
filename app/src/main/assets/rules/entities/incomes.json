@@ -1,0 +1,24 @@
+[
+  {
+    "id": "salary",
+    "name": "Salary & Payouts",
+    "category": "salary",
+    "type": "INCOME",
+    "aliases": [
+      "SALARY_CREDIT",
+      "RAZORPAYX_PAYOUT",
+      "GREYTHR",
+      "KEKA_PAYROLL",
+      "PAYBOOKS",
+      "DIRECT_DEPOSIT",
+      "MONTHLY_WAGES",
+      "REIMBURSEMENT",
+      "BONUS_PAYOUT",
+      "UPWORK",
+      "FIVERR",
+      "FREELANCE_INCOME",
+      "DIVIDEND_CREDIT"
+    ],
+    "logo": "salary.png"
+  }
+]

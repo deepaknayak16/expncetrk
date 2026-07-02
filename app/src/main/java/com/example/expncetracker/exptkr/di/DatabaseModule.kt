@@ -1,13 +1,10 @@
 package com.example.expncetracker.exptkr.di
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import com.example.expncetracker.exptkr.core.common.Constants
 import com.example.expncetracker.exptkr.data.db.AppDatabase
 import com.example.expncetracker.exptkr.data.db.AppDatabaseMigrations
-import com.example.expncetracker.exptkr.data.db.DefaultClassificationRules
 import com.example.expncetracker.exptkr.data.db.dao.AccountDao
 import com.example.expncetracker.exptkr.data.db.dao.BudgetDao
 import com.example.expncetracker.exptkr.data.db.dao.CategoryDao
@@ -67,29 +64,10 @@ object DatabaseModule {
                     AppDatabaseMigrations.MIGRATION_21_22,
                     AppDatabaseMigrations.MIGRATION_22_23,
                     AppDatabaseMigrations.MIGRATION_23_24,
-                    AppDatabaseMigrations.MIGRATION_24_25
+                    AppDatabaseMigrations.MIGRATION_24_25,
+                    AppDatabaseMigrations.MIGRATION_25_26
                 )
                 .fallbackToDestructiveMigration()
-                .addCallback(object : androidx.room.RoomDatabase.Callback() {
-                    override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        super.onCreate(db)
-                        seedCategories(db)
-                        seedRules(db)
-                    }
-                    override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-                        super.onOpen(db)
-                        // Seed categories if empty
-                        val catCursor = db.query("SELECT COUNT(*) FROM categories")
-                        if (catCursor.moveToFirst() && catCursor.getInt(0) == 0) {
-                            seedCategories(db)
-                        }
-                        catCursor.close()
-
-                        // FIX NEW-01: Always ensure latest rules are present by re-seeding on every open
-                        // Since RuleDao.insertRules uses REPLACE, this will update existing and add new ones.
-                        seedRules(db)
-                    }
-                })
                 .build()
         } catch (e: RuntimeException) {
             throw IllegalStateException("Database corrupted. Restore from backup or clear app data.", e)
@@ -112,31 +90,5 @@ object DatabaseModule {
     @InstallIn(SingletonComponent::class)
     interface DatabaseEntryPoint {
         fun database(): AppDatabase
-    }
-
-    private fun seedRules(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-        DefaultClassificationRules.rules.forEach { rule ->
-            val values = ContentValues().apply {
-                put("keyword", rule.keyword)
-                put("category", rule.category)
-                put("matchType", rule.matchType)
-                put("priority", rule.priority)
-                put("isActive", 1)
-                put("transactionType", rule.transactionType)
-            }
-            db.insert("classification_rules", SQLiteDatabase.CONFLICT_REPLACE, values)
-        }
-    }
-
-    private fun seedCategories(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-        DefaultClassificationRules.categories.forEach { cat ->
-            val values = ContentValues().apply {
-                put("name", cat.name)
-                put("type", cat.type)
-                put("iconName", cat.iconName)
-                put("color", cat.color.toInt())
-            }
-            db.insert("categories", SQLiteDatabase.CONFLICT_IGNORE, values)
-        }
     }
 }

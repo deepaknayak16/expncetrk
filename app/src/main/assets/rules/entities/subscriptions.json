@@ -1,0 +1,28 @@
+[
+  {
+    "id": "subscriptions",
+    "name": "Subscriptions & Maintenance",
+    "category": "subscriptions",
+    "type": "SUBSCRIPTION",
+    "aliases": [
+      "NETFLIX",
+      "PRIME_VIDEO",
+      "DISNEY_HOTSTAR",
+      "SONYLIV",
+      "ZEE5",
+      "YOUTUBE_PREMIUM",
+      "SPOTIFY",
+      "APPLE_ONE",
+      "MYGATE",
+      "NOBROKERHOOD",
+      "ADDA",
+      "CRED_RENTPAY",
+      "NOBROKER_RENT",
+      "PAYTM_RENT",
+      "CANVA",
+      "ADOBE",
+      "OPENAI_CHATGPT"
+    ],
+    "logo": "subscriptions.png"
+  }
+]

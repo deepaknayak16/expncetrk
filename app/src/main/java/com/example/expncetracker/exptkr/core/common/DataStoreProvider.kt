@@ -18,3 +18,4 @@ val BUDGET_ALERTS_ENABLED_KEY = booleanPreferencesKey("expncetrk_budget_alerts_e
 val BUDGET_THRESHOLD_KEY = floatPreferencesKey("expncetrk_budget_threshold")
 val RECURRING_ML_WEIGHTS_KEY = stringPreferencesKey("ml_recurring_weights")
 val NB_ML_MODEL_KEY = stringPreferencesKey("ml_nb_model")
+val LAST_RULE_SEED_VERSION = androidx.datastore.preferences.core.intPreferencesKey("last_rule_seed_version")

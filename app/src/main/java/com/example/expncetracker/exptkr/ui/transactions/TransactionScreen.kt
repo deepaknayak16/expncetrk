@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.expncetracker.exptkr.domain.model.Category
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.model.TransactionType
 import com.example.expncetracker.exptkr.ui.components.getIconByName
@@ -46,6 +47,17 @@ fun TransactionScreen(
 ) {
     val list by viewModel.transactions.collectAsState()
     val categories by viewModel.categories.collectAsState()
+    val domainCategories = remember(categories) {
+        categories.map { entity ->
+            Category(
+                id = entity.name,
+                name = entity.name,
+                type = entity.type,
+                icon = entity.iconName,
+                color = String.format("#%06X", (0xFFFFFF and entity.color))
+            )
+        }
+    }
     val searchQuery by viewModel.searchQuery.collectAsState()
     val advancedFilter by viewModel.advancedFilter.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -202,11 +214,9 @@ fun TransactionScreen(
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(list, key = { it.id }) { transaction ->
-                            val cat = categories.find { it.name == transaction.categoryName }
                             TransactionListItem(
                                 transaction = transaction,
-                                categoryIcon = cat?.let { getIconByName(it.iconName) },
-                                categoryColor = cat?.let { Color(it.color) },
+                                categories = domainCategories,
                                 onClick = { selectedTransaction = transaction }
                             )
                         }
