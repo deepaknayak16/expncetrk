@@ -15,11 +15,15 @@ class SmsReader @Inject constructor(
     fun fetchSmsSince(timestamp: Long): List<RawSmsEntity> {
         val smsList = mutableListOf<RawSmsEntity>()
         
+        // FIX BUG-013: Add a hard limit to avoid OOM on first install (90 days)
+        val ninetyDaysAgo = System.currentTimeMillis() - (90L * 24 * 60 * 60 * 1000)
+        val effectiveTimestamp = timestamp.coerceAtLeast(ninetyDaysAgo)
+
         if (!SmsPermissionManager.hasPermissions(context)) {
             Logger.e("SmsReader", "SMS permission not granted. Cannot fetch SMS.")
             return smsList
         }
-        Logger.d("SmsReader", "SMS permissions granted. Fetching SMS since $timestamp")
+        Logger.d("SmsReader", "SMS permissions granted. Fetching SMS since $effectiveTimestamp")
 
         val uris = listOf(Uri.parse("content://sms/inbox"))
 
@@ -29,7 +33,7 @@ class SmsReader @Inject constructor(
                     uri,
                     arrayOf("_id", "address", "body", "date"),
                     "date > ?",
-                    arrayOf(timestamp.toString()),
+                    arrayOf(effectiveTimestamp.toString()),
                     "date DESC"
                 )?.use { cursor ->
                     Logger.d("SmsReader", "Cursor count for $uri: ${cursor.count}")

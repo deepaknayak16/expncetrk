@@ -257,7 +257,19 @@ class AddTransactionViewModel @Inject constructor(
             fun parse(): Double { nextChar(); return parseExpr().also { if (pos < expr.length) throw RuntimeException("Unexpected: ${ch.toChar()}") } }
             fun parseExpr(): Double { var x = parseTerm(); while (true) x = when { eat('+'.code) -> x + parseTerm(); eat('-'.code) -> x - parseTerm(); else -> return x }; @Suppress("UNREACHABLE_CODE") return x }
             fun parseTerm(): Double { var x = parseFactor(); while (true) x = when { eat('*'.code) -> x * parseFactor(); eat('/'.code) -> parseFactor().let { d -> if (d == 0.0) throw ArithmeticException("Div by zero"); x / d }; eat('%'.code) -> (x * parseFactor()) / 100.0; else -> return x }; @Suppress("UNREACHABLE_CODE") return x }
-            fun parseFactor(): Double { if (eat('+'.code)) return parseFactor(); if (eat('-'.code)) return -parseFactor(); val start = pos; return if (eat('('.code)) parseExpr().also { eat(')'.code) } else if (ch in '0'.code..'9'.code || ch == '.'.code) { while (ch in '0'.code..'9'.code || ch == '.'.code) nextChar(); expr.substring(start, pos).toDouble() } else throw RuntimeException("Unexpected: ${ch.toChar()}") }
+            fun parseFactor(): Double { 
+                if (eat('+'.code)) return parseFactor()
+                if (eat('-'.code)) return -parseFactor()
+                val start = pos
+                return if (eat('('.code)) {
+                    val x = parseExpr()
+                    if (!eat(')'.code)) throw RuntimeException("Missing closing parenthesis")
+                    x
+                } else if (ch in '0'.code..'9'.code || ch == '.'.code) {
+                    while (ch in '0'.code..'9'.code || ch == '.'.code) nextChar()
+                    expr.substring(start, pos).toDouble()
+                } else throw RuntimeException("Unexpected: ${ch.toChar()}")
+            }
         }.parse()
     }
 

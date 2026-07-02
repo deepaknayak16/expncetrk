@@ -6,6 +6,7 @@ import com.example.expncetracker.exptkr.core.common.NB_ML_MODEL_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
 import com.example.expncetracker.exptkr.domain.model.Transaction
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,8 @@ import kotlin.math.ln
 class TfIdfNaiveBayes @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+
+    private val isLoaded = CompletableDeferred<Unit>()
 
     @Serializable
     data class ModelSnapshot(
@@ -59,17 +62,21 @@ class TfIdfNaiveBayes @Inject constructor(
     init {
         // Load saved model on init
         CoroutineScope(Dispatchers.IO).launch {
-            val saved = context.dataStore.data.first()[NB_ML_MODEL_KEY]
-            saved?.let { json ->
-                runCatching {
-                    val snapshot = Json.decodeFromString<ModelSnapshot>(json)
-                    logLikelihoods = snapshot.logLikelihoods
-                    idfWeights = snapshot.idfWeights
-                    logPriors = snapshot.logPriors
-                    allCategories = snapshot.allCategories
-                    trainedOnCount = snapshot.trainedOnCount
-                    knownVocab = idfWeights.keys
+            try {
+                val saved = context.dataStore.data.first()[NB_ML_MODEL_KEY]
+                saved?.let { json ->
+                    runCatching {
+                        val snapshot = Json.decodeFromString<ModelSnapshot>(json)
+                        logLikelihoods = snapshot.logLikelihoods
+                        idfWeights = snapshot.idfWeights
+                        logPriors = snapshot.logPriors
+                        allCategories = snapshot.allCategories
+                        trainedOnCount = snapshot.trainedOnCount
+                        knownVocab = idfWeights.keys
+                    }
                 }
+            } finally {
+                isLoaded.complete(Unit)
             }
         }
     }
@@ -89,7 +96,7 @@ class TfIdfNaiveBayes @Inject constructor(
     fun train(history: List<Transaction>) {
         // ... (filtering logic) ...
         val cleanHistory = history.filter {
-            it.categoryName != "Others" &&
+            it.categoryName.lowercase() != "others" &&
             it.merchant.isNotBlank() &&
             !it.merchant.contains("$")
         }
@@ -152,12 +159,16 @@ class TfIdfNaiveBayes @Inject constructor(
     fun classify(merchantName: String): ClassificationResult {
         // ... (existing classify logic) ...
         if (logPriors.isEmpty() || allCategories.isEmpty()) {
-            return ClassificationResult("Others", 0f, null, 0f, Source.FALLBACK)
+            if (!isLoaded.isCompleted) {
+                // Return default while loading, or we could wait if classify was suspend
+                return ClassificationResult("others", 0f, null, 0f, Source.FALLBACK)
+            }
+            return ClassificationResult("others", 0f, null, 0f, Source.FALLBACK)
         }
 
         val tokens = allTokens(merchantName)
         if (tokens.isEmpty()) {
-            return ClassificationResult("Others", 0.1f, null, 0f, Source.FALLBACK)
+            return ClassificationResult("others", 0.1f, null, 0f, Source.FALLBACK)
         }
 
         // FIX BUG-ML-03: Track how many tokens we actually recognize using knownVocab
@@ -200,7 +211,7 @@ class TfIdfNaiveBayes @Inject constructor(
         // we are "ignorant" and should not be confident.
         val knownRatio = knownTokenCount.toFloat() / tokens.size
         if (knownTokenCount < 2 || (tokens.size >= 3 && knownRatio < 0.3f)) {
-            return ClassificationResult("Others", 0.2f, null, 0f, Source.FALLBACK)
+            return ClassificationResult("others", 0.2f, null, 0f, Source.FALLBACK)
         }
 
         val secondCat = probabilities.getOrNull(1)?.first

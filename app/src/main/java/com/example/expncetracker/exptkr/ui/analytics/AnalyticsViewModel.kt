@@ -116,7 +116,7 @@ class AnalyticsViewModel @Inject constructor(
 
     fun setWeekRange(start: LocalDate, end: LocalDate) {
         _weekRange.value = Pair(start, end)
-        // Removed: _selectedFilter.value = DateFilter.WEEK_RANGE
+        _selectedFilter.value = DateFilter.WEEK_RANGE
     }
 
     fun setCustomRange(startMillis: Long, endMillis: Long) {
@@ -163,6 +163,7 @@ class AnalyticsViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
+                importSmsTransactionsUseCase.execute()
                 _refreshTrigger.value++
                 _statusEvent.send("Data refreshed")
             } catch (e: Exception) {

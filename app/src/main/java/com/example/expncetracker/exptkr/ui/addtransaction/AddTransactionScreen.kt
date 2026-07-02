@@ -403,7 +403,9 @@ fun AddTransactionScreen(
                     ) { showAccountSheet = true }
 
                     DropdownSelector(
-                        value = selectedCategoryName.ifEmpty { "Category" },
+                        value = allCategories.find { it.name == selectedCategoryName }?.let { 
+                            if (it.displayName.isNotEmpty()) it.displayName else it.name 
+                        } ?: selectedCategoryName.ifEmpty { "Category" },
                         icon = Icons.Default.Category,
                         modifier = Modifier.weight(1f),
                         isSuggested = suggestedCategory != null && selectedCategoryName == suggestedCategory
@@ -809,7 +811,7 @@ fun AddTransactionScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            text = category.name,
+                            text = if (category.displayName.isNotEmpty()) category.displayName else category.name,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,

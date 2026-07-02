@@ -28,8 +28,8 @@ class GoogleDriveSyncManager @Inject constructor(
     private val googleSignInClient: GoogleSignInClient
 ) {
 
+    @Volatile
     private var driveService: Drive? = null
-    private val httpTransport = NetHttpTransport()
     private val lock = Any()
 
     /**
@@ -55,8 +55,9 @@ class GoogleDriveSyncManager @Inject constructor(
         )
         credential.selectedAccount = account.account
 
+        // FIX BUG-004: Create a new NetHttpTransport each time to avoid permanent shutdown issues
         driveService = Drive.Builder(
-            httpTransport,
+            NetHttpTransport(),
             GsonFactory.getDefaultInstance(),
             credential
         )
@@ -152,14 +153,10 @@ class GoogleDriveSyncManager @Inject constructor(
     suspend fun signOut() {
         synchronized(lock) {
             driveService = null
-            try {
-                httpTransport.shutdown()
-            } catch (e: Exception) {
-                Log.e("GDriveSync", "Error shutting down transport", e)
-            }
+            // Don't shut down transport - just clear the service reference
+            // Re-initialization logic in initializeDriveService handles it if it was shutdown
         }
         try {
-            // Inject GoogleSignInClient into this class instead of recreating it
             googleSignInClient.signOut().await()
         } catch (e: Exception) {
             Log.e("GDriveSync", "Sign out failed", e)

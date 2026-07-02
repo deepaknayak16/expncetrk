@@ -23,6 +23,7 @@ import com.example.expncetracker.exptkr.core.common.DARK_MODE_KEY
 import com.example.expncetracker.exptkr.core.common.PERMISSION_RATIONALE_SHOWN_KEY
 import com.example.expncetracker.exptkr.core.common.SMS_PERMISSION_PERMANENTLY_DENIED_KEY
 import com.example.expncetracker.exptkr.core.common.NOTIFICATION_PERMISSION_SHOWN_KEY
+import com.example.expncetracker.exptkr.core.common.WAS_RATIONALE_NEEDED_KEY
 import com.example.expncetracker.exptkr.core.common.dataStore
 import androidx.datastore.preferences.core.edit
 import com.example.expncetracker.exptkr.core.sms.SmsPermissionManager
@@ -43,7 +44,7 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var biometricAuthManager: BiometricAuthManager
 
-    private var currentStartRoute = mutableStateOf<String?>(null)
+    private val currentStartRoute = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +58,7 @@ class MainActivity : FragmentActivity() {
         val rationaleShownFlow = preferencesFlow.map { it[PERMISSION_RATIONALE_SHOWN_KEY] ?: false }
         val notificationRationaleFlow = preferencesFlow.map { it[NOTIFICATION_PERMISSION_SHOWN_KEY] ?: false }
         val smsPermanentlyDeniedFlow = preferencesFlow.map { it[SMS_PERMISSION_PERMANENTLY_DENIED_KEY] ?: false }
+        val wasRationaleNeededFlow = preferencesFlow.map { it[WAS_RATIONALE_NEEDED_KEY] ?: false }
 
         setContent {
             val isDarkModePref by darkModeFlow.collectAsState(initial = null)
@@ -65,10 +67,10 @@ class MainActivity : FragmentActivity() {
             val isRationaleShown by rationaleShownFlow.collectAsState(initial = false)
             val isNotificationRationaleShown by notificationRationaleFlow.collectAsState(initial = false)
             val isSmsPermanentlyDenied by smsPermanentlyDeniedFlow.collectAsState(initial = false)
+            val wasRationaleNeeded by wasRationaleNeededFlow.collectAsState(initial = false)
             val scope = rememberCoroutineScope()
 
             var hasAskedNotificationThisSession by remember { mutableStateOf(false) }
-            var wasRationaleNeededBefore by remember { mutableStateOf(false) }
 
             val startRoute by currentStartRoute
 
@@ -102,7 +104,7 @@ class MainActivity : FragmentActivity() {
                 }
                 // WHY: Detect true permanent denial: user checked "Don't ask again".
                 if (result[Manifest.permission.READ_SMS] == false &&
-                    wasRationaleNeededBefore &&
+                    wasRationaleNeeded &&
                     !shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
                 ) {
                     scope.launch {
@@ -154,9 +156,11 @@ class MainActivity : FragmentActivity() {
                     text = { Text("This app tracks expenses automatically by reading transaction SMS. Please grant SMS access to enable this feature.") },
                     confirmButton = {
                         Button(onClick = {
-                            wasRationaleNeededBefore = shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)
-                            permissionLauncher.launch(SmsPermissionManager.permissions)
-                            showPermissionRationale = false
+                            scope.launch { 
+                                dataStore.edit { it[WAS_RATIONALE_NEEDED_KEY] = shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS) }
+                                permissionLauncher.launch(SmsPermissionManager.permissions)
+                                showPermissionRationale = false
+                            }
                         }) { Text("Grant Access") }
                     },
                     dismissButton = {

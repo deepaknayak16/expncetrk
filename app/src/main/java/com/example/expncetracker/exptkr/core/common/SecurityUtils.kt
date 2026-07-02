@@ -11,28 +11,35 @@ import java.util.Locale
 object SecurityUtils {
     private const val PREFS_NAME = "secure_prefs"
     private const val KEY_PASSPHRASE = "db_passphrase"
-    private val passphrase = Any()
-    fun getOrCreatePassphrase(context: Context): ByteArray = synchronized(passphrase) {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+    
+    @Volatile
+    private var cachedSharedPreferences: android.content.SharedPreferences? = null
+    
+    private val passphraseLock = Any()
 
-        val sharedPreferences = EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+    fun getOrCreatePassphrase(context: Context): ByteArray = synchronized(passphraseLock) {
+        val prefs = cachedSharedPreferences ?: run {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
 
-        val storedPassphrase = sharedPreferences.getString(KEY_PASSPHRASE, null)
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            ).also { cachedSharedPreferences = it }
+        }
+
+        val storedPassphrase = prefs.getString(KEY_PASSPHRASE, null)
         return if (storedPassphrase != null) {
             Base64.decode(storedPassphrase, Base64.DEFAULT)
         } else {
             val newPassphrase = ByteArray(32)
             SecureRandom().nextBytes(newPassphrase)
             val encodedPassphrase = Base64.encodeToString(newPassphrase, Base64.DEFAULT)
-            sharedPreferences.edit().putString(KEY_PASSPHRASE, encodedPassphrase).apply()
+            prefs.edit().putString(KEY_PASSPHRASE, encodedPassphrase).apply()
             newPassphrase
         }
     }

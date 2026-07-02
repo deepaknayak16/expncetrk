@@ -57,7 +57,7 @@ class HybridMlEngine @Inject constructor(
             if (history.isNotEmpty()) tfIdfNaiveBayes.train(history)
         }
         
-        var finalCategory = "Others"
+        var finalCategory = "others"
         var categoryConfidence = 0.0f
 
         // FIX BUG-5: Fetch rules once and reuse

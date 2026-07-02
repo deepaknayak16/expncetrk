@@ -33,25 +33,26 @@ interface GoalDao {
     suspend fun updateGoalProgress(goalId: Long, spent: java.math.BigDecimal)
 
     @Query("""
-        SELECT COALESCE(SUM(amount), '0.0')
+        SELECT amount
         FROM transactions
         WHERE isRecurring = 0 AND category = :category
         AND type = :type
         AND timestamp >= :sinceMillis
     """)
-    suspend fun sumAmountByCategorySince(category: String, type: String, sinceMillis: Long): java.math.BigDecimal
+    suspend fun getAmountsByCategorySince(category: String, type: String, sinceMillis: Long): List<java.math.BigDecimal>
 
     @Transaction
     suspend fun recalculateGoalProgress(goalId: Long, category: String, sinceMillis: Long = 0) {
-        val spent = sumAmountByCategorySince(category, "DEBIT", sinceMillis)
+        val amounts = getAmountsByCategorySince(category, "DEBIT", sinceMillis)
+        val spent = amounts.fold(java.math.BigDecimal.ZERO) { acc, amt -> acc.add(amt) }
         updateGoalProgress(goalId, spent)
     }
 
     @Query("""
-        SELECT COALESCE(SUM(amount), '0.0')
+        SELECT amount
         FROM transactions
         WHERE category = :category
         AND type = :type
     """)
-    suspend fun sumAmountByCategory(category: String, type: String): java.math.BigDecimal
+    suspend fun getAmountsByCategory(category: String, type: String): List<java.math.BigDecimal>
 }

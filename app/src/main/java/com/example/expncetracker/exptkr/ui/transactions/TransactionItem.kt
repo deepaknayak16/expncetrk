@@ -35,7 +35,8 @@ fun TransactionListItem(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // Requirement 3: Dynamic lookup from ViewModel's state
-    val categoryMetadata = categories.find { it.id == transaction.categoryName }
+    // FIX: Case-insensitive lookup to handle "others" vs "Others" mismatches
+    val categoryMetadata = categories.find { it.id.equals(transaction.categoryName, ignoreCase = true) }
     
     // Fallback UI
     val displayName = categoryMetadata?.name ?: "Others"

@@ -16,7 +16,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
-    private val getSummaryUseCase: GetSummaryUseCase
+    private val getSummaryUseCase: GetSummaryUseCase,
+    private val importSmsTransactionsUseCase: com.example.expncetracker.exptkr.domain.usecase.ImportSmsTransactionsUseCase
 ) : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -56,9 +57,14 @@ class AccountsViewModel @Inject constructor(
     fun refreshAccounts() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            // Simulating refresh delay
-            kotlinx.coroutines.delay(1000)
-            _isRefreshing.value = false
+            try {
+                importSmsTransactionsUseCase.execute()
+                _statusEvent.send("Accounts refreshed from SMS")
+            } catch (e: Exception) {
+                _statusEvent.send("Refresh failed: ${e.message}")
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 
@@ -76,15 +82,23 @@ class AccountsViewModel @Inject constructor(
                 "Credit Card" -> 0xFFEF4444.toInt()
                 else -> 0xFF64748B.toInt()
             }
-            accountRepository.insertAccount(
-                AccountEntity(
-                    name = name,
-                    balance = balance,
-                    type = type,
-                    color = color
+            try {
+                accountRepository.insertAccount(
+                    AccountEntity(
+                        name = name,
+                        balance = balance,
+                        type = type,
+                        color = color
+                    )
                 )
-            )
-            _statusEvent.send("Account created")
+                _statusEvent.send("Account created")
+            } catch (e: Exception) {
+                if (e is android.database.sqlite.SQLiteConstraintException) {
+                    _statusEvent.send("An account named \"$name\" already exists")
+                } else {
+                    _statusEvent.send("Failed to create account: ${e.message}")
+                }
+            }
         }
     }
 

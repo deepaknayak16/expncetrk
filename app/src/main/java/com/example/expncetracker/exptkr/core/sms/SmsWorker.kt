@@ -63,6 +63,7 @@ class SmsWorker @AssistedInject constructor(
             }
             Result.success()
         } catch (e: Exception) {
+            // FIX BUG-026: Rethrow CancellationException BEFORE any other logic
             if (e is kotlinx.coroutines.CancellationException) throw e
             
             Logger.e("SmsWorker", "Error processing SMS: ${e.message}", e)

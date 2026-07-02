@@ -10,7 +10,8 @@ import androidx.room.PrimaryKey
 )
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val name: String,
+    val name: String, // Slug (e.g., "dining")
+    val displayName: String = "", // Display Name (e.g., "Food & Dining")
     val type: String, // "INCOME" or "EXPENSE"
     val iconName: String, // To map back to an icon
     val color: Int

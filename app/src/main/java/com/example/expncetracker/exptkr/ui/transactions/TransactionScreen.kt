@@ -47,17 +47,8 @@ fun TransactionScreen(
 ) {
     val list by viewModel.transactions.collectAsState()
     val categories by viewModel.categories.collectAsState()
-    val domainCategories = remember(categories) {
-        categories.map { entity ->
-            Category(
-                id = entity.name,
-                name = entity.name,
-                type = entity.type,
-                icon = entity.iconName,
-                color = String.format("#%06X", (0xFFFFFF and entity.color))
-            )
-        }
-    }
+    val categoriesJson by viewModel.categoriesJson.collectAsState()
+
     val searchQuery by viewModel.searchQuery.collectAsState()
     val advancedFilter by viewModel.advancedFilter.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -92,6 +83,7 @@ fun TransactionScreen(
         ) {
             TransactionDetailContent(
                 transaction = selectedTransaction!!,
+                categories = categoriesJson,
                 onEdit = { 
                     onNavigateToEdit(selectedTransaction!!.id)
                     selectedTransaction = null 
@@ -216,7 +208,7 @@ fun TransactionScreen(
                         items(list, key = { it.id }) { transaction ->
                             TransactionListItem(
                                 transaction = transaction,
-                                categories = domainCategories,
+                                categories = categoriesJson,
                                 onClick = { selectedTransaction = transaction }
                             )
                         }
@@ -230,14 +222,18 @@ fun TransactionScreen(
 @Composable
 fun TransactionDetailContent(
     transaction: Transaction,
+    categories: List<Category>, // Added categories for lookup
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onSplit: () -> Unit,
     onSettle: () -> Unit
 ) {
     val isDark = MaterialTheme.isDark
-    val isOthers = transaction.categoryName.trim().lowercase().let { it == "other" || it == "others" }
+    val isOthers = transaction.categoryName.trim().lowercase().let { it == "others" || it == "other" }
     val isSms = transaction.smsId != null
+    
+    val categoryMetadata = categories.find { it.id.equals(transaction.categoryName, ignoreCase = true) }
+    val displayName = categoryMetadata?.name ?: "Others"
     
     // STRICT RULES: 
     // 1. Delete is always disabled
@@ -314,7 +310,7 @@ fun TransactionDetailContent(
             DetailItemWithIcon(
                 icon = Icons.Default.Category,
                 label = "Category",
-                value = transaction.categoryName
+                value = displayName
             )
             if (transaction.counterparty != null) {
                 DetailItemWithIcon(

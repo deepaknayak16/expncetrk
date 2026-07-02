@@ -91,7 +91,7 @@ class CsvExporter @Inject constructor(
                         }
                         val description = escapeCsvField(transaction.merchant)
                         val bank = escapeCsvField(transaction.bankName)
-                        val amount = String.format(Locale.US, "%.2f", transaction.amount)
+                        val amount = transaction.amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
 
                         writer.appendLine("${transaction.id},$date,$time,$category,$type,$description,$bank,$amount")
                     }

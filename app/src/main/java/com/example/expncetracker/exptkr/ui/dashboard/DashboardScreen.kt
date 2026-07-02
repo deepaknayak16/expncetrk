@@ -188,12 +188,14 @@ fun DashboardScreen(
 
     @OptIn(ExperimentalMaterial3Api::class)
     if (selectedTxForDetail != null) {
+        val categoriesJson = (uiState as? DashboardUiState.Success)?.data?.allCategoriesJson ?: emptyList()
         ModalBottomSheet(
             onDismissRequest = { selectedTxForDetail = null },
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
         ) {
             TransactionDetailContent(
                 transaction = selectedTxForDetail!!,
+                categories = categoriesJson,
                 onEdit = {
                     onNavigateToEditTransaction(selectedTxForDetail!!.id)
                     selectedTxForDetail = null

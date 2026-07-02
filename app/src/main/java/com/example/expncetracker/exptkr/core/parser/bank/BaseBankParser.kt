@@ -41,38 +41,25 @@ abstract class BaseBankParser(private val bankName: String) : BankParser {
             var actionKeyword = ""
             var amountStr = ""
             
-            // FIX BUG-GEN-07: Harder group extraction to avoid keyword/amount collision
-            val groupValues = amountMatch.groupValues.drop(1)
-            // If we have 4 groups from (kw).*(amt)|(amt).*(kw)
-            if (groupValues.size >= 4) {
-                if (groupValues[0].isNotBlank()) {
-                    actionKeyword = groupValues[0]
-                    amountStr = groupValues[1]
-                } else if (groupValues[2].isNotBlank()) {
-                    amountStr = groupValues[2]
-                    actionKeyword = groupValues[3]
-                }
-            } else {
-                val groups = groupValues.filter { it.isNotBlank() }
-                if (groups.size >= 2) {
-                    val first = groups[0]
-                    val second = groups[1]
-                    if (first.any { it.isDigit() } && !second.any { it.isDigit() }) {
-                        amountStr = first
-                        actionKeyword = second
-                    } else if (second.any { it.isDigit() } && !first.any { it.isDigit() }) {
-                        actionKeyword = first
-                        amountStr = second
-                    } else {
-                        // Ambiguous: pick largest number as amount? Or just first.
-                        amountStr = first
-                        actionKeyword = second
-                    }
-                } else if (groups.size == 1) {
-                    amountStr = groups[0]
+            // FIX BUG-004: Robust group extraction to avoid assuming 4 groups
+            val groupValues = amountMatch.groupValues.drop(1).filter { it.isNotBlank() }
+            if (groupValues.size >= 2) {
+                val first = groupValues[0]
+                val second = groupValues[1]
+                if (first.any { it.isDigit() } && !second.any { it.isDigit() }) {
+                    amountStr = first
+                    actionKeyword = second
+                } else if (second.any { it.isDigit() } && !first.any { it.isDigit() }) {
+                    actionKeyword = first
+                    amountStr = second
                 } else {
-                    return null
+                    amountStr = first
+                    actionKeyword = second
                 }
+            } else if (groupValues.size == 1) {
+                amountStr = groupValues[0]
+            } else {
+                return null
             }
 
             val amount = amountStr.replace(",", "").toBigDecimalOrNull() ?: return null

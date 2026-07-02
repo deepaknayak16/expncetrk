@@ -63,6 +63,7 @@ class RecurringProbabilityRegressor @Inject constructor(
         }
     }
 
+    @Synchronized
     private fun persistWeights() {
         CoroutineScope(Dispatchers.IO).launch {
             context.dataStore.edit { prefs ->

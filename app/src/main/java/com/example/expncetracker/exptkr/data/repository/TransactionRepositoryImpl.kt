@@ -96,7 +96,15 @@ class TransactionRepositoryImpl @Inject constructor(
             // Recalculate all account balances from scratch to ensure consistency
             val allAccounts = accountDao.getAllAccountsSync()
             allAccounts.forEach { account ->
-                val netBalance = transactionDao.calculateNetBalanceByAccount(account.id)
+                val entries = transactionDao.getAmountsAndTypesByAccount(account.id)
+                var netBalance = BigDecimal.ZERO
+                entries.forEach { entry ->
+                    val amount = entry.amount
+                    when (entry.type) {
+                        TransactionType.CREDIT.name, "BORROW" -> netBalance = netBalance.add(amount)
+                        TransactionType.DEBIT.name, "LEND" -> netBalance = netBalance.subtract(amount)
+                    }
+                }
                 accountDao.updateBalance(account.id, netBalance)
             }
         }
@@ -245,8 +253,10 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun sumAmountByCategory(category: String, type: String): BigDecimal =
-        transactionDao.sumAmountByCategoryAndType(category, type)
+    override suspend fun sumAmountByCategory(category: String, type: String): BigDecimal {
+        val amounts = transactionDao.getAmountsByCategoryAndType(category, type)
+        return amounts.fold(BigDecimal.ZERO) { acc, amount -> acc.add(amount) }
+    }
 
     override suspend fun doesHashExist(hash: String): Boolean =
         transactionDao.doesHashExist(hash)

@@ -22,9 +22,15 @@ class BudgetAlertWorker @AssistedInject constructor(
             Result.success()
         } catch (e: CancellationException) {
             throw e
-        }catch (e: Exception) {
-            if (runAttemptCount < 3) Result.retry() else Result.failure()
+        } catch (e: Exception) {
+            // FIX BUG-023: Only retry on transient errors (here we check attempt count)
+            if (runAttemptCount < 3 && isTransientError(e)) Result.retry() else Result.failure()
         }
+    }
+
+    private fun isTransientError(e: Exception): Boolean {
+        return e is android.database.sqlite.SQLiteDatabaseLockedException || 
+               e is java.io.IOException
     }
 
     companion object {

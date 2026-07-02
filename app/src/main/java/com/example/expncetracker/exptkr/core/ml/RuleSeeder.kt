@@ -20,8 +20,7 @@ import javax.inject.Singleton
 class RuleSeeder @Inject constructor(
     @ApplicationContext private val context: Context,
     private val ruleRepository: RuleRepository,
-    private val transactionRepository: TransactionRepository,
-    private val mlEngine: HybridMlEngine
+    private val categoryRepository: com.example.expncetracker.exptkr.domain.repository.CategoryRepository
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -43,6 +42,30 @@ class RuleSeeder @Inject constructor(
             
             val jsonString = context.assets.open("rules/entities.json").bufferedReader().use { it.readText() }
             val entities = json.decodeFromString<List<RawEntity>>(jsonString)
+
+            // Seed Categories
+            entities.distinctBy { it.category }.forEach { entity ->
+                categoryRepository.insertCategory(
+                    com.example.expncetracker.exptkr.data.db.entity.CategoryEntity(
+                        name = entity.category,
+                        displayName = entity.name, // The top-level name in JSON is the group name
+                        type = if (entity.type == "INCOME") "INCOME" else "EXPENSE",
+                        iconName = entity.logo.removeSuffix(".png"),
+                        color = 0xFF4CAF50.toInt()
+                    )
+                )
+            }
+            
+            // Add "others" category
+            categoryRepository.insertCategory(
+                com.example.expncetracker.exptkr.data.db.entity.CategoryEntity(
+                    name = "others",
+                    displayName = "Others",
+                    type = "EXPENSE",
+                    iconName = "OTHERS",
+                    color = 0xFF64748B.toInt()
+                )
+            )
 
             val rulesToSeed = entities.flatMap { entity ->
                 entity.aliases.flatMap { alias ->
@@ -82,8 +105,8 @@ class RuleSeeder @Inject constructor(
                 context.dataStore.edit { it[LAST_RULE_SEED_VERSION] = metadata.version_code }
                 Logger.d("RuleSeeder", "Successfully seeded ${rulesToSeed.size} rules.")
                 
-                // FIX 4: Retroactive Re-categorization
-                runRetroactiveCategorization()
+                // FIX 4: Retroactive Re-categorization (BUG-015: Moved to worker)
+                RetroactiveCategorizationWorker.run(context)
             }
         } catch (e: Exception) {
             Logger.e("RuleSeeder", "Failed to seed rules", e)
@@ -91,31 +114,7 @@ class RuleSeeder @Inject constructor(
     }
 
     private suspend fun runRetroactiveCategorization() {
-        Logger.d("RuleSeeder", "Running retroactive re-categorization...")
-        val transactions = transactionRepository.getRecentTransactions(500).first()
-        val blindSpots = transactions.filter { 
-            (it.categoryName == "Others" || it.confidenceScore < 0.5f) && 
-            !it.isCategoryManuallyCorrected
-        }
-        
-        if (blindSpots.isEmpty()) return
-        
-        Logger.d("RuleSeeder", "Found ${blindSpots.size} blind spots to re-categorize")
-        
-        blindSpots.forEach { tx ->
-            val result = mlEngine.infer(
-                merchantName = tx.merchant,
-                amount = tx.amount,
-                type = tx.type,
-                timestamp = tx.timestamp.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli(),
-                smsBody = tx.rawSmsBody ?: ""
-            )
-            
-            if (result.category != tx.categoryName && result.confidenceScore > 0.8f) {
-                transactionRepository.updateTransactionCategory(tx.id, result.category, result.confidenceScore)
-                Logger.d("RuleSeeder", "Re-categorized ${tx.merchant}: ${tx.categoryName} -> ${result.category}")
-            }
-        }
+        // Removed: Logic moved to RetroactiveCategorizationWorker
     }
 
     @Serializable
@@ -123,8 +122,10 @@ class RuleSeeder @Inject constructor(
 
     @Serializable
     private data class RawEntity(
+        val name: String,
         val category: String,
         val type: String,
+        val logo: String,
         val aliases: List<String>
     )
 }

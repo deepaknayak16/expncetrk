@@ -1,6 +1,9 @@
 package com.example.expncetracker.exptkr.core.recurring
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.Manifest
+import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -79,12 +82,18 @@ class BillReminderWorker @AssistedInject constructor(
 
             // 3. Notification Delivery (If not intercepted)
             if (dueDate == today || (dueDate.isBefore(today) && ChronoUnit.DAYS.between(dueDate, today) < 3)) {
-                AppNotificationManager.showBillReminderNotification(
-                    context,
-                    template.merchantName,
-                    "₹${template.amount}"
-                )
-                Logger.d("BillReminderWorker", "Sent notification for ${template.merchantName}")
+                // FIX BUG-022: Check notification permission (Android 13+)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU && 
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    Logger.d("BillReminderWorker", "Notification permission not granted. Skipping notification.")
+                } else {
+                    AppNotificationManager.showBillReminderNotification(
+                        context,
+                        template.merchantName,
+                        "₹${template.amount}"
+                    )
+                    Logger.d("BillReminderWorker", "Sent notification for ${template.merchantName}")
+                }
             }
         }
     }

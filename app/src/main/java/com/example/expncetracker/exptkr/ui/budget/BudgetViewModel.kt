@@ -78,7 +78,7 @@ class BudgetViewModel @Inject constructor(
             }
         }.flowOn(Dispatchers.Default)
         .catch { e ->
-            _statusEvent.send("Budget load failed: ${e.message}")
+            _statusEvent.trySend("Budget load failed: ${e.message}")
             emit(emptyList())
         }
     }

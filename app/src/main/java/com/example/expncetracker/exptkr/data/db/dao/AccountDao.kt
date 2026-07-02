@@ -31,11 +31,19 @@ interface AccountDao {
     @Query("SELECT id FROM accounts WHERE name LIKE :bankPrefix || '%' AND name LIKE '%' || :lastDigits LIMIT 1")
     suspend fun findAccountIdByDigits(bankPrefix: String, lastDigits: String): Long?
 
-    @Query("UPDATE accounts SET balance = balance + :delta WHERE name = :name")
-    suspend fun adjustBalance(name: String, delta: java.math.BigDecimal): Int
+    @Transaction
+    suspend fun adjustBalance(name: String, delta: java.math.BigDecimal): Int {
+        val account = getAccountByName(name) ?: return 0
+        updateBalance(account.id, account.balance.add(delta))
+        return 1
+    }
 
-    @Query("UPDATE accounts SET balance = balance + :delta WHERE id = :accountId")
-    suspend fun adjustBalanceById(accountId: Long, delta: java.math.BigDecimal): Int
+    @Transaction
+    suspend fun adjustBalanceById(accountId: Long, delta: java.math.BigDecimal): Int {
+        val account = getAccountById(accountId) ?: return 0
+        updateBalance(account.id, account.balance.add(delta))
+        return 1
+    }
 
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getAccountById(id: Long): AccountEntity?

@@ -26,10 +26,11 @@ data class MerchantStatsEntity(
     val category: String = "",          // Most recent category for this merchant
     val updatedAt: Long = System.currentTimeMillis()
 ) {
-    // Derived: population variance (safe for count < 2 → returns 0)
-    val amountVariance: Double get() = if (amountCount > 1) amountM2 / amountCount else 0.0
+    // Derived: sample variance (safe for count < 2 → returns 0)
+    // FIX BUG-028: Use sample variance (n-1) for better estimation on small samples
+    val amountVariance: Double get() = if (amountCount > 1) amountM2 / (amountCount - 1) else 0.0
     val amountStdDev: Double get() = Math.sqrt(amountVariance)
-    val intervalVariance: Double get() = if (intervalCount > 1) intervalM2 / intervalCount else 0.0
+    val intervalVariance: Double get() = if (intervalCount > 1) intervalM2 / (intervalCount - 1) else 0.0
     val intervalStdDev: Double get() = Math.sqrt(intervalVariance)
 
     // Coefficient of variation: std / mean.  0 = perfectly stable, 1+ = very variable

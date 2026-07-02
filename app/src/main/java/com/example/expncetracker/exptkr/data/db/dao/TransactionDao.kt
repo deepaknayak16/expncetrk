@@ -87,17 +87,22 @@ interface TransactionDao {
         insertTransactions(children)
     }
 
-    @Query("SELECT SUM(amount) FROM transactions WHERE isRecurring = 0 AND category = :category AND type = 'DEBIT'")
-    suspend fun getTotalSpentByCategory(category: String): java.math.BigDecimal?
+    @Query("SELECT amount FROM transactions WHERE isRecurring = 0 AND category = :category AND type = 'DEBIT'")
+    suspend fun getSpentAmountsByCategory(category: String): List<java.math.BigDecimal>
 
-    @Query("SELECT COALESCE(SUM(amount), '0.0') FROM transactions WHERE isRecurring = 0 AND category = :category AND type = :type")
-    suspend fun sumAmountByCategoryAndType(category: String, type: String): java.math.BigDecimal
+    @Query("SELECT amount FROM transactions WHERE isRecurring = 0 AND category = :category AND type = :type")
+    suspend fun getAmountsByCategoryAndType(category: String, type: String): List<java.math.BigDecimal>
 
-    @Query("SELECT COALESCE(SUM(amount), '0.0') FROM transactions WHERE isRecurring = 0 AND account_id = :accountId AND type = 'DEBIT'")
-    suspend fun sumDebitsByAccount(accountId: Long): java.math.BigDecimal
+    @Query("SELECT amount FROM transactions WHERE isRecurring = 0 AND account_id = :accountId AND type = 'DEBIT'")
+    suspend fun getDebitAmountsByAccount(accountId: Long): List<java.math.BigDecimal>
 
-    @Query("SELECT COALESCE(SUM(amount), '0.0') FROM transactions WHERE isRecurring = 0 AND account_id = :accountId AND type = 'CREDIT'")
-    suspend fun sumCreditsByAccount(accountId: Long): java.math.BigDecimal
+    @Query("SELECT amount FROM transactions WHERE isRecurring = 0 AND account_id = :accountId AND type = 'CREDIT'")
+    suspend fun getCreditAmountsByAccount(accountId: Long): List<java.math.BigDecimal>
+
+    @Query("SELECT amount, type FROM transactions WHERE isRecurring = 0 AND account_id = :accountId")
+    suspend fun getAmountsAndTypesByAccount(accountId: Long): List<AmountAndType>
+
+    data class AmountAndType(val amount: java.math.BigDecimal, val type: String)
 
     @Transaction
     suspend fun deleteDuplicateSmsTransactions() {
@@ -119,15 +124,6 @@ interface TransactionDao {
         AND smsId IS NOT NULL
     """)
     suspend fun findDuplicateSmsTransactions(): List<Long>
-
-    @Query("""
-    SELECT
-        COALESCE(SUM(CASE WHEN type = 'CREDIT' OR type = 'BORROW' THEN amount ELSE 0 END), '0.0') -
-        COALESCE(SUM(CASE WHEN type = 'DEBIT' OR type = 'LEND' THEN amount ELSE 0 END), '0.0')
-    FROM transactions
-    WHERE isRecurring = 0 AND account_id = :accountId
-    """)
-    suspend fun calculateNetBalanceByAccount(accountId: Long): java.math.BigDecimal
 
     @Query("SELECT * FROM transactions WHERE (merchant = :merchant OR cleanMerchantName = :merchant) AND timestamp >= :cycleStart AND type = 'DEBIT' LIMIT 1")
     suspend fun findPaymentInCurrentCycle(merchant: String, cycleStart: Long): TransactionEntity?

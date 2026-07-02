@@ -14,7 +14,7 @@ class TransactionCategorizerImpl @Inject constructor(
     override suspend fun findMatch(smsBody: String): CategorizationResult {
         // We use a generic sender identifier as we only have the body
         val parsedSms = parserRegistry.parseSms("GENERIC", smsBody, System.currentTimeMillis())
-            ?: return CategorizationResult("Others", "Unknown")
+            ?: return CategorizationResult("others", "Unknown")
 
         val mlResult = mlEngine.infer(
             merchantName = parsedSms.merchant,

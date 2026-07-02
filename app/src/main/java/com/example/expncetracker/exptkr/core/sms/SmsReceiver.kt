@@ -4,6 +4,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -14,6 +17,12 @@ class SmsReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+            // FIX BUG-021: Verify permission before processing
+            if (context.checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
+                Logger.d("SmsReceiver", "SMS received but READ_SMS permission not granted. Skipping.")
+                return
+            }
+
             val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
 
             if (messages.isNullOrEmpty()) return

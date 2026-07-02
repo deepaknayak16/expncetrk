@@ -49,7 +49,8 @@ object AppNotificationManager {
             .setContentIntent(pendingIntent)
             .build()
 
-        notificationManager.notify(merchantName.hashCode(), notification)
+        // FIX BUG-011: Use tag + ID to avoid hashCode() collisions
+        notificationManager.notify(merchantName, 1002, notification)
     }
 
     fun showQuickActionsNotification(context: Context) {

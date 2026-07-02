@@ -8,14 +8,6 @@ import androidx.room.ForeignKey
 
 @Entity(
     tableName = "transactions",
-    foreignKeys = [
-        ForeignKey(
-            entity = AccountEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["account_id"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [
         Index(value = ["smsId"]),
         Index(value = ["createdAt"]),

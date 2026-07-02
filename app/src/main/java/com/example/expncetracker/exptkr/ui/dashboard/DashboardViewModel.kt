@@ -151,16 +151,16 @@ class DashboardViewModel @Inject constructor(
                 repository.getTransactionsInRange(startMillis, endMillis).distinctUntilChanged(),
                 trends
             ) { args: Array<Any?> ->
-                val currentSummary = args[0] as FinancialSummary
-                val previousSummary = args[1] as FinancialSummary?
-                val recent = args[2] as List<Transaction>
-                val recurring = args[3] as List<Transaction>
-                val categoriesJson = args[4] as List<Category>
-                val allCategories = args[5] as List<CategoryEntity>
-                val goals = args[6] as List<GoalEntity>
-                val pending = args[7] as List<RecurringTemplateEntity>
-                val allTxsInRange = args[8] as List<Transaction>
-                val trendMap = args[9] as Map<String, List<SpendingTrend>>
+                val currentSummary = args[0] as? FinancialSummary ?: return@combine DashboardUiState.Error("Invalid summary data")
+                val previousSummary = args[1] as? FinancialSummary
+                val recent = (args[2] as? List<*>)?.filterIsInstance<Transaction>() ?: emptyList()
+                val recurring = (args[3] as? List<*>)?.filterIsInstance<Transaction>() ?: emptyList()
+                val categoriesJson = (args[4] as? List<*>)?.filterIsInstance<Category>() ?: emptyList()
+                val allCategories = (args[5] as? List<*>)?.filterIsInstance<CategoryEntity>() ?: emptyList()
+                val goals = (args[6] as? List<*>)?.filterIsInstance<GoalEntity>() ?: emptyList()
+                val pending = (args[7] as? List<*>)?.filterIsInstance<RecurringTemplateEntity>() ?: emptyList()
+                val allTxsInRange = (args[8] as? List<*>)?.filterIsInstance<Transaction>() ?: emptyList()
+                val trendMap = (args[9] as? Map<*, *>)?.filterKeys { it is String }?.mapValues { it.value as? List<SpendingTrend> ?: emptyList() } as? Map<String, List<SpendingTrend>> ?: emptyMap()
                 
                 val distribution = allTxsInRange
                     .filter { it.type == com.example.expncetracker.exptkr.domain.model.TransactionType.DEBIT }
@@ -180,7 +180,7 @@ class DashboardViewModel @Inject constructor(
                         goals = goals,
                         pendingConfirmTemplates = pending
                     )
-                ) as DashboardUiState
+                )
             }.catch { e ->
                 emit(DashboardUiState.Error(e.message ?: "An unexpected error occurred"))
             }

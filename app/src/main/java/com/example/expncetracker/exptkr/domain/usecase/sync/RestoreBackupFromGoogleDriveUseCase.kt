@@ -45,14 +45,6 @@ class RestoreBackupFromGoogleDriveUseCase @Inject constructor(
             }
 
             repository.replaceTransactions(transactions)
-
-            // FIX: Recalculate balances after restore
-            val accounts = accountDao.getAllAccounts().first()
-            accounts.forEach { account ->
-                val newBalance = transactionDao.calculateNetBalanceByAccount(account.id)
-                accountDao.updateAccount(account.copy(balance = newBalance))
-            }
-
             true
         } catch (e: Exception) {
             e.printStackTrace()

@@ -3,7 +3,9 @@ package com.example.expncetracker.exptkr
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.example.expncetracker.exptkr.core.common.Logger
 import com.example.expncetracker.exptkr.core.ml.RuleSeeder
+import com.example.expncetracker.exptkr.di.ApplicationScope
 import com.example.expncetracker.exptkr.core.workers.RecurringTransactionWorker
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +22,10 @@ class App : Application(), Configuration.Provider {
     @Inject
     lateinit var ruleSeeder: RuleSeeder
 
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -29,8 +35,12 @@ class App : Application(), Configuration.Provider {
         super.onCreate()
         
         // Seed ML rules from assets
-        CoroutineScope(Dispatchers.IO).launch {
-            ruleSeeder.seedIfNeeded()
+        applicationScope.launch {
+            try {
+                ruleSeeder.seedIfNeeded()
+            } catch (e: Exception) {
+                Logger.e("App", "Rule seeding failed", e)
+            }
         }
 
         com.example.expncetracker.exptkr.core.workers.RecurringTransactionWorker.schedule(this)

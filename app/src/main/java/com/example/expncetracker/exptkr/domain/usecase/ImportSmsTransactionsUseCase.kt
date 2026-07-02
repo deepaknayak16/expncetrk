@@ -13,6 +13,7 @@ import com.example.expncetracker.exptkr.domain.model.Transaction
 import com.example.expncetracker.exptkr.domain.repository.TransactionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import java.time.ZoneOffset
 import javax.inject.Inject
 
@@ -37,6 +38,7 @@ class ImportSmsTransactionsUseCase @Inject constructor(
         Logger.d("ImportSmsTransactions", "Fetched ${rawSmsList.size} raw candidate messages")
 
         rawSmsList.forEach { raw ->
+            yield() // FIX BUG-010: Ensure other coroutines can run
             // FIX: True Idempotency Hash check at start of loop
             val smsHash = HashingUtil.generateSmsHash(raw.address, raw.body)
             

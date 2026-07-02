@@ -14,6 +14,15 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.example.expncetracker.exptkr.core.common.BigDecimalSerializer
+import com.example.expncetracker.exptkr.core.common.SMART_FILTERS_KEY
+import com.example.expncetracker.exptkr.core.common.dataStore
+import androidx.datastore.preferences.core.edit
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -26,11 +35,14 @@ enum class SortOrder(val title: String) {
     AMOUNT_ASC("Lowest Amount")
 }
 
+@Serializable
 data class TransactionFilter(
     val query: String = "",
     val startDate: Long? = null,
     val endDate: Long? = null,
+    @Serializable(with = BigDecimalSerializer::class)
     val minAmount: java.math.BigDecimal? = null,
+    @Serializable(with = BigDecimalSerializer::class)
     val maxAmount: java.math.BigDecimal? = null,
     val categoryName: String? = null,
     val accountName: String? = null,
@@ -38,6 +50,7 @@ data class TransactionFilter(
     val isSettled: Boolean? = null
 )
 
+@Serializable
 data class SmartFilter(
     val name: String,
     val filter: TransactionFilter
@@ -46,12 +59,29 @@ data class SmartFilter(
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class TransactionViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: TransactionRepository,
     private val importSmsTransactionsUseCase: ImportSmsTransactionsUseCase,
-    categoryRepository: CategoryRepository
+    categoryRepository: CategoryRepository,
+    entityRepository: com.example.expncetracker.exptkr.domain.repository.EntityRepository
 ) : ViewModel() {
 
+    init {
+        // Load smart filters from DataStore
+        viewModelScope.launch {
+            context.dataStore.data.first()[SMART_FILTERS_KEY]?.let { json ->
+                runCatching {
+                    val filters = Json.decodeFromString<List<SmartFilter>>(json)
+                    _smartFilters.value = filters
+                }
+            }
+        }
+    }
+
     val categories = categoryRepository.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        
+    val categoriesJson = entityRepository.categories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _searchQuery = MutableStateFlow("")
@@ -109,7 +139,6 @@ class TransactionViewModel @Inject constructor(
 
         FilterParams(startMillis, endMillis, query, sort, adv)
     }.flatMapLatest { params ->
-        _isLoading.value = true
         repository.searchTransactions(params.startMillis, params.endMillis, params.query).map { list ->
             list.filter { tx ->
                 val isNotRecurring = !tx.isRecurring
@@ -149,16 +178,26 @@ class TransactionViewModel @Inject constructor(
     )
 
     fun onSearchQueryChange(newQuery: String) {
+        _isLoading.value = true // FIX BUG-010: Ensure loading state is set on main thread
         _searchQuery.value = newQuery
     }
 
     fun updateAdvancedFilter(update: (TransactionFilter) -> TransactionFilter) {
+        _isLoading.value = true // FIX BUG-010: Ensure loading state is set on main thread
         _advancedFilter.update(update)
     }
 
     fun saveSmartFilter(name: String) {
         val currentFilter = _advancedFilter.value.copy(query = _searchQuery.value)
         _smartFilters.update { it + SmartFilter(name, currentFilter) }
+        
+        // Persist to DataStore
+        viewModelScope.launch {
+            context.dataStore.edit { prefs ->
+                val json = Json.encodeToString(_smartFilters.value)
+                prefs[SMART_FILTERS_KEY] = json
+            }
+        }
     }
 
     fun applySmartFilter(smartFilter: SmartFilter) {
@@ -167,10 +206,12 @@ class TransactionViewModel @Inject constructor(
     }
 
     fun setFilter(filter: DateFilter) {
+        _isLoading.value = true
         _selectedFilter.value = filter
     }
 
     fun setSortOrder(order: SortOrder) {
+        _isLoading.value = true
         _sortOrder.value = order
     }
 
